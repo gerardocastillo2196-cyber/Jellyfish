@@ -17,12 +17,14 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.styles import Style
+from core.rag_coder import CodeKnowledgeBase
 
 # --- CONFIGURACIÓN PRINCIPAL ---
 MODEL = os.getenv("JELLYFISH_MODEL", "qwen2.5-agent:latest")
 OLLAMA_URL = "http://localhost:11434/api/chat"
 AGENCY_DIR = os.path.expanduser("~/MisModelosIA/agencia")
 PLUGINS_DIR = os.path.join(AGENCY_DIR, "plugins")
+DB_PATH = os.path.join(AGENCY_DIR, "code_vector_db")
 console = Console()
 
 # --- BOOTSTRAP ---
@@ -34,6 +36,9 @@ claude_style = Style.from_dict({
     'completion-menu.completion': 'bg:#1e1e1e #888888',
     'completion-menu.completion.current': 'bg:#333333 #ffffff',
 })
+
+# --- MOTOR RAG ---
+rag = CodeKnowledgeBase(DB_PATH)
 
 # --- ARQUITECTURA DE PLUGINS (Mejora 3) ---
 class PluginManager:
@@ -172,7 +177,7 @@ def display_header():
         Panel(f"⚡ [bold cyan]{len(state.active_skills)} Skills[/bold cyan]", border_style="blue", expand=True),
         Panel(f"📂 [bold yellow]{len(state.context_files)} Docs[/bold yellow]", border_style="blue", expand=True)
     ])
-    console.print(Panel(status_cols, title="JELLYFISH OS v3.3.2", border_style="red"))
+    console.print(Panel(status_cols, title="JELLYFISH OS v3.4.0", border_style="red"))
 
 def interactive_picker(title, options, add_back=True):
     if add_back: options = list(options) + [".. Volver"]
@@ -322,8 +327,14 @@ def handle_slash_command(cmd_input):
                     for f in files:
                         if f.lower().endswith(binary_ext): continue
                         state.context_files.add(os.path.join(root, f))
-            else: state.context_files.add(path)
-            state.refresh_static_context(); console.print("[green]✓ Contexto actualizado.[/green]")
+                # Lanzar indexación RAG
+                rag.index_codebase(path)
+            else: 
+                state.context_files.add(path)
+            state.refresh_static_context()
+            console.print("[green]✓ Contexto e Índice RAG actualizados.[/green]")
+            input("\nPresiona Enter para continuar...")
+            display_header()
     elif command == "/context":
         files = list(state.context_files)
         if not files:
@@ -409,6 +420,14 @@ def main():
                 name = user_input[1:].lower()
                 if os.path.exists(os.path.join(AGENCY_DIR, "agents", f"{name}.md")): state.load_agent(name); continue
             if user_input.startswith("/"): handle_slash_command(user_input); continue
+            
+            # --- HEURÍSTICA RAG (Mejora 3.4.0) ---
+            keywords = ["código", "arquitectura", "función", "clase", "archivo", "implementación", "code", "architecture", "function", "class", "file"]
+            if any(k in user_input.lower() for k in keywords):
+                context_rag = rag.query_code(user_input)
+                if context_rag:
+                    state.history.append({"role": "system", "content": context_rag})
+
             state.history.append({"role": "user", "content": user_input})
             res = stream_ollama()
             if res: state.history.append({"role": "assistant", "content": res})
