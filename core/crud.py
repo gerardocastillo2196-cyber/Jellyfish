@@ -281,104 +281,163 @@ def handle_slash_command(cmd_input: str, state, rag, plugins, display_header_fun
 def _show_help():
     """Muestra la guía de comandos y manual completo."""
     manual = """
-# 🪼 Jellyfish OS v5.0 — Manual del Usuario
+# 🪼 Jellyfish OS v5.1 — Manual del Usuario
 
-Jellyfish es un framework de agentes técnicos impulsados por Inteligencia Artificial. Está diseñado para asistir a desarrolladores directamente en la terminal, combinando modelos locales o en la nube (Ollama, OpenAI, DeepSeek, OpenRouter) con herramientas de ejecución autónoma (Auto-ReAct) y capacidades de lectura profunda de código (RAG Vectorial).
+Jellyfish es un framework de agentes técnicos impulsados por IA. Combina modelos locales o en la nube (Ollama, OpenAI, DeepSeek, OpenRouter) con ejecución autónoma (Auto-ReAct), recuperación de código vectorial (RAG) y un **Orquestador Multi-Agente** para investigaciones complejas.
 
 ---
 
 ## 📚 1. CONCEPTOS FUNDAMENTALES
 
 **A. Contexto Activo vs. Contexto RAG**
-*   **Contexto Activo:** Todo lo que añades mediante `/add` (para archivos sueltos) se carga COMPLETO en la memoria inmediata de la IA. Es perfecto para 1-4 archivos donde necesitas precisión absoluta en cada línea.
-*   **Contexto RAG (Indexación Vectorial):** Si haces `/add` sobre una *carpeta* grande, Jellyfish lee, trocea y guarda cada línea en una base de datos vectorial (ChromaDB) de forma silenciosa. Cuando le haces una pregunta al agente, este busca instantáneamente los trozos más relevantes de tu proyecto gigante y los usa para responderte.
-*   *Nota:* Nunca inyectes un proyecto completo en el contexto activo; satura la memoria del modelo. Delega los proyectos gigantes al motor RAG.
+*   **Contexto Activo:** Archivos añadidos con `/add` se cargan COMPLETOS en la memoria de la IA. Ideal para 1-4 archivos donde necesitas precisión absoluta.
+*   **Contexto RAG (Indexación Vectorial):** Al hacer `/add` sobre una *carpeta*, Jellyfish trocea el código y lo guarda en una base vectorial (ChromaDB) aislada por proyecto. Cada pregunta recupera solo los fragmentos más relevantes.
+*   **Importante:** El RAG ahora crea una base de datos separada por cada proyecto indexado (basada en el hash del directorio), evitando que el código de proyectos distintos se mezcle.
 
 **B. Bucle Auto-ReAct (Autonomía)**
-Cuando el modelo sugiere ejecutar comandos Bash (dentro de bloques `bash`), Jellyfish te pedirá confirmación. Si aceptas, ejecutará el comando e inyectará silenciosamente la salida (`stdout/stderr`) al modelo para que razone sobre ella, autocorrigiendo errores sin que tú intervengas (hasta 3 ciclos continuos).
+Cuando el modelo sugiere comandos Bash, Jellyfish pide confirmación. Si la apruebas, ejecuta el comando e inyecta la salida al modelo (hasta 3 ciclos). Novedades de seguridad:
+*   **Auto-rechazo:** Si no respondes en 60 segundos, el comando se rechaza automáticamente.
+*   **Lista negra:** Comandos como `rm -rf`, `mkfs`, `dd of=/dev/*` o fork bombs son bloqueados de forma permanente, sin importar la confirmación.
+*   **Ctrl+C grácil:** Interrumpir el stream conserva la respuesta parcial ya recibida sin matar Jellyfish.
+
+**C. Orquestador Multi-Agente (`/research`)**
+Un sistema de 4 fases para consultas complejas: **Planificación → Búsqueda en RAG → Síntesis → Citación**. Los subagentes trabajan en silencio y solo el reporte final se muestra en pantalla. Al terminar se imprime una tabla con el tiempo de cada fase.
 
 ---
 
 ## ⚙️ 2. CONFIGURACIÓN DEL SISTEMA
 
 ### `/config` — Panel de Configuración Hot-Reload
-Te permite gestionar qué "Cerebro" (Proveedor e IA) quieres usar.
-*   `/config` (o `/config menu`): Abre un panel visual interactivo con flechas para:
-    *   Ver la configuración activa y el estado de tus API Keys.
-    *   Cambiar de proveedor de IA (`ollama`, `openai`, `deepseek`, `openrouter`).
-    *   Cambiar de modelo dinámicamente (ej. `deepseek-chat`, `gpt-4o`).
-    *   Introducir de forma segura tus API Keys para guardarlas en `.env`.
-*   `/config provider [nombre]` — Cambia el proveedor directamente.
-*   `/config model [nombre]` — Cambia el modelo activo directamente.
-*   `/config key [proveedor] [valor]` — Registra una API Key directa.
+*   `/config` (o `/config menu`): Menú interactivo para ver/cambiar proveedor, modelo y API Keys.
+*   `/config provider [nombre]` — Opciones: `ollama`, `openai`, `deepseek`, `openrouter`.
+*   `/config model [nombre]` — Cambia el modelo activo (ej. `gpt-4o`, `qwen2.5:32b`).
+*   `/config key [proveedor] [valor]` — Guarda una API Key en `.env` con permisos `600` automáticos.
+*   `/config subagent_model [modelo]` — Modelo ligero para los Search Agents del orquestador.
+*   `/config subagent_provider [proveedor]` — Proveedor para los subagentes (puede ser distinto al Lead).
+*   `/config context_limit [tokens]` — Ajusta el límite de contexto del modelo (por defecto: 8192).
+
+> 🔒 Las API Keys se guardan con permisos `chmod 600` automáticamente para protegerlas.
 
 ### `/ignore` — Filtros RAG (.jellyfishignore)
-Permite gestionar el archivo `.jellyfishignore` para evitar que el RAG indexe basura (ej. node_modules, archivos compilados, logs), haciendo tu IA ultrarrápida.
 *   `/ignore` (o `/ignore menu`): Taller interactivo de exclusiones.
-*   `/ignore init`: Crea un archivo `.jellyfishignore` con las reglas por defecto (Python, JS, C, etc).
+*   `/ignore init`: Genera `.jellyfishignore` con patrones por defecto (venv, node_modules, dist…).
 *   `/ignore add [patrón]`: Agrega un filtro (ej. `*.log`, `temp/`).
 *   `/ignore remove [patrón]`: Elimina un filtro.
-*   `/ignore show`: Imprime los patrones activos.
+*   `/ignore show`: Lista los patrones activos.
 
 ---
 
 ## 🧠 3. GESTIÓN DEL RAG Y CONTEXTO
 
 ### `/add` — Ingesta de Código
-*   `/add`: Abre un explorador interactivo para navegar por tu disco duro.
-    *   Si seleccionas un archivo (`.py`, `.js`, etc.): Se carga directo al *Contexto Activo*.
-    *   Si seleccionas una carpeta: El motor RAG indexará todos sus archivos en segundo plano con un spinner visual.
+*   `/add`: Abre un explorador de archivos interactivo.
+    *   **Archivo individual:** Se carga completo al Contexto Activo.
+    *   **Carpeta:** El RAG indexa todos sus archivos con un splitter inteligente. Para Python, el código se divide respetando los límites reales de funciones y clases (AST-aware), evitando que una función quede partida en dos fragmentos.
 
-### `/context` (alias: `/c`) — Inspector
-*   Abre un menú para ver qué archivos están atados a tu *Contexto Activo*. Puedes seleccionarlos para desvincularlos o usar la opción "Limpiar todo".
+### `/context` (alias: `/c`) — Inspector de Contexto Activo
+*   Muestra los archivos vinculados. Permite desvincularlos individualmente o limpiar todo.
 
 ### `/rag` — Panel de Control Vectorial
-*   `/rag status`: Muestra la cantidad de archivos y *chunks* en tu base vectorial activa.
-*   `/rag reindex [ruta]`: Borra el índice RAG anterior e indexa una ruta fresca.
-*   `/rag remove [ruta]`: Borrado granular; elimina un archivo o carpeta específica del índice.
-*   `/rag clear`: Limpia completamente la base RAG.
+*   `/rag status`: Chunks e índice activo. El nombre de la DB indica el proyecto (hash SHA1).
+*   `/rag reindex [ruta]`: Borra y reconstruye el índice desde cero.
+*   `/rag remove [ruta]`: Eliminación granular de un archivo o carpeta del índice.
+*   `/rag clear`: Limpia completamente la base RAG activa.
 
 ### `/purge` — Amnesia Total
-*   Botón del pánico: Elimina TODO tu *Contexto Activo* y limpia toda tu base *RAG* instantáneamente. Útil para saltar a un proyecto radicalmente distinto.
+*   Elimina el Contexto Activo completo y la base RAG en un solo paso.
 
 ---
 
-## 🛠️ 4. AGENTES Y HABILIDADES (SKILLS)
+## 🤖 4. ORQUESTADOR MULTI-AGENTE
+
+### `/research <consulta>` — Investigación Autónoma Multi-Paso
+Ideal para preguntas complejas sobre tu codebase. Ejecuta un pipeline de 4 fases:
+
+1.  **🗺 Lead Planner:** Desglosa la consulta en 1-3 pasos de búsqueda (genera JSON internamente).
+2.  **🔍 Search Agents:** Cada paso consulta el RAG en silencio y resume los hallazgos.
+3.  **✍ Lead Synthesizer:** Redacta un reporte cohesivo fundamentado en los hallazgos (streaming visible).
+4.  **📚 Citation Agent:** Verifica y añade enlaces `file://` a los archivos fuente mencionados.
+
+Al finalizar se imprime una tabla con el tiempo de cada agente y los tokens estimados.
+
+*   Ejemplo: `/research cómo funciona el sistema de plugins y qué archivos interactúan con él`
+*   El reporte se guarda automáticamente en el historial para continuar la conversación.
+
+---
+
+## 🛠️ 5. AGENTES Y HABILIDADES
 
 ### `/agent` (alias: `/a`) — Taller de Personalidades
-Crea, edita o elimina diferentes "personalidades" de IA (ej. `frontend_senior`, `experto_aws`).
-1. **Cargar:** Selecciona uno de tus agentes existentes.
-2. **Añadir:** Entrevista guiada para forjar un nuevo agente definiendo su rol, tono y reglas inquebrantables.
+Crea, carga, edita o elimina agentes (ej. `frontend_senior`, `experto_aws`). Cada agente tiene rol, tono, expertise y reglas inquebrantables definidas en un archivo `.md`.
 
-### `@<nombre_agente>` — Invocación Rápida
-*   Si ya tienes agentes, escribe `@experto_aws` en el prompt y presiona Enter. Te transformarás inmediatamente en ese agente.
-*   Usa `@exit` para regresar a la personalidad neutra de Jellyfish.
+### `@<nombre>` — Cambio Rápido de Agente
+*   Escribe `@experto_aws` y presiona Enter para activar ese agente instantáneamente.
+*   El autocompletado con Tab muestra la descripción de cada agente leída desde su archivo `.md`.
+*   Usa `@exit` para volver a la personalidad neutral de Jellyfish.
 
-### `/skill` (alias: `/s`) — Taller de Funciones Automáticas
-Las "Skills" son macros inteligentes. Le enseñan al agente comandos de Linux pre-aprobados y cómo lidiar con sus errores. Por ejemplo, una skill `git_push` o `docker_deploy`.
-*   Funciona exactamente igual que `/agent`, con una entrevista guiada para definir comandos bash y desencadenantes (triggers).
+### `/skill` (alias: `/s`) — Macros Inteligentes
+Las Skills enseñan al agente comandos Bash pre-configurados con manejo de errores. Útil para flujos como `git_push`, `docker_deploy` o `run_tests`.
 
 ---
 
-## 🚀 5. HERRAMIENTAS ADICIONALES
+## 🚀 6. HERRAMIENTAS DE SISTEMA
 
 ### `/run` (alias: `/r`) — Terminal Integrada
-*   `/run [comando]`: Ejecuta comandos de terminal local directamente sin salir de Jellyfish. La salida estándar y los errores (hasta 120s por defecto) se guardarán en el historial para que la IA los analice en su siguiente turno.
-*   Ejemplo: `/run ls -la` o `/r ping -c 4 google.com`
+*   `/run [comando]`: Ejecuta un comando sin salir de Jellyfish. La salida se inyecta al historial.
+*   Timeout por defecto: 120s. Personalizable con `--timeout=N`.
+*   La salida larga se trunca mostrando el **inicio y el final** (donde suelen estar los errores).
+*   Comandos destructivos son bloqueados antes de ejecutarse, incluso si el LLM los sugiere.
 
-### `/clear` — Limpieza Visual
-*   Limpia tu historial de conversación (los mensajes recientes).
-*   *Nota:* Esto NO borra el RAG ni los archivos del Contexto Activo; tu IA sigue conociendo tu proyecto, simplemente olvida de qué hablabais hace 3 mensajes.
+### `/plugin` — Sistema Modular Python (Sandbox)
+*   Los plugins son archivos `.py` en `agencia/plugins/` con una función `execute(args) -> str`.
+*   `/plugin`: Lista los plugins disponibles con su descripción.
+*   `/plugin [nombre] [args]`: Ejecuta el plugin en un **subproceso aislado** con timeout de 30s.
+    *   Si el plugin cuelga o usa demasiados recursos, se aborta automáticamente.
+    *   Para desactivar el sandbox: `export JELLYFISH_PLUGIN_UNSAFE=1` (no recomendado).
 
-### `/provider` — Inspector Rápido
-*   Imprime el nombre del proveedor, modelo actual y si estás conectado localmente (Ollama) o en la Nube.
+### `/clear` — Limpiar Historial de Chat
+*   Limpia los mensajes recientes. **No borra** el RAG ni el Contexto Activo.
 
-### `/plugin` — Sistema Modular Python
-*   Jellyfish soporta cargar plugins escritos en Python dentro de `agencia/plugins/`.
-*   `/plugin`: Muestra los plugins disponibles en tu sistema.
-*   `/plugin [nombre_plugin] [argumentos]`: Ejecuta el código de un plugin en un entorno aislado (Try-Catch fuerte) y expone la respuesta a tu agente IA.
+### `/provider` — Inspector de Proveedor Activo
+*   Muestra proveedor, modelo y si es local (Ollama) o en la nube.
 
 ---
+
+## 🔑 7. VARIABLES DE ENTORNO AVANZADAS (`.env`)
+
+| Variable | Default | Descripción |
+|---|---|---|
+| `JELLYFISH_PROVIDER` | `ollama` | Proveedor de IA principal |
+| `JELLYFISH_MODEL` | `qwen2.5-agent:latest` | Modelo del Lead Agent |
+| `JELLYFISH_SUBAGENT_MODEL` | *(hereda MODEL)* | Modelo para Search Agents |
+| `JELLYFISH_SUBAGENT_PROVIDER` | *(hereda PROVIDER)* | Proveedor para subagentes |
+| `JELLYFISH_CONTEXT_LIMIT` | `8192` | Tokens máximos del modelo |
+| `JELLYFISH_RAG_THRESHOLD` | `1.2` | Umbral de relevancia RAG (L2) |
+| `JELLYFISH_EMBED_MODEL` | `nomic-embed-text` | Modelo de embeddings Ollama |
+| `JELLYFISH_PLUGIN_UNSAFE` | `0` | `1` desactiva el sandbox de plugins |
+
+---
+
+## ⚡ REFERENCIA RÁPIDA DE COMANDOS
+
+| Comando | Alias | Función |
+|---|---|---|
+| `/research <consulta>` | — | Orquestador multi-agente |
+| `/add [ruta]` | — | Añadir archivo o carpeta al contexto/RAG |
+| `/context` | `/c` | Gestionar contexto activo |
+| `/rag <status\|reindex\|remove\|clear>` | — | Control del índice vectorial |
+| `/purge` | — | Borrar todo contexto y RAG |
+| `/agent` | `/a` | Gestionar agentes |
+| `/skill` | `/s` | Gestionar habilidades |
+| `/run <cmd>` | `/r` | Ejecutar comando en terminal |
+| `/plugin [nombre]` | — | Ejecutar plugin en sandbox |
+| `/config [opción]` | — | Configurar proveedor/modelo/keys |
+| `/ignore [opción]` | — | Gestionar .jellyfishignore |
+| `/provider` | — | Ver proveedor activo |
+| `/clear` | — | Limpiar historial de chat |
+| `/help` | `/h` | Este manual |
+| `/exit` | — | Cerrar Jellyfish |
+
 """
     console.print(Panel(Markdown(manual), border_style="cyan"))
 
