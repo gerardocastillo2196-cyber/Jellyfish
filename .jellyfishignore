@@ -1,0 +1,20 @@
+# Patrones de exclusión para Jellyfish RAG
+venv/
+.venv/
+env/
+.git/
+__pycache__/
+node_modules/
+code_vector_db/
+test_db/
+dist/
+build/
+.next/
+*.png
+*.jpg
+*.jpeg
+*.exe
+*.so
+*.dll
+*.zip
+*.tar.gz
