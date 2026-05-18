@@ -425,7 +425,7 @@ Las Skills enseñan al agente comandos Bash pre-configurados con manejo de error
 | `/research <consulta>` | — | Orquestador multi-agente |
 | `/add [ruta]` | — | Añadir archivo o carpeta al contexto/RAG |
 | `/context` | `/c` | Gestionar contexto activo |
-| `/rag <status\|reindex\|remove\|clear>` | — | Control del índice vectorial |
+| `/rag <status|reindex|remove|clear>` | — | Control del índice vectorial |
 | `/purge` | — | Borrar todo contexto y RAG |
 | `/agent` | `/a` | Gestionar agentes |
 | `/skill` | `/s` | Gestionar habilidades |
