@@ -1,0 +1,28 @@
+# Jellyfish OS v5.0 — Dependencias
+# Instalar: pip install -r requirements.txt
+
+# --- Core ---
+requests>=2.31.0
+rich>=13.0.0
+prompt_toolkit>=3.0.40
+python-dotenv>=1.0.0
+
+# --- RAG Engine ---
+chromadb>=1.0.0
+langchain>=1.0.0
+langchain-chroma>=0.2.0
+langchain-ollama>=0.3.0
+langchain-text-splitters>=1.0.0
+pysqlite3-binary>=0.5.0
+
+# --- Ollama (requiere instalación local) ---
+# Instalar Ollama: curl -fsSL https://ollama.ai/install.sh | sh
+# Iniciar servidor: ollama serve
+# Modelo de embeddings: ollama pull nomic-embed-text
+# Modelo de chat: ollama pull qwen2.5-agent:latest (o configurar JELLYFISH_MODEL)
+
+# --- APIs en la Nube (opcional) ---
+# Configurar en .env: JELLYFISH_PROVIDER, API Keys
+# OpenAI: https://platform.openai.com/api-keys
+# DeepSeek: https://platform.deepseek.com/api_keys
+# OpenRouter: https://openrouter.ai/keys
