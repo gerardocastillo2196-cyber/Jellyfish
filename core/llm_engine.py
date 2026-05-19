@@ -316,23 +316,28 @@ def stream_ollama(state, rag_context: str = "") -> str | None:
 
             cmd_display = cmd_clean[:200] + "..." if len(cmd_clean) > 200 else cmd_clean
 
-            # Sprint 1.4 — Auto-rechazo si el usuario no responde en _CONFIRM_TIMEOUT_S s
+            # Bug fix: rich.Confirm.ask atrapa SIGALRM internamente y reimprime
+            # el prompt en bucle. Usamos input() nativo que SÍ respeta la señal.
             approved = False
             try:
                 def _timeout_handler(signum, frame):
                     raise TimeoutError
                 old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
                 signal.alarm(_CONFIRM_TIMEOUT_S)
-                approved = Confirm.ask(
+                console.print(
                     f"\n[bold yellow]¿Ejecutar comando sugerido?[/bold yellow]\n"
                     f"[cyan]{cmd_display}[/cyan]\n"
-                    f"[dim](auto-rechaza en {_CONFIRM_TIMEOUT_S}s)[/dim]"
+                    f"[dim](auto-rechaza en {_CONFIRM_TIMEOUT_S}s)[/dim] "
+                    "[bold][[y/n][/bold]: ",
+                    end=""
                 )
+                raw = input().strip().lower()
                 signal.alarm(0)
                 signal.signal(signal.SIGALRM, old_handler)
-            except (TimeoutError, OSError):
+                approved = raw in ("y", "yes", "s", "si", "sí")
+            except (TimeoutError, OSError, EOFError):
                 signal.alarm(0)
-                console.print("[dim]⏰ Sin respuesta — comando rechazado automáticamente.[/dim]")
+                console.print("\n[dim]⏰ Sin respuesta — comando rechazado automáticamente.[/dim]")
                 approved = False
 
             if approved:
