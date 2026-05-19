@@ -55,7 +55,7 @@ def _parse_plan_safe(text: str) -> list[dict]:
         except (json.JSONDecodeError, ValueError):
             pass
 
-    logger.warning("No se pudo parsear el plan del orquestador. Texto: %.200s", text)
+    logger.debug("No se pudo parsear el plan del orquestador. Texto: %.200s", text)
     return []
 
 
