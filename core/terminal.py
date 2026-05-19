@@ -17,7 +17,7 @@ _DESTRUCTIVE_PATTERNS: list[re.Pattern] = [
     re.compile(r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\b|\brm\s+-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*\b", re.IGNORECASE),
     re.compile(r"\bmkfs\b", re.IGNORECASE),                       # mkfs.*
     re.compile(r"\bdd\b.*\bof=/dev/", re.IGNORECASE),             # dd of=/dev/sda
-    re.compile(r"\bchmod\s+-R\s+777\s+/\b", re.IGNORECASE),      # chmod -R 777 /
+    re.compile(r"\bchmod\s+(-[a-zA-Z]*R[a-zA-Z]*|--recursive)\s+[0-7]*7[0-7]*\s+/", re.IGNORECASE),  # chmod -R 777 /
     re.compile(r">\s*/dev/sda", re.IGNORECASE),                   # > /dev/sda
     re.compile(r"\bformat\b.*[cCdDeE]:\\\\", re.IGNORECASE),     # format C:\ (Windows)
     re.compile(r":\(\)\{.*\};:", re.IGNORECASE),                  # fork bomb
