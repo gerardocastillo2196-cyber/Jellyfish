@@ -1,248 +1,273 @@
-# 🪼 Jellyfish OS v5.1 — Manual Completo del Usuario y Desarrollador
+# 🪼 Jellyfish OS v5.2 — Manual Completo del Usuario y Desarrollador
 
-Bienvenido a la documentación oficial de **Jellyfish OS**, un framework de agentes técnicos autónomos diseñado para ejecutarse localmente o en la nube. Jellyfish combina la potencia de modelos de lenguaje (a través de Ollama, OpenAI, DeepSeek y OpenRouter) con herramientas de ejecución del sistema, recuperación de información por vectores (RAG) y un orquestador multi-agente para la resolución de tareas complejas sobre bases de código.
+Bienvenido a la documentación oficial de **Jellyfish OS v5.2**, un framework avanzado de agentes autónomos y orquestación ágil diseñado para ejecutarse de forma nativa en Linux con soporte para proveedores de IA locales y en la nube. 
+
+Jellyfish combina la potencia de múltiples LLM (a través de Ollama, OpenAI, DeepSeek, Google Gemini y OpenRouter) con una suite de herramientas del sistema, persistencia vectorial para RAG (Retrieval-Augmented Generation) y un orquestador Scrum autónomo capaz de armar un equipo dinámico, planificar sprints y autoejecutar tareas de desarrollo.
 
 ---
 
-## 🗺️ 1. Arquitectura y Flujo del Sistema
+## 🗺️ 1. Arquitectura y Estructura del Core
 
-Jellyfish está diseñado de forma modular. Toda la interfaz gráfica transitoria y de interacción por consola reside en `jellyfish.py`, mientras que la lógica operativa y de control se encuentra centralizada en el directorio `core/`.
+Jellyfish está diseñado con un desacoplamiento estricto entre la interfaz de usuario interactiva (`jellyfish.py`) y la lógica operativa del framework, la cual reside íntegramente en el directorio `core/`.
 
-A continuación se muestra el diagrama de arquitectura y flujo de ejecución del sistema:
+### Diagrama de Arquitectura y Flujo
 
 ```mermaid
 graph TD
-    User([Usuario]) --> CLI[jellyfish.py / CLI & Autocompletado]
-    CLI <--> State[core.state / JellyfishState]
-    CLI --> Commands[core.crud / Comandos Slash / CRUD]
-    CLI <--> AgentChange[Cambio de Agente @]
+    User([Usuario / Developer]) --> CLI[jellyfish.py / CLI & Autocompletado]
+    CLI <--> State[core.state / JellyfishState & Lockfile]
+    CLI --> Commands[core.crud / Manejador de Slash Commands]
+    CLI <--> AgentChange[Selector de Agentes @]
 
     Commands --> Config[config / ignore / add]
     Config --> State
     Config -.-> RAG[core.rag_coder / RAG Vector DB]
 
     Commands --> Research[core.orchestrator / ResearchOrchestrator]
-    Commands --> Run[core.terminal / Terminal Run / Auto-ReAct]
-    Commands --> Plugin[core.plugin_manager / Plugins Aislados]
+    Commands --> AutoScrum[core.project_orchestrator / Agile Runner /auto]
+    Commands --> Run[core.terminal / Terminal Run / Live Streaming]
+    Commands --> Plugin[core.plugin_manager / Plugins en Sandbox]
 
-    Research --> Planner[Fase 1: Lead Planner]
-    Planner --> Search[Fase 2: Search Agents]
-    Search <--> RAG
-    Search --> Synthesizer[Fase 3: Lead Synthesizer]
-    Synthesizer --> Citation[Fase 4: Citation Agent]
-    Citation --> FinalReport[Reporte Final]
-    FinalReport --> CLI
+    Research --> Planner[Lead Planner] --> Search[Search Agents] <--> RAG
+    Search --> Synthesizer[Lead Synthesizer] --> Citation[Citation Agent] --> FinalReport[Reporte Final] --> CLI
+
+    AutoScrum --> PO_Scan[1. Product Owner: BACKLOG.md]
+    PO_Scan --> SM_Plan[2. Scrum Master: Team Assembly & SPRINT_BOARD.md]
+    SM_Plan --> Task_Run[3. Task Runner: Secuencia de Agentes]
+    Task_Run <--> Run
+    Task_Run --> Daily_Close[4. Sprint Close: DAILY.md & Métricas] --> CLI
 
     Run --> Blacklist{¿Es destructivo?}
-    Blacklist -- Sí --> Blocked[Bloqueado por Seguridad]
-    Blocked --> CLI
-    Blacklist -- No --> Execution[Ejecución en Subproceso]
-    Execution --> Truncate[Truncamiento Inteligente Head/Tail]
-    Truncate --> CLI
+    Blacklist -- Sí --> Blocked[Bloqueado por Seguridad] --> CLI
+    Blacklist -- No --> ThreadStream[Threaded Live Output Stream] --> CLI
 
     Plugin --> Sandbox{Bubblewrap disponible?}
-    Sandbox -- Sí --> Isolated[Filesystem aislado + sin red + timeout]
-    Sandbox -- No --> InProcess[Ejecución Directa]
-    Isolated --> CLI
-    InProcess --> CLI
+    Sandbox -- Sí --> Isolated[Aislamiento FS + Sin Red + Timeout] --> CLI
+    Sandbox -- No --> Fallback[Subproceso Limpio] --> CLI
 ```
 
-### Componentes Clave:
-*   **`core/state.py`**: El cerebro de configuración del framework. Controla las variables de entorno, la persistencia en caliente de `.env`, el cálculo dinámico del presupuesto de tokens (Token Budget) y la carga/descarga de contextos.
-*   **`core/crud.py`**: Controla el ciclo de vida de los comandos slash y la creación interactiva (CRUD) de nuevos agentes y habilidades.
-*   **`core/rag_coder.py`**: Administra ChromaDB y el cálculo de embeddings para indexar y consultar código de forma inteligente y segura.
-*   **`core/terminal.py`**: Interfaz con el sistema operativo que implementa protecciones de seguridad críticas.
-*   **`core/plugin_manager.py`**: Mecanismo de extensión modular con aislamiento por Bubblewrap cuando está disponible y fallback seguro con timeout.
-*   **`core/orchestrator.py`**: Implementación del flujo de investigación autónoma multi-agente.
+### Componentes Clave (`core/`)
+
+*   **`core/state.py`**: El núcleo de datos del sistema. Controla la persistencia en caliente de la configuración en el `.env`, la inicialización de variables globales, la adquisición exclusiva de locks sobre el proyecto activo, el cálculo de presupuestos de tokens, y expone la heurística avanzada `estimate_tokens(text)`.
+*   **`core/crud.py`**: Administra la lógica detrás de cada comando `/` (slash command) y la interfaz interactiva para el alta, baja, modificación y consulta (CRUD) de agentes y habilidades. También implementa el selector de menús visuales.
+*   **`core/rag_coder.py`**: Interfaz con ChromaDB. Implementa la segmentación inteligente de archivos de código utilizando parseadores AST (Abstract Syntax Trees) para Python y segmentación adaptativa para otros lenguajes de programación, indexando el código según la ruta del proyecto activo.
+*   **`core/terminal.py`**: Ejecuta comandos en la terminal de Linux. Protege el sistema operativo mediante un motor de detección de comandos destructivos (lista negra de regex) y proporciona un flujo de salida en vivo (live streaming) para comandos de larga duración.
+*   **`core/plugin_manager.py`**: Administra la extensión de funciones del framework mediante plugins de Python. Gestiona el aislamiento en sandbox a través de `bubblewrap` (restringiendo acceso al disco del sistema y cortando acceso a la red externa) o mediante aislamiento de entorno en subprocesos.
+*   **`core/project_orchestrator.py`**: El orquestador autónomo de metodología Scrum. Escanea talentos locales, arma el equipo del Sprint, parsea el tablero Kanban y ejecuta de manera autónoma las tareas asignando el contexto al desarrollador correspondiente.
+*   **`core/tui.py`**: El motor TUI (Text User Interface). Renderiza el header de estado interactivo del sistema y controla la impresión y animación de las barras de progreso parpadeantes en consola.
+*   **`core/ui.py`**: Proporciona componentes visuales avanzados para la terminal, incluyendo visualizadores de bloques de código formateados y paneles decorativos utilizando la biblioteca Rich.
 
 ---
 
 ## 🚀 2. Instalación y Configuración Inicial
 
-### Requisitos Previos
+### Requisitos del Sistema
 1.  **Python 3.10 o superior**
-2.  **Ollama** instalado y ejecutándose localmente (opcional si usas exclusivamente proveedores cloud).
-    *   *Recomendado:* Modelo embeddings `nomic-embed-text` (`ollama pull nomic-embed-text`).
-    *   *Recomendado:* Puedes configurar el modelo principal que prefieras según tu hardware y proveedor (ej. `llama3`, `mistral`, `claude`, etc.).
-3.  **Dependencias del sistema:**
-    *   `pip install -r requirements.txt`
-    *   Para una instalación reproducible de CI o producción: `pip install -r requirements.lock`
+2.  **Bubblewrap** (opcional, recomendado para sandbox seguro de plugins):
+    ```bash
+    sudo apt install bubblewrap
+    ```
+3.  **Ollama** ejecutándose localmente (si se desea RAG local y modelos offline):
+    *   Descargar e instalar desde [Ollama.com](https://ollama.com).
+    *   Descargar el modelo de embeddings: `ollama pull nomic-embed-text`.
+    *   Descargar un modelo de chat: `ollama pull llama3` o `ollama pull mistral`.
 
-### Variables de Entorno (`.env`)
-Jellyfish almacena su configuración en un archivo `.env` en la raíz del proyecto. Tras escribir las API keys, el sistema bloquea automáticamente este archivo mediante permisos `chmod 600` para garantizar que otros usuarios locales no tengan acceso a tus credenciales.
+### Instalación de Dependencias
+Instala los paquetes de Python utilizando el archivo de bloqueo para asegurar la compatibilidad exacta de las versiones:
+```bash
+pip install -r requirements.lock
+```
 
-El archivo `.env` no debe versionarse. Usa `.env.example` como plantilla pública y guarda tus claves reales únicamente en `.env`.
+### Configuración del Entorno (`.env`)
+El framework almacena y recupera sus claves y configuraciones desde un archivo `.env` en la raíz del proyecto. Tras modificar la configuración o añadir API keys, **Jellyfish restringe de forma automática los permisos del archivo a `600` (`chmod 600`)** para asegurar que ningún otro usuario local de la máquina pueda leer tus claves.
 
-A continuación se detallan las variables soportadas:
+Crea un archivo `.env` basado en el siguiente catálogo de opciones:
 
 | Variable | Valor por Defecto | Descripción |
 | :--- | :--- | :--- |
-| `JELLYFISH_PROVIDER` | `ollama` | Proveedor principal de LLM (`ollama`, `openai`, `deepseek`, `openrouter`, `gemini`, `qwen`, `kimi`, `zhipu`, `custom`). |
-| `JELLYFISH_MODEL` | `(Depende del usuario)` | Modelo de lenguaje del agente principal (Lead Agent). Admite cualquier modelo compatible. |
-| `JELLYFISH_SUBAGENT_PROVIDER` | *(Hereda de Provider)* | Proveedor alternativo para subagentes internos de búsqueda. |
-| `JELLYFISH_SUBAGENT_MODEL` | *(Hereda de Model)* | Modelo alternativo para subagentes (útil para optimizar costes/velocidad). |
-| `JELLYFISH_CONTEXT_LIMIT` | `8192` | Ventana máxima de tokens configurada en el LLM. |
-| `JELLYFISH_RAG_THRESHOLD` | `1.2` | Umbral de similitud geométrica (distancia L2) para ChromaDB. |
-| `JELLYFISH_EMBED_MODEL` | `nomic-embed-text` | Modelo de embeddings locales a utilizar en Ollama. |
-| `JELLYFISH_PLUGIN_UNSAFE` | `0` | Si es `1`, se desactiva el aislamiento y los plugins se importan directamente. |
-| `OPENAI_API_KEY` | *(Vacío)* | API Key para OpenAI. |
-| `DEEPSEEK_API_KEY` | *(Vacío)* | API Key para DeepSeek. |
-| `OPENROUTER_API_KEY` | *(Vacío)* | API Key para OpenRouter. |
-| `GEMINI_API_KEY` | *(Vacío)* | API Key para Google Gemini usando el endpoint compatible con OpenAI. |
-| `DASHSCOPE_API_KEY` | *(Vacío)* | API Key para Qwen / Alibaba DashScope. |
-| `KIMI_API_KEY` | *(Vacío)* | API Key para Kimi / Moonshot AI. |
-| `ZHIPU_API_KEY` | *(Vacío)* | API Key para Zhipu / GLM. |
-| `CUSTOM_API_KEY` | *(Vacío)* | API Key para cualquier proveedor compatible con OpenAI Chat Completions. |
+| `JELLYFISH_PROVIDER` | `ollama` | Proveedor de IA activo (`ollama`, `openai`, `deepseek`, `openrouter`, `gemini`, `custom`). |
+| `JELLYFISH_MODEL` | `gemini-3.1-pro` | Modelo de lenguaje utilizado por el agente interactivo principal. |
+| `JELLYFISH_SUBAGENT_PROVIDER`| *(Hereda de Provider)* | Proveedor de IA alternativo utilizado para subagentes del orquestador. |
+| `JELLYFISH_SUBAGENT_MODEL`   | *(Hereda de Model)*    | Modelo alternativo de IA utilizado para subagentes del orquestador. |
+| `JELLYFISH_CONTEXT_LIMIT`    | `8192` | Ventana máxima de tokens permitida para el contexto del LLM. |
+| `JELLYFISH_RAG_THRESHOLD`    | `1.2` | Umbral de distancia geométrica (L2) para resultados ChromaDB. |
+| `JELLYFISH_EMBED_MODEL`      | `nomic-embed-text` | Modelo de embeddings locales a invocar en Ollama. |
+| `JELLYFISH_PLUGIN_UNSAFE`    | `0` | Si es `1`, se desactivará el sandbox y aislamiento de plugins. |
+| `OPENAI_API_KEY`             | *(Vacío)* | API Key para OpenAI. |
+| `DEEPSEEK_API_KEY`           | *(Vacío)* | API Key para DeepSeek. |
+| `OPENROUTER_API_KEY`         | *(Vacío)* | API Key para OpenRouter. |
+| `GEMINI_API_KEY`             | *(Vacío)* | API Key para Google Gemini (compatible con el formato de la API OpenAI). |
+| `CUSTOM_API_KEY`             | *(Vacío)* | API Key para cualquier proveedor compatible con OpenAI Chat Completions. |
 
 ---
 
-## 💡 3. Conceptos Fundamentales
+## 💡 3. Conceptos de Seguridad y Hardening en V5.2
 
-### A. Contexto Activo vs. Contexto RAG
-*   **Contexto Activo:** Son archivos vinculados de manera explícita por el usuario. Cuando añades un archivo individual al contexto, su contenido se lee y se inyecta **completo** directamente en el system prompt del modelo. Esto garantiza una precisión del 100%, pero consume gran cantidad de tokens.
-*   **Contexto RAG:** Cuando vinculas una **carpeta** completa, Jellyfish no inyecta los archivos directamente. En su lugar, analiza la carpeta, segmenta el código fuente y genera representaciones vectoriales en ChromaDB. Al hacer preguntas, Jellyfish realiza búsquedas vectoriales y recupera únicamente los fragmentos más relevantes para tu consulta.
+Jellyfish OS v5.2 incorpora importantes medidas de robustez y seguridad para su uso en entornos profesionales de desarrollo de software:
 
-### B. Segmentación Inteligente de Código (AST-aware)
-Para maximizar la relevancia del RAG, Jellyfish utiliza segmentación adaptativa por lenguaje (usando `langchain_text_splitters`).
-*   Para archivos Python (`.py`), Jellyfish utiliza un parseador de **Árbol de Sintaxis Abstracta (AST)**. Esto asegura que clases y funciones se mantengan íntegras en un solo fragmento o chunk, evitando romper lógica semántica a la mitad de una función.
-*   Para otros lenguajes de programación (`.js`, `.go`, `.rs`, `.html`, etc.), se utiliza un algoritmo semántico adaptado a la sintaxis del lenguaje.
+### 🔒 A. Prevención de Concurrencia de Proyectos (`.jellyfish.lock`)
+Para evitar fallos por condiciones de carrera o la corrupción de bases de datos compartidas (como la base de vectores ChromaDB o la caché de estado de SQLite), Jellyfish implementa un sistema de adquisición exclusiva por proyecto:
+*   Al activar un proyecto con `/project`, se escribe un archivo oculto `.jellyfish.lock` en el directorio raíz del proyecto que registra el PID del proceso de Jellyfish activo.
+*   Si abres otra instancia de Jellyfish en la misma carpeta del proyecto, el sistema comprobará si el PID almacenado sigue vivo (`os.kill(pid, 0)`). De ser así, abortará la vinculación y mostrará una advertencia para evitar la colisión.
+*   Al salir de la aplicación de manera normal, un destructor programado mediante `atexit` se encarga de eliminar el lockfile de forma limpia.
 
-### C. Aislamiento RAG por Proyecto
-El RAG de Jellyfish previene la mezcla de código entre distintos proyectos. Cuando se indexa un directorio, Jellyfish genera un hash SHA1 único de la ruta absoluta del directorio y crea una subcarpeta ChromaDB dedicada (ej. `code_vector_db_4a5c6d7e`). Cada proyecto tiene una base vectorial aislada e independiente.
+### 📊 B. Estimador de Tokens de Alta Fidelidad (`estimate_tokens`)
+Olvídate del cálculo impreciso basado en dividir caracteres entre 4 (`len // 4`). Jellyfish OS v5.2 cuenta con un estimador avanzado basado en expresiones regulares:
+*   **Ponderación de Sintaxis:** Cada símbolo y operador especial común en la programación (`{ } [ ] ( ) : ; . , = + - * / < > ! & \|`) se pondera explícitamente con un factor de `0.75` tokens, ya que la codificación de tokens (como BPE) fragmenta significativamente los símbolos en el código.
+*   **Ponderación del Lenguaje:** El texto plano se estima basándose en una proporción optimizada para texto en español y código de desarrollo.
+*   **Ahorro de API:** Permite predecir de forma muy ajustada el tamaño real de los fragmentos antes de enviarlos a modelos comerciales, optimizando el uso de la ventana deslizante y previniendo los errores de tipo `Context Window Exceeded`.
 
-### D. Seguridad RAG contra Prompt Injections
-Para evitar que un atacante inyecte instrucciones maliciosas en el código de tu repositorio y manipule las directrices del modelo, Jellyfish implementa delimitadores RAG blindados. En cada sesión, se genera un identificador UUID aleatorio que delimita los fragmentos de código del RAG:
-```xml
-<RAG_CTX_3C5B17B9>
-  <FRAG_3C5B17B9 source="core/state.py" relevance="0.840">
-    # Código del archivo...
-  </FRAG_3C5B17B9>
-</RAG_CTX_3C5B17B9>
+### 📡 C. Transmisión en Tiempo Real (Live Output Streaming)
+Los comandos interactivos de larga duración (como `npm install`, `npx create-react-app`, o descargas de paquetes grandes) solían hacer que la consola pareciera congelada debido al buffering en subprocessos.
+*   Jellyfish OS v5.2 ejecuta los comandos de terminal utilizando tuberías no bloqueantes (`subprocess.PIPE` y `stderr=subprocess.STDOUT`).
+*   Un hilo dedicado (`threading.Thread`) captura e imprime en la salida estándar de tu pantalla cada línea generada por el proceso de forma inmediata, permitiéndote ver instaladores y salidas detalladas en tiempo real.
+*   Al finalizar, compila todo el flujo impreso en una sola respuesta histórica para inyectar al contexto del agente del LLM de forma limpia.
+
+### 🛡️ D. Previsualización Clara de Comandos Sugeridos
+Los comandos potencialmente peligrosos propuestos por los agentes ya no se truncan de forma confusa en una sola línea de texto plano de 200 caracteres.
+*   Jellyfish genera un **Rich Panel** decorado de color amarillo que muestra el código Bash completo del comando sugerido con resaltado de sintaxis nativo (`Syntax` theme monokai).
+*   **Sin Auto-Rechazo Apresurado:** Se ha eliminado la cuenta atrás de 60 segundos que rechazaba comandos automáticamente, dándole control absoluto al desarrollador para revisar, editar o aprobar la ejecución interactiva indefinidamente con un prompt seguro basado en `Confirm.ask`.
+
+### 🎭 E. Modo de Product Owner Dinámico para el Agente `@default`
+Para apegarse fielmente a las metodologías ágiles:
+*   Si no hay ningún proyecto activo, el agente `@default` actúa como un asistente técnico general.
+*   En el momento en que se activa un proyecto con `/project`, el sistema reconfigura en caliente el Prompt del Sistema del agente `@default` para actuar como el **Product Owner (PO)**.
+*   Bajo este rol, el agente conversará contigo para estructurar tus ideas en el `BACKLOG.md` mediante historias de usuario y criterios de aceptación, y se rehusará a actuar como Scrum Master o programar tareas hasta que confirmes la aprobación del backlog del producto.
+
+---
+
+## 📋 4. Orquestador de Metodología Scrum y Flujo Autónomo
+
+Jellyfish OS implementa un orquestador ágil autónomo diseñado para gestionar y construir proyectos completos a través de la simulación síncrona de agentes.
+
+### Los 4 Archivos de Seguimiento Scrum
+Cuando ejecutas `/project` y creas un proyecto, se inician los siguientes archivos en la raíz del mismo:
+1.  **`SCRUM_METHODOLOGY.md`**: Detalla el estándar ágil del proyecto, la definición de "Terminado" (Definition of Done) y las pautas operativas del equipo.
+2.  **`BACKLOG.md`**: El backlog del producto organizado como una tabla Markdown de historias de usuario (`US-001`, `US-002`), sus estimaciones de tamaño de camiseta, y su prioridad.
+3.  **`SPRINT_BOARD.md`**: El tablero Kanban interactivo del sprint activo. Organiza las tareas asignadas a agentes en tres columnas claras: `## 📋 POR HACER (TODO)`, `## ⏳ EN PROCESO (IN PROGRESS)` y `##  HECHO (DONE)`.
+4.  **`DAILY.md`**: Registro histórico de actividades del Scrum. Cada vez que un agente completa una tarea, escribe su bitácora diaria indicando el avance, impedimentos y siguientes pasos.
+
+### Ejecución de la Agencia Autónoma (`/auto` o `/build`)
+Cuando el backlog del producto está listo y aprobado en tu proyecto activo, puedes arrancar la agencia autónoma ejecutando `/auto`. Esto inicia el pipeline ágil autogestionado:
+
 ```
-El modelo está entrenado para reconocer estos delimitadores dinámicos y tratar su contenido estrictamente como datos de lectura.
-
-### E. Presupuesto Dinámico de Tokens (Token Budget)
-Para evitar errores de desbordamiento de contexto (`context window exceeded`), Jellyfish implementa una ventana deslizante de tokens inteligente. El sistema reserva el 20% del contexto para el prompt del sistema y la respuesta del modelo, y asigna el 80% restante para el historial de chat y archivos vinculados. Los mensajes más antiguos se descartan automáticamente cuando el límite del presupuesto se ve superado.
+[Usuario ejecuta /auto]
+       │
+       ▼
+Fase 1: Product Owner (PO)
+   - Analiza BACKLOG.md.
+   - Valida si las historias tienen criterios de aceptación claros.
+   - Checkpoint: Solicita confirmación al usuario para iniciar el Sprint.
+       │
+       ▼
+Fase 2: Scrum Master (SM)
+   - Escanea la carpeta `agents/*.md` para obtener los agentes de desarrollo disponibles.
+   - Lee las historias del Backlog.
+   - Diseña un plan de Sprint dinámico, asignando cada tarea al agente más capacitado para ella.
+   - Escribe el archivo oculto `TEAM_PLAN.json` y actualiza el tablero `SPRINT_BOARD.md` (columna TODO).
+       │
+       ▼
+Fase 3: Task Runner (Ejecución Autónoma)
+   - Lee el plan de tareas asignadas del Sprint.
+   - Para cada tarea de forma secuencial:
+       1. Carga las directivas y contexto del agente asignado (ej. `@backend_dev`).
+       2. Actualiza el tablero: Mueve la tarea a la columna IN PROGRESS.
+       3. El agente genera y ejecuta comandos en la terminal (con streaming live en tu consola).
+       4. El agente escribe los archivos de código correspondientes a la tarea.
+       5. Al terminar, el sistema mueve la tarea a la columna DONE en el tablero.
+       6. El agente registra su bitácora de actualización en `DAILY.md`.
+       │
+       ▼
+Fase 4: Cierre del Sprint
+   - El Scrum Master verifica que todas las tareas estén completadas.
+   - Genera una tabla de métricas en consola con tiempos de ejecución, consumo de tokens y estado.
+```
 
 ---
 
-## 🛠️ 4. Guía Completa de Comandos
+## 🛠️ 5. Guía Completa de Comandos
 
-La interfaz interactiva de Jellyfish cuenta con autocompletado inteligente (usando la tecla `Tab`) para comandos slash, subcomandos e incluso nombres de agentes (`@`).
-
-### Tabla de Referencia Rápida
-
-| Comando | Alias | Subcomandos / Argumentos | Descripción |
+| Comando | Alias | Sintaxis | Descripción |
 | :--- | :--- | :--- | :--- |
-| `/help` | `/h` | — | Muestra el manual de ayuda interactivo. |
-| `/add` | — | `[ruta]` | Vincula un archivo al contexto activo o indexa una carpeta en el RAG. |
-| `/context` | `/c` | — | Abre el administrador visual de archivos en el Contexto Activo. |
-| `/purge` | — | — | Elimina completamente el Contexto Activo y la base de datos RAG. |
-| `/rag` | — | `status`, `reindex [ruta]`, `remove [ruta]`, `clear` | Panel de control y mantenimiento de la base vectorial RAG. |
-| `/agent` | `/a` | — | Abre el gestor CRUD de Agentes (Personalidades). |
-| `/skill` | `/s` | — | Abre el gestor CRUD de Habilidades (Macros de consola). |
-| `/run` | `/r` | `[comando]` | Ejecuta un comando en la shell del sistema y captura su salida. |
-| `/plugin` | — | `[nombre] [args]` | Ejecuta un plugin registrado en el directorio `plugins/`. |
-| `/provider` | — | — | Informa acerca del proveedor de IA y modelo activos. |
-| `/config` | — | `show`, `provider [p]`, `model [m]`, `key [p] [k]`, `menu` | Permite la configuración dinámica del sistema en caliente. |
-| `/ignore` | — | `show`, `init`, `add [patrón]`, `remove [patrón]`, `menu` | Administra exclusiones RAG en el archivo `.jellyfishignore`. |
-| `/clear` | — | — | Limpia el historial de chat en pantalla sin alterar RAG ni contexto. |
-| `/research` | — | `<consulta_compleja>` | Invoca al Orquestador Multi-Agente de Investigación. |
-| `/exit` | — | — | Cierra de manera limpia Jellyfish OS. |
+| `/help` | `/h` | `/help` | Muestra la guía interactiva y la lista completa de comandos slash. |
+| `/add` | — | `/add <ruta>` | Añade un archivo al contexto activo. Si se le pasa un directorio, lo indexará en la base vectorial del RAG. |
+| `/context` | `/c` | `/context` | Muestra el panel visual del contexto activo y permite ver qué archivos se están inyectando en el system prompt. |
+| `/purge` | — | `/purge` | Vacía completamente la lista de archivos del contexto activo y elimina los índices vectoriales de ChromaDB del proyecto actual. |
+| `/rag` | — | `/rag <status\|clear\|reindex>` | Comando de mantenimiento del RAG. Permite ver el estado de la base de vectores o forzar la reindexación de carpetas. |
+| `/agent` | `/a` | `/agent` | Menú interactivo (CRUD) para crear, editar, listar o eliminar agentes personalizados. |
+| `/skill` | `/s` | `/skill` | Menú interactivo (CRUD) para crear, editar, listar o eliminar habilidades técnicas. |
+| `/run` | `/r` | `/run <comando>` | Ejecuta un comando en la consola del sistema operativo y lo añade al historial conversacional. |
+| `/plugin` | — | `/plugin <nombre> [args]` | Lanza un script de extensión de Python en sandbox. |
+| `/provider` | — | `/provider` | Informa sobre el proveedor LLM configurado actual y el modelo activo. |
+| `/config` | — | `/config <show\|provider\|model\|key>` | Configura en caliente cualquier parámetro del `.env` sin tener que cerrar Jellyfish. |
+| `/ignore` | — | `/ignore <show\|add\|remove>` | Administra las reglas de exclusión de indexado RAG dentro del archivo `.jellyfishignore`. |
+| `/project` | `/p` | `/project` | Abre el administrador de proyectos Scrum. Permite inicializar la estructura Scrum en una carpeta, ver el estado actual del proyecto, desvincular o borrar el proyecto activo. |
+| `/clear` | — | `/clear` | Limpia la pantalla del terminal de forma segura. |
+| `/research` | — | `/research <consulta>` | Ejecuta la tubería de investigación profunda en 4 fases utilizando subagentes y citación de archivos. |
+| `/auto` | `/build` | `/auto` | Lanza la orquestación y el desarrollo de software autónomo bajo Scrum. |
+| `/exit` | — | `/exit` | Cierra la sesión activa de Jellyfish OS liberando los bloqueos del proyecto. |
 
 ---
 
-## 🔎 5. Explicación Detallada de Características Avanzadas
+## 📦 6. Desarrollo de Plugins y Sandbox de Aislamiento
 
-### 🗺️ A. Orquestador de Investigación (`/research`)
-El comando `/research` ejecuta un flujo especializado de 4 agentes para resolver consultas de código de alta complejidad que requieren investigación profunda en todo el repositorio:
+Jellyfish OS permite ampliar su funcionalidad nativa escribiendo plugins en Python dentro de la carpeta `plugins/`.
 
-1.  **Lead Planner (Agente de Planificación):** Descompone la consulta del usuario en 1-3 preguntas secuenciales de investigación y genera un plan estructurado en JSON.
-2.  **Search Agents (Agentes de Búsqueda):** Consultan silenciosamente el RAG para responder a cada uno de los sub-pasos del plan. Redactan resúmenes técnicos condensados sin saturar la terminal.
-3.  **Lead Synthesizer (Agente de Síntesis):** Consolida la información recolectada por los agentes de búsqueda y redacta la respuesta final en modo streaming visible.
-4.  **Citation Agent (Agente de Citación):** Analiza el reporte, valida que los archivos referenciados existan en el sistema y adjunta una tabla de enlaces en formato de URI de archivo (`file:///...`) al final del reporte.
+### Requisitos de un Plugin
+Para que un plugin sea válido, debe cumplir con la estructura mínima de archivo Python, exportando una función llamada `execute`:
+```python
+# plugins/calculadora_iva.py
+import sys
 
-Al finalizar, se despliega en consola una tabla rich con la duración de cada fase, el resumen de tokens estimados y el tiempo de respuesta total:
-
-```
-📊 Resumen del Pipeline de Investigación
-┌───────────────────────┬──────────────────────────────┬──────────┐
-│ Agente / Fase         │ Detalle                      │ Duración │
-├───────────────────────┼──────────────────────────────┼──────────┤
-│ 🗺  Lead Planner      │ 3 paso(s) planificados       │     1.4s │
-│ 🔍 Search Agent 1     │ ~140 tokens · 2 fuentes      │     2.1s │
-│ 🔍 Search Agent 2     │ ~180 tokens · 1 fuentes      │     1.8s │
-│ 🔍 Search Agent 3     │ ~95 tokens · 0 fuentes       │     1.2s │
-│ ✍  Lead Synthesizer   │ ~600 tokens generados        │     8.4s │
-│ 📚 Citation Agent     │ 3 fuentes analizadas         │     0.5s │
-└───────────────────────┴──────────────────────────────┴──────────┘
-                                                 15.4s total
-```
-
----
-
-### 🛡️ B. Bucle Auto-ReAct (Ejecución Autónoma de Terminal)
-Cuando Jellyfish funciona en modo interactivo clásico, el modelo puede proponer resolver una tarea ejecutando comandos en la terminal. Jellyfish intercepta estas intenciones y ejecuta el bucle de autonomía seguro:
-
-1.  **Confirmación de Usuario:** Muestra en pantalla el comando propuesto y solicita confirmación manual (`y/n`).
-2.  **Timeout de Confirmación:** Si el usuario no responde en **60 segundos**, el comando se cancela automáticamente por inactividad.
-3.  **Lista Negra de Seguridad:** Los comandos destructivos se bloquean de manera absoluta en el código antes de interactuar con el sistema operativo, independientemente de si el usuario intenta forzar su ejecución. Los patrones bloqueados son:
-    *   Comandos `rm` que contengan modificadores recursivos y de fuerza en cualquier posición (ej: `rm -rf`, `rm -r -f`, `rm -fr`).
-    *   Uso de `mkfs` (formateo de particiones).
-    *   Comandos `dd` con salida dirigida a dispositivos de bloque (ej: `dd of=/dev/sda`).
-    *   Intentos de sobrescribir archivos del sistema de bloques (ej: `> /dev/sda`).
-    *   Intentos de modificar permisos recursivamente sobre la raíz (ej: `chmod -R 777 /`).
-    *   *Fork bombs* (`:(){ :|:& };:`).
-4.  **Truncamiento Inteligente de Salidas:** Si un comando exitoso produce miles de líneas de salida (ej: compilaciones o ejecuciones de test), Jellyfish trunca el resultado preservando los primeros 2500 caracteres y los últimos 2500 caracteres, ya que es al final del flujo donde se concentran los códigos de error o trazas de excepción.
-
----
-
-### 🎭 C. Agentes Personalizados (Taller de Personalidades)
-Jellyfish te permite cargar "personalidades" de IA guardadas como plantillas Markdown en la carpeta `agents/`.
-*   Para crear o editar un agente, usa `/agent`. El sistema abrirá un formulario guiado para detallar el alias del agente, rol, contexto de operación, tono, especialidades y reglas inquebrantables.
-*   **Herencia de Directrices:** Los agentes heredan automáticamente las directivas del archivo `agents/template.md` (Protocolo Maestro), y a continuación agregan sus directivas específicas.
-*   **Cambio Rápido:** Puedes cambiar de agente escribiendo `@nombre_agente` (ej. `@arquitecto_software`) en el chat.
-*   **Autocompletado:** Al presionar `@` y presionar `Tab`, se listarán los agentes con una vista previa de su propósito.
-*   **Restauración:** Usa `@exit` para volver al agente general por defecto.
-
----
-
-### 🛠️ D. Habilidades (Skills)
-Las habilidades son "recetas" de comandos que enseñan a la IA a ejecutar secuencias de terminal complejas con su debido manejo de errores. Se almacenan en el directorio `skills/`.
-*   Para crear una habilidad, usa `/skill`. Al igual que con los agentes, se abrirá un asistente interactivo.
-*   Una habilidad describe dependencias a instalar, comandos exactos de terminal a ejecutar, y el flujo de resolución de problemas si algo sale mal.
-*   Cuando habilitas una Skill, su archivo Markdown se añade al contexto del modelo para que este comprenda cómo y cuándo debe invocar dicha secuencia de terminal.
-
----
-
-### 📦 E. Plugins con Aislamiento en Sandbox
-Los plugins permiten extender Jellyfish ejecutando scripts Python personalizados. Se guardan en la carpeta `plugins/` (deben implementar una función `execute(args: str) -> str`).
-
-#### Ejecución en Sandbox
-Por defecto, Jellyfish implementa un aislamiento robusto para plugins:
-*   Si `bubblewrap` está disponible, cada plugin se ejecuta en un filesystem aislado, sin red y sin acceso al `.env`.
-*   Si `bubblewrap` no está disponible, se usa un subproceso Python aislado (`-I`), entorno sin claves y límites de recursos.
-*   **Timeout automático:** Si el plugin se congela o realiza un bucle infinito, el sistema lo finaliza automáticamente al alcanzar **30 segundos** de inactividad.
-*   **Prevención de Excepciones:** Errores o caídas de memoria dentro de un plugin no afectan al proceso interactivo principal de Jellyfish.
-*   **Override Unsafe:** Si deseas desactivar el sandbox (por ejemplo, para depurar dependencias o interactuar directamente con la memoria del proceso), puedes establecer en tu terminal la variable de entorno `export JELLYFISH_PLUGIN_UNSAFE=1` antes de lanzar la aplicación.
-
----
-
-## 🛠️ 6. Solución de Problemas (Troubleshooting)
-
-### A. ChromaDB corrupto tras un cierre repentino
-Si la base de datos de vectores se corrompe (error de lectura de sqlite3 o ChromaDB), Jellyfish detectará el fallo en el inicio, eliminará de forma segura el directorio corrupto e informará al usuario en pantalla para que reindexe con `/add`.
-
-### B. Timeout de comandos largos
-Si ejecutas un comando mediante `/run` o a través del bucle ReAct que tarda demasiado tiempo (ej: descarga de contenedores docker pesados), puedes especificar un timeout personalizado agregando el flag `--timeout` al comando:
-```bash
-/run docker pull tensorflow/tensorflow:latest-gpu --timeout=600
+def execute(args: str) -> str:
+    """Calcula el IVA (16%) de un valor entregado en args.
+    
+    Jellyfish llama a esta función inyectando todo el texto que el usuario
+    escribe después del comando /plugin calculadora_iva <args>
+    """
+    try:
+        monto = float(args.strip())
+        iva = monto * 0.16
+        total = monto + iva
+        return f"Monto: ${monto:.2f} | IVA: ${iva:.2f} | Total: ${total:.2f}"
+    except ValueError:
+        return "Error: Debes proporcionar un número válido como argumento."
 ```
 
-### C. El RAG no recupera los archivos del proyecto
-*   Verifica que no estén siendo excluidos por `.jellyfishignore`.
-*   Verifica el umbral de similitud en tu `.env` (`JELLYFISH_RAG_THRESHOLD`). Si el valor es muy bajo (ej: `0.5`), ChromaDB descartará fragmentos ligeramente distantes. Puedes incrementarlo a `1.5` o `2.0` para una búsqueda más tolerante.
-*   Asegúrate de haber instalado y descargado el modelo de embeddings en Ollama:
+### Funcionamiento del Sandbox con Bubblewrap
+Cuando un agente o usuario invoca `/plugin calculadora_iva 100`, Jellyfish OS busca aislar la ejecución de la siguiente forma:
+1.  **Detección de Bubblewrap:** Busca el ejecutable `bwrap` en el path del sistema.
+2.  **Aislamiento de Filesystem:** Crea un espacio de nombres privado montando en modo de solo lectura `/usr`, `/lib`, `/bin` y directorios del sistema mínimos para que funcione Python.
+3.  **Aislamiento de Red:** Ejecuta el subproceso utilizando el flag `--unshare-net` de bubblewrap. El plugin no podrá realizar llamadas HTTP, interactuar con APIs externas ni exfiltrar datos.
+4.  **Aislamiento de Configuración:** No se montan las variables de entorno locales ni el archivo `.env`, protegiendo las API keys de accesos ilegítimos por parte de código de terceros.
+5.  **Control de Recursos:** Si el plugin contiene bucles infinitos, se mata automáticamente al alcanzar el límite de tiempo de 30 segundos.
+
+---
+
+## 🛠️ 7. Solución de Problemas (Troubleshooting)
+
+### A. Advertencia de Concurrencia de Proyecto ("Proyecto bloqueado")
+*   **Síntoma:** Al abrir un proyecto, Jellyfish muestra una alerta en rojo indicando que hay una instancia activa y no te permite interactuar con él.
+*   **Solución:** Si la instancia anterior se cerró de forma forzosa (por ejemplo, por un apagón de energía o un error del sistema que impidió la limpieza del lockfile), puedes eliminar el archivo de bloqueo de forma manual corriendo:
+    ```bash
+    rm /ruta/de/tu/proyecto/.jellyfish.lock
+    ```
+
+### B. Fallos en el RAG por conectividad con Ollama
+*   **Síntoma:** Aparecen errores de tipo `Failed to connect to Ollama` o `Chroma.add_texts`.
+*   **Solución:** Asegúrate de que Ollama está activo en el sistema. Puedes comprobar su estado o levantarlo de forma manual con:
+    ```bash
+    ollama serve
+    ```
+    Si usas modelos de chat basados en la nube (como Gemini o Claude) pero tienes el RAG en modo local, es obligatorio contar con el modelo de embeddings descargado localmente:
     ```bash
     ollama pull nomic-embed-text
     ```
+
+### C. La terminal se congela al ejecutar comandos
+*   **Síntoma:** Comandos interactivos de consola se quedan colgados esperando entrada del usuario sin mostrar nada.
+*   **Solución:** Jellyfish OS v5.2 ya soluciona este comportamiento transmitiendo la salida en vivo. Si aún detectas que un comando espera una confirmación y no puedes escribir, cancela con `Ctrl+C` y asegúrate de agregar flags de no-interactividad al comando (ej. `npm install --yes` o `apt install -y`).
+
+---
+
+DOCUMENTACIÓN COMPLETA PARA JELLYFISH OS V5.2. MANTENIDO POR EL EQUIPO DE DESARROLLO.
