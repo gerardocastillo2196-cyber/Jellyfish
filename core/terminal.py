@@ -1,6 +1,9 @@
+import os
 import re
+import shlex
 import subprocess
 import logging
+import signal
 from rich.panel import Panel
 from rich.console import Console
 
@@ -21,7 +24,48 @@ _DESTRUCTIVE_PATTERNS: list[re.Pattern] = [
     re.compile(r">\s*/dev/sda", re.IGNORECASE),                   # > /dev/sda
     re.compile(r"\bformat\b.*[cCdDeE]:\\\\", re.IGNORECASE),     # format C:\ (Windows)
     re.compile(r":\(\)\{.*\};:", re.IGNORECASE),                  # fork bomb
+    re.compile(r"\b(find|fd)\b.*\s-delete\b", re.IGNORECASE),     # borrado masivo via find/fd
+    re.compile(r"\b(wipefs|fdisk|sfdisk|parted)\b", re.IGNORECASE),  # particiones/discos
+    re.compile(r"\bshred\b.*\s(/|~|\$HOME)\b", re.IGNORECASE),    # destrucción de datos
 ]
+
+_SHELL_META_RE = re.compile(r"[|&;<>()$`*?\[\]{}~]")
+
+# Sprint 8.0 — Prefijos de comandos de solo lectura que no necesitan confirmación
+# del usuario en el bucle Auto-ReAct. Solo aplica cuando el LLM sugiere
+# comandos, no cuando el usuario ejecuta manualmente con /run.
+_READONLY_PREFIXES = (
+    "ls", "cat", "head", "tail", "wc", "file", "stat", "du", "df",
+    "find", "fd", "which", "where", "type", "echo", "printf",
+    "date", "uname", "whoami", "id", "hostname", "pwd", "env",
+    "printenv", "tree", "diff", "grep", "rg", "ag", "awk", "sed -n",
+    "python3 --version", "python --version", "node --version",
+    "go version", "rustc --version", "java -version",
+    "git log", "git status", "git diff", "git show", "git branch",
+    "git remote", "git tag", "git rev-parse",
+)
+
+
+def is_readonly_command(command: str) -> bool:
+    """Determina si un comando es de solo lectura (seguro para auto-aprobación).
+
+    Sprint 8.0 — Comandos de lectura pueden auto-ejecutarse en el Action Loop
+    sin requerir confirmación manual del usuario.
+
+    Args:
+        command: El comando a evaluar.
+
+    Returns:
+        True si el comando es de solo lectura.
+    """
+    cmd_stripped = command.strip()
+    # No auto-aprobar comandos con pipe, redirect o encadenamiento
+    if any(c in cmd_stripped for c in ('|', '>', '>>', '&&', '||', ';')):
+        return False
+    for prefix in _READONLY_PREFIXES:
+        if cmd_stripped.startswith(prefix):
+            return True
+    return False
 
 
 def _is_destructive(command: str) -> tuple[bool, str]:
@@ -61,9 +105,19 @@ def _smart_truncate(text: str, max_chars: int = 5000) -> str:
     omitted = len(text) - max_chars
     return (
         f"{head}\n\n"
-        f"[dim]... [{omitted:,} caracteres omitidos] ...[/dim]\n\n"
+        f"[dim]... [{omitted:,} caracteres omitidos — usa '/run' para ver la salida completa] ...[/dim]\n\n"
         f"{tail}"
     )
+
+
+def _prepare_subprocess_command(command: str):
+    """Prefiere shell=False cuando no hacen falta metacaracteres de shell."""
+    if _SHELL_META_RE.search(command):
+        return command, True
+    try:
+        return shlex.split(command), False
+    except ValueError:
+        return command, True
 
 
 def run_terminal_command(
@@ -120,25 +174,50 @@ def run_terminal_command(
         return msg
 
     try:
+        popen_command, use_shell = _prepare_subprocess_command(actual_command)
+        # Sprint 8.4 — Ejecutar comandos en la carpeta del proyecto activo si está configurado
+        exec_cwd = state.active_project if getattr(state, "active_project", None) and os.path.exists(state.active_project) else None
+
+        import threading
+        import sys
+        
+        console.print(f"\n╭─[bold yellow] Salida de Terminal [/bold yellow]{'─'*60}╮")
+        
         process = subprocess.Popen(
-            actual_command,
-            shell=True,
+            popen_command,
+            shell=use_shell,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
+            bufsize=1,
+            preexec_fn=os.setpgrp,
+            cwd=exec_cwd,
         )
-        stdout, stderr = process.communicate(timeout=actual_timeout)
+        
+        captured_lines = []
+        def _stream_output():
+            for line in process.stdout:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                captured_lines.append(line)
+                
+        reader = threading.Thread(target=_stream_output)
+        reader.start()
 
-        # Combinar stdout y stderr
-        res = stdout.strip()
-        if stderr.strip():
-            res = f"{res}\n[stderr]\n{stderr.strip()}" if res else stderr.strip()
+        # Esperar al proceso respetando el timeout
+        process.wait(timeout=actual_timeout)
+        reader.join()
+        
+        console.print(f"╰{'─'*80}╯")
+
+        res = "".join(captured_lines).strip()
         if not res:
-            res = f"✓ Comando ejecutado (exit code: {process.returncode})"
-
-        # Sprint 1.4 — Truncamiento inteligente (head + tail)
-        display_res = _smart_truncate(res, max_chars=5000)
-        console.print(Panel(display_res, title="Terminal", border_style="yellow"))
+            res = f"✓ Comando ejecutado sin salida (exit code: {process.returncode})"
+            console.print(f"[dim]{res}[/dim]")
+        elif process.returncode != 0:
+            console.print(f"[red]✗ Comando finalizó con código {process.returncode}[/red]")
+        else:
+            console.print("[green]✓ Comando ejecutado exitosamente[/green]")
 
         if not silent_history:
             # Historial recibe versión compacta head+tail de 3000 chars
@@ -151,11 +230,16 @@ def run_terminal_command(
         return res
 
     except subprocess.TimeoutExpired:
+        # Sprint 8.0 — Matar todo el process group, no solo el proceso padre
         try:
-            process.kill()
+            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
             process.wait(timeout=5)
         except Exception:
-            pass
+            try:
+                process.kill()
+                process.wait(timeout=5)
+            except Exception:
+                pass
         msg = f"⏰ Timeout: el comando excedió los {actual_timeout} segundos."
         console.print(f"[bold red]{msg}[/bold red]")
         logger.warning("Timeout ejecutando: %s", actual_command[:100])

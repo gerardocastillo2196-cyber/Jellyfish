@@ -20,7 +20,7 @@ from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 from rich.console import Console
 
-from core.state import RELEVANCE_THRESHOLD, EMBED_MODEL
+from core.state import RELEVANCE_THRESHOLD, EMBED_MODEL, ACTIVE_PROJECT
 
 logger = logging.getLogger("jellyfish.rag")
 console = Console()
@@ -90,6 +90,21 @@ _RAG_OPEN  = f"<RAG_CTX_{_RAG_SESSION_UUID}>"
 _RAG_CLOSE = f"</RAG_CTX_{_RAG_SESSION_UUID}>"
 _FRAG_OPEN = f"<FRAG_{_RAG_SESSION_UUID}"
 _FRAG_CLOSE = f"</FRAG_{_RAG_SESSION_UUID}>"
+
+
+def refresh_session_uuid() -> None:
+    """Regenera los delimitadores RAG con un nuevo UUID.
+
+    Sprint 8.0 — Llamar antes de cada consulta para que el UUID
+    cambie criptográficamente en cada interacción, haciendo imposible
+    que código fuente malicioso prediga los delimitadores.
+    """
+    global _RAG_SESSION_UUID, _RAG_OPEN, _RAG_CLOSE, _FRAG_OPEN, _FRAG_CLOSE
+    _RAG_SESSION_UUID = uuid.uuid4().hex[:12].upper()
+    _RAG_OPEN  = f"<RAG_CTX_{_RAG_SESSION_UUID}>"
+    _RAG_CLOSE = f"</RAG_CTX_{_RAG_SESSION_UUID}>"
+    _FRAG_OPEN = f"<FRAG_{_RAG_SESSION_UUID}"
+    _FRAG_CLOSE = f"</FRAG_{_RAG_SESSION_UUID}>"
 
 
 def _load_jellyfishignore(base_path: str) -> List[str]:
@@ -222,14 +237,19 @@ class CodeKnowledgeBase:
     Sprint 2.4: Delimitadores UUID blindados anti-inyección de prompt.
     """
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str, active_project: str = ""):
         self.db_base_path = db_path   # Ruta base; la DB real incluirá el hash del proyecto
-        self.db_path = db_path        # Se actualiza en index_codebase()
+        self.db_path = db_path        # Se actualiza en index_codebase() o al cargar proyecto activo
         self.embeddings = OllamaEmbeddings(model=EMBED_MODEL)
         self.vector_db: Optional[Chroma] = None
         self.indexed_file_count: int = 0
         self.indexed_chunk_count: int = 0
         self.indexed_dir: str = ""    # Directorio actualmente indexado
+
+        project_path = active_project or ACTIVE_PROJECT
+        if project_path:
+            self.indexed_dir = os.path.abspath(os.path.expanduser(project_path))
+            self.db_path = f"{self.db_base_path}_{_dir_hash(self.indexed_dir)}"
 
         # Intentar cargar base existente con auto-recovery
         self._try_load_existing_db()
@@ -246,10 +266,20 @@ class CodeKnowledgeBase:
             )
             collection = self.vector_db._collection
             self.indexed_chunk_count = collection.count()
+            try:
+                data = collection.get(include=["metadatas"])
+                sources = {
+                    meta.get("source") or meta.get("relative_path")
+                    for meta in data.get("metadatas", [])
+                    if meta
+                }
+                self.indexed_file_count = len(sources)
+            except Exception:
+                self.indexed_file_count = 0
             logger.info("RAG cargado: %d chunks en la base vectorial.", self.indexed_chunk_count)
         except Exception as e:
             logger.warning("Base RAG corrupta, eliminando automáticamente: %s", e)
-            self.vector_db = None
+            self._close_db()
             try:
                 shutil.rmtree(self.db_path)
                 console.print(
@@ -258,6 +288,18 @@ class CodeKnowledgeBase:
                 )
             except (OSError, IOError) as rm_err:
                 logger.error("Error eliminando base corrupta: %s", rm_err)
+
+    def _close_db(self) -> None:
+        """Cierra de forma limpia la conexión de ChromaDB y libera recursos."""
+        if self.vector_db:
+            try:
+                if hasattr(self.vector_db, "_client") and hasattr(self.vector_db._client, "close"):
+                    self.vector_db._client.close()
+            except Exception as e:
+                logger.warning("Error cerrando cliente RAG: %s", e)
+            self.vector_db = None
+            import gc
+            gc.collect()
 
     def index_codebase(self, path: str) -> int:
         """Indexa un directorio de código fuente completo.
@@ -344,6 +386,7 @@ class CodeKnowledgeBase:
 
             console.print(f"[cyan]📦 Preparando {total_chunks} fragmentos para indexación...[/cyan]")
 
+            self._close_db()
             self.vector_db = Chroma(
                 persist_directory=self.db_path,
                 embedding_function=self.embeddings
@@ -391,6 +434,9 @@ class CodeKnowledgeBase:
         if not self.vector_db:
             return ""
 
+        # Sprint 8.0 — Refrescar UUID por consulta para máxima seguridad anti-inyección
+        refresh_session_uuid()
+
         try:
             results_with_scores: List[Tuple] = self.vector_db.similarity_search_with_score(
                 question, k=k
@@ -402,15 +448,20 @@ class CodeKnowledgeBase:
         if not results_with_scores:
             return ""
 
+        try:
+            threshold = float(os.getenv("JELLYFISH_RAG_THRESHOLD", str(RELEVANCE_THRESHOLD)))
+        except ValueError:
+            threshold = RELEVANCE_THRESHOLD
+
         relevant = [
             (doc, score) for doc, score in results_with_scores
-            if score <= RELEVANCE_THRESHOLD
+            if score <= threshold
         ]
 
         if not relevant:
             return ""
 
-        # Sprint 2.4 — Delimitadores UUID blindados
+        # Sprint 8.0 — Delimitadores UUID blindados (refrescados por consulta)
         context_parts = [_RAG_OPEN]
         seen_content: set = set()
 
@@ -421,8 +472,10 @@ class CodeKnowledgeBase:
             seen_content.add(content_hash)
 
             source = doc.metadata.get("relative_path", doc.metadata.get("source", "desconocido"))
+            # Sprint 8.0 — Calcular porcentaje de relevancia para visibilidad
+            relevance_pct = max(0, int((1.0 - score / threshold) * 100))
             context_parts.append(
-                f'  {_FRAG_OPEN} source="{source}" relevance="{score:.3f}">\n'
+                f'  {_FRAG_OPEN} source="{source}" relevance="{score:.3f}" match="{relevance_pct}%">\n'
                 f'{doc.page_content}\n'
                 f'  {_FRAG_CLOSE}'
             )
@@ -470,10 +523,10 @@ class CodeKnowledgeBase:
 
     def clear_index(self) -> None:
         """Elimina la base vectorial por completo."""
+        self._close_db()
         if os.path.exists(self.db_path):
             try:
                 shutil.rmtree(self.db_path)
-                self.vector_db = None
                 self.indexed_file_count = 0
                 self.indexed_chunk_count = 0
                 console.print("[bold red]☢ Índice RAG eliminado.[/bold red]")

@@ -13,32 +13,38 @@ A continuación se muestra el diagrama de arquitectura y flujo de ejecución del
 ```mermaid
 graph TD
     User([Usuario]) --> CLI[jellyfish.py / CLI & Autocompletado]
-    CLI --> State[core.state / JellyfishState]
+    CLI <--> State[core.state / JellyfishState]
     CLI --> Commands[core.crud / Comandos Slash / CRUD]
-    CLI --> AgentChange[Cambio de Agente @]
-    
+    CLI <--> AgentChange[Cambio de Agente @]
+
     Commands --> Config[config / ignore / add]
+    Config --> State
+    Config -.-> RAG[core.rag_coder / RAG Vector DB]
+
     Commands --> Research[core.orchestrator / ResearchOrchestrator]
     Commands --> Run[core.terminal / Terminal Run / Auto-ReAct]
-    Commands --> Plugin[core.plugin_manager / Plugins Sandbox]
-    
+    Commands --> Plugin[core.plugin_manager / Plugins Aislados]
+
     Research --> Planner[Fase 1: Lead Planner]
     Planner --> Search[Fase 2: Search Agents]
-    Search --> RAG[core.rag_coder / RAG Vector DB]
+    Search <--> RAG
     Search --> Synthesizer[Fase 3: Lead Synthesizer]
     Synthesizer --> Citation[Fase 4: Citation Agent]
     Citation --> FinalReport[Reporte Final]
     FinalReport --> CLI
-    
+
     Run --> Blacklist{¿Es destructivo?}
     Blacklist -- Sí --> Blocked[Bloqueado por Seguridad]
+    Blocked --> CLI
     Blacklist -- No --> Execution[Ejecución en Subproceso]
     Execution --> Truncate[Truncamiento Inteligente Head/Tail]
     Truncate --> CLI
-    
-    Plugin --> Sandbox{Sandbox Activo?}
-    Sandbox -- Sí --> Isolated[Subproceso Aislado con Timeout]
+
+    Plugin --> Sandbox{Bubblewrap disponible?}
+    Sandbox -- Sí --> Isolated[Filesystem aislado + sin red + timeout]
     Sandbox -- No --> InProcess[Ejecución Directa]
+    Isolated --> CLI
+    InProcess --> CLI
 ```
 
 ### Componentes Clave:
@@ -46,7 +52,7 @@ graph TD
 *   **`core/crud.py`**: Controla el ciclo de vida de los comandos slash y la creación interactiva (CRUD) de nuevos agentes y habilidades.
 *   **`core/rag_coder.py`**: Administra ChromaDB y el cálculo de embeddings para indexar y consultar código de forma inteligente y segura.
 *   **`core/terminal.py`**: Interfaz con el sistema operativo que implementa protecciones de seguridad críticas.
-*   **`core/plugin_manager.py`**: Mecanismo de extensión modular con aislamiento en Sandbox.
+*   **`core/plugin_manager.py`**: Mecanismo de extensión modular con aislamiento por Bubblewrap cuando está disponible y fallback seguro con timeout.
 *   **`core/orchestrator.py`**: Implementación del flujo de investigación autónoma multi-agente.
 
 ---
@@ -57,28 +63,36 @@ graph TD
 1.  **Python 3.10 o superior**
 2.  **Ollama** instalado y ejecutándose localmente (opcional si usas exclusivamente proveedores cloud).
     *   *Recomendado:* Modelo embeddings `nomic-embed-text` (`ollama pull nomic-embed-text`).
-    *   *Recomendado:* Modelo principal `qwen2.5-coder` o `qwen2.5:latest` para tareas generales.
+    *   *Recomendado:* Puedes configurar el modelo principal que prefieras según tu hardware y proveedor (ej. `llama3`, `mistral`, `claude`, etc.).
 3.  **Dependencias del sistema:**
     *   `pip install -r requirements.txt`
+    *   Para una instalación reproducible de CI o producción: `pip install -r requirements.lock`
 
 ### Variables de Entorno (`.env`)
 Jellyfish almacena su configuración en un archivo `.env` en la raíz del proyecto. Tras escribir las API keys, el sistema bloquea automáticamente este archivo mediante permisos `chmod 600` para garantizar que otros usuarios locales no tengan acceso a tus credenciales.
+
+El archivo `.env` no debe versionarse. Usa `.env.example` como plantilla pública y guarda tus claves reales únicamente en `.env`.
 
 A continuación se detallan las variables soportadas:
 
 | Variable | Valor por Defecto | Descripción |
 | :--- | :--- | :--- |
-| `JELLYFISH_PROVIDER` | `ollama` | Proveedor principal de LLM (`ollama`, `openai`, `deepseek`, `openrouter`). |
-| `JELLYFISH_MODEL` | `qwen2.5-agent:latest` | Modelo de lenguaje del agente principal (Lead Agent). |
+| `JELLYFISH_PROVIDER` | `ollama` | Proveedor principal de LLM (`ollama`, `openai`, `deepseek`, `openrouter`, `gemini`, `qwen`, `kimi`, `zhipu`, `custom`). |
+| `JELLYFISH_MODEL` | `(Depende del usuario)` | Modelo de lenguaje del agente principal (Lead Agent). Admite cualquier modelo compatible. |
 | `JELLYFISH_SUBAGENT_PROVIDER` | *(Hereda de Provider)* | Proveedor alternativo para subagentes internos de búsqueda. |
 | `JELLYFISH_SUBAGENT_MODEL` | *(Hereda de Model)* | Modelo alternativo para subagentes (útil para optimizar costes/velocidad). |
 | `JELLYFISH_CONTEXT_LIMIT` | `8192` | Ventana máxima de tokens configurada en el LLM. |
 | `JELLYFISH_RAG_THRESHOLD` | `1.2` | Umbral de similitud geométrica (distancia L2) para ChromaDB. |
 | `JELLYFISH_EMBED_MODEL` | `nomic-embed-text` | Modelo de embeddings locales a utilizar en Ollama. |
-| `JELLYFISH_PLUGIN_UNSAFE` | `0` | Si es `1`, se desactiva el Sandbox y los plugins se importan directamente. |
+| `JELLYFISH_PLUGIN_UNSAFE` | `0` | Si es `1`, se desactiva el aislamiento y los plugins se importan directamente. |
 | `OPENAI_API_KEY` | *(Vacío)* | API Key para OpenAI. |
 | `DEEPSEEK_API_KEY` | *(Vacío)* | API Key para DeepSeek. |
 | `OPENROUTER_API_KEY` | *(Vacío)* | API Key para OpenRouter. |
+| `GEMINI_API_KEY` | *(Vacío)* | API Key para Google Gemini usando el endpoint compatible con OpenAI. |
+| `DASHSCOPE_API_KEY` | *(Vacío)* | API Key para Qwen / Alibaba DashScope. |
+| `KIMI_API_KEY` | *(Vacío)* | API Key para Kimi / Moonshot AI. |
+| `ZHIPU_API_KEY` | *(Vacío)* | API Key para Zhipu / GLM. |
+| `CUSTOM_API_KEY` | *(Vacío)* | API Key para cualquier proveedor compatible con OpenAI Chat Completions. |
 
 ---
 
@@ -204,9 +218,10 @@ Las habilidades son "recetas" de comandos que enseñan a la IA a ejecutar secuen
 ### 📦 E. Plugins con Aislamiento en Sandbox
 Los plugins permiten extender Jellyfish ejecutando scripts Python personalizados. Se guardan en la carpeta `plugins/` (deben implementar una función `execute(args: str) -> str`).
 
-#### Ejecución en Sandbox (Seguridad Máxima)
+#### Ejecución en Sandbox
 Por defecto, Jellyfish implementa un aislamiento robusto para plugins:
-*   Cada plugin se ejecuta en un **subproceso de Python separado**.
+*   Si `bubblewrap` está disponible, cada plugin se ejecuta en un filesystem aislado, sin red y sin acceso al `.env`.
+*   Si `bubblewrap` no está disponible, se usa un subproceso Python aislado (`-I`), entorno sin claves y límites de recursos.
 *   **Timeout automático:** Si el plugin se congela o realiza un bucle infinito, el sistema lo finaliza automáticamente al alcanzar **30 segundos** de inactividad.
 *   **Prevención de Excepciones:** Errores o caídas de memoria dentro de un plugin no afectan al proceso interactivo principal de Jellyfish.
 *   **Override Unsafe:** Si deseas desactivar el sandbox (por ejemplo, para depurar dependencias o interactuar directamente con la memoria del proceso), puedes establecer en tu terminal la variable de entorno `export JELLYFISH_PLUGIN_UNSAFE=1` antes de lanzar la aplicación.

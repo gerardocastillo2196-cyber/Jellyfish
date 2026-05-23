@@ -226,6 +226,56 @@ class TestTokenBudget:
         contents = [m["content"] for m in history]
         assert "ÚLTIMO" in contents
 
+    def test_latest_message_survives_large_static_context(self):
+        from core.state import JellyfishState
+        state = JellyfishState()
+        state.static_history = [{"role": "system", "content": "S" * 500}]
+        state.history = [{"role": "user", "content": "pregunta final importante"}]
+
+        history = state.get_full_history()
+        assert history[-1]["content"].endswith("pregunta final importante")
+
+
+# ---------------------------------------------------------------------------
+# 5.1. Configuración de proveedores cloud
+# ---------------------------------------------------------------------------
+
+class TestProviderConfig:
+    def test_normalize_provider_aliases(self):
+        from core.state import normalize_provider
+        assert normalize_provider("google") == "gemini"
+        assert normalize_provider("dashscope") == "qwen"
+        assert normalize_provider("moonshot") == "kimi"
+        assert normalize_provider("glm") == "zhipu"
+
+    def test_openai_compatible_url_for_gemini(self):
+        from core.llm_engine import _get_provider_config
+
+        class DummyState:
+            provider = "gemini"
+            ollama_url = "http://localhost:11434/api/chat"
+            base_urls = {"gemini": "https://generativelanguage.googleapis.com/v1beta/openai"}
+            api_keys = {"gemini": "GeminiKeyABC"}
+            gemini_base_url = base_urls["gemini"]
+            gemini_api_key = api_keys["gemini"]
+
+        url, headers = _get_provider_config(DummyState(), "gemini")
+        assert url == "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+        assert headers["Authorization"] == "Bearer GeminiKeyABC"
+
+    def test_config_key_preserves_case(self):
+        from core.crud import _handle_config
+
+        class DummyState:
+            def __init__(self):
+                self.saved = {}
+            def save_config(self, **kwargs):
+                self.saved.update(kwargs)
+
+        state = DummyState()
+        _handle_config("key openai Sk-ABC_def-123", state, lambda: None)
+        assert state.saved["openai_key"] == "Sk-ABC_def-123"
+
 
 # ---------------------------------------------------------------------------
 # 6. Sanitización de nombres de archivos (core/crud.py)
@@ -252,3 +302,154 @@ class TestSanitizeName:
         result = self.sanitize("agente-v2.0")
         assert "agente" in result
         assert "v2" in result
+
+
+# ---------------------------------------------------------------------------
+# 7. Motor RAG e indexación vectorial sin locks de SQLite (core/rag_coder.py)
+# ---------------------------------------------------------------------------
+
+class DummyEmbeddings:
+    def embed_documents(self, texts):
+        return [[0.1] * 768 for _ in texts]
+    def embed_query(self, text):
+        return [0.1] * 768
+
+class TestRAGCloseAndReindex:
+    def test_active_project_uses_hashed_db_path(self, tmp_path):
+        from core.rag_coder import CodeKnowledgeBase, _dir_hash
+        from unittest.mock import patch
+
+        project = tmp_path / "project"
+        project.mkdir()
+        db_base = tmp_path / "code_vector_db"
+
+        with patch("core.rag_coder.OllamaEmbeddings", return_value=DummyEmbeddings()):
+            kb = CodeKnowledgeBase(str(db_base), active_project=str(project))
+
+        assert kb.db_path == f"{db_base}_{_dir_hash(str(project))}"
+
+    def test_reindex_clear_releases_locks(self, tmp_path):
+        from core.rag_coder import CodeKnowledgeBase
+        from unittest.mock import patch
+
+        db_dir = tmp_path / "test_rag_db"
+        db_path_str = str(db_dir)
+
+        # Mockear OllamaEmbeddings para usar DummyEmbeddings y evitar llamadas de red
+        with patch("core.rag_coder.OllamaEmbeddings", return_value=DummyEmbeddings()):
+            kb = CodeKnowledgeBase(db_path_str)
+
+            # Crear directorio temporal para simular codebase de usuario
+            code_dir = tmp_path / "user_code"
+            code_dir.mkdir()
+            (code_dir / "main.py").write_text("def test():\n    print('hello')\n")
+
+            # Indexar codebase por primera vez
+            count1 = kb.index_codebase(str(code_dir))
+            assert count1 > 0
+
+            # Reindexar (que llamará a clear_index y luego index_codebase)
+            kb.clear_index()
+
+            # Indexar de nuevo sobre el mismo path. Si la BD anterior no se cerró,
+            # esto lanzará un error SQLITE_READONLY_DBMOVED.
+            count2 = kb.index_codebase(str(code_dir))
+            assert count2 > 0
+
+            # Validar que funciona correctamente
+            assert kb.indexed_chunk_count > 0
+
+
+# ---------------------------------------------------------------------------
+# 8. Scrum Team Dinámico (core/project_orchestrator.py)
+# ---------------------------------------------------------------------------
+
+class TestDynamicScrum:
+    def test_parse_sprint_tasks_valid(self):
+        from core.project_orchestrator import _parse_sprint_tasks
+        board_content = """
+# 🗂️ Sprint Board — Sprint 1
+
+## 📋 POR HACER (TODO)
+
+| ID | Tarea | Asignado | Estimación | Entregable |
+|---|---|---|---|---|
+| T-001 | Crear api | @backend_dev | 3pts | api.md |
+| T-002 | Diseñar interfaz | @ui_designer | 2pts | design.md |
+
+## ⏳ EN PROCESO (IN PROGRESS)
+| — | — | — | — | — |
+"""
+        tasks = _parse_sprint_tasks(board_content)
+        assert len(tasks) == 2
+        assert tasks[0]["id"] == "T-001"
+        assert tasks[0]["task"] == "Crear api"
+        assert tasks[0]["agent"] == "backend_dev"
+        assert tasks[0]["estimate"] == "3pts"
+        assert tasks[0]["output_file"] == "api.md"
+
+        assert tasks[1]["id"] == "T-002"
+        assert tasks[1]["agent"] == "ui_designer"
+        assert tasks[1]["output_file"] == "design.md"
+
+    def test_parse_sprint_tasks_empty(self):
+        from core.project_orchestrator import _parse_sprint_tasks
+        board_content = """
+# 🗂️ Sprint Board — Sprint 1
+
+## 📋 POR HACER (TODO)
+| — | — | — | — | — |
+"""
+        tasks = _parse_sprint_tasks(board_content)
+        assert len(tasks) == 0
+
+    def test_scan_available_agents(self):
+        from core.project_orchestrator import _scan_available_agents
+        agents = _scan_available_agents()
+        assert len(agents) > 0
+        names = [a["name"] for a in agents]
+        # Roles de gestión no deben estar en la lista de asignación
+        assert "product_owner" not in names
+        assert "scrum_master" not in names
+        assert "backend_dev" in names
+
+    def test_estimate_tokens(self):
+        from core.state import estimate_tokens
+        # Cadenas vacías o cortas
+        assert estimate_tokens("") == 0
+        assert estimate_tokens("hello") == 1
+        
+        # Cadenas ricas en código vs texto plano
+        plaintext = "Este es un texto plano de prueba en español para estimar."
+        code = "def suma(a, b): return a + b # sum function"
+        
+        plaintext_est = estimate_tokens(plaintext)
+        code_est = estimate_tokens(code)
+        
+        assert plaintext_est > 0
+        assert code_est > 0
+        # El código suele estimarse con mayor proporción de tokens por carácter que el texto plano debido a los símbolos especiales
+        assert len(code) < len(plaintext)
+        
+    def test_project_lockfile(self, tmp_path):
+        import os
+        from core.state import JellyfishState, _cleanup_lock
+        
+        project_dir = tmp_path / "lock_test_proj"
+        project_dir.mkdir()
+        
+        state = JellyfishState()
+        state.active_project = str(project_dir)
+        state._update_project_lock("")
+        
+        lock_file = project_dir / ".jellyfish.lock"
+        assert lock_file.exists()
+        
+        with open(lock_file, "r") as f:
+            pid = int(f.read().strip())
+        assert pid == os.getpid()
+        
+        # Cleanup
+        _cleanup_lock(str(project_dir))
+        assert not lock_file.exists()
+

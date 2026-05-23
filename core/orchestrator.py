@@ -10,9 +10,10 @@ from rich.status import Status
 from rich.table import Table
 from rich.text import Text
 
-from core.state import JellyfishState
+from core.state import JellyfishState, estimate_tokens
 from core.rag_coder import CodeKnowledgeBase, _FRAG_OPEN
 from core.llm_engine import _call_llm_silent, _stream_request
+from core.tui import tui_engine, TaskProgress
 
 # Sprint 2.4 — Regex dinámico que usa el prefijo UUID blindado de rag_coder
 _FRAG_PREFIX = re.escape(_FRAG_OPEN.split(" ")[0])  # e.g. "<FRAG_A1B2C3D4E5F6"
@@ -85,7 +86,12 @@ class ResearchOrchestrator:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        response = _call_llm_silent(self.state, messages)
+        response = _call_llm_silent(
+            self.state,
+            messages,
+            provider=self.state.subagent_provider,
+            model=self.state.subagent_model,
+        )
         return response if response else ""
 
     def _generate_visible(self, system_prompt: str, user_prompt: str, label: str) -> str:
@@ -113,7 +119,7 @@ class ResearchOrchestrator:
 
         # --- FASE 1: Planificación ---
         t0 = time.perf_counter()
-        with Status("[bold blue]🗺  Lead Agent: Diseñando plan...[/bold blue]", console=console):
+        with TaskProgress(tui_engine, "orch_plan", "Lead Agent: Diseñando plan..."):
             plan_system = (
                 "Eres el Lead Agent de investigación de código. "
                 "Desglosa la consulta en 1 a 3 pasos de búsqueda. "
@@ -151,10 +157,7 @@ class ResearchOrchestrator:
             label_q = query[:55] + "..." if len(query) > 55 else query
             t0 = time.perf_counter()
 
-            with Status(
-                f"[bold blue]🔍 Search Subagent {i+1}/{len(steps)}: {label_q}[/bold blue]",
-                console=console,
-            ):
+            with TaskProgress(tui_engine, f"orch_search_{i}", f"Search Agent {i+1}/{len(steps)}: {label_q}"):
                 rag_context = self.rag.query_code(query) if self.rag.is_active else ""
 
                 if not rag_context:
@@ -177,7 +180,7 @@ class ResearchOrchestrator:
 
             sub_time = time.perf_counter() - t0
             # Sprint 3.2 — Calcular longitud de hallazgos para la tabla
-            tokens_est = len(sub_result) // 4
+            tokens_est = estimate_tokens(sub_result)
             metrics.append({
                 "fase": f"🔍 Search Agent {i+1}",
                 "detalle": f"~{tokens_est} tokens · {len(rag_sources_used)} fuentes",
@@ -200,13 +203,13 @@ class ResearchOrchestrator:
         phase3_time = time.perf_counter() - t0
         metrics.append({
             "fase": "✍  Lead Synthesizer",
-            "detalle": f"~{len(draft_report) // 4} tokens generados",
+            "detalle": f"~{estimate_tokens(draft_report)} tokens generados",
             "tiempo": phase3_time,
         })
 
         # --- FASE 4: Citaciones ---
         t0 = time.perf_counter()
-        with Status("[bold blue]📚 Citation Agent: Validando fuentes...[/bold blue]", console=console):
+        with TaskProgress(tui_engine, "orch_cite", "Citation Agent: Validando fuentes..."):
             final_report = self._apply_heuristic_citations(draft_report, rag_sources_used)
         phase4_time = time.perf_counter() - t0
         metrics.append({
