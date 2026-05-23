@@ -123,10 +123,13 @@ Los comandos interactivos de larga duración (como `npm install`, `npx create-re
 *   Un hilo dedicado (`threading.Thread`) captura e imprime en la salida estándar de tu pantalla cada línea generada por el proceso de forma inmediata, permitiéndote ver instaladores y salidas detalladas en tiempo real.
 *   Al finalizar, compila todo el flujo impreso en una sola respuesta histórica para inyectar al contexto del agente del LLM de forma limpia.
 
-### 🛡️ D. Previsualización Clara de Comandos Sugeridos
-Los comandos potencialmente peligrosos propuestos por los agentes ya no se truncan de forma confusa en una sola línea de texto plano de 200 caracteres.
-*   Jellyfish genera un **Rich Panel** decorado de color amarillo que muestra el código Bash completo del comando sugerido con resaltado de sintaxis nativo (`Syntax` theme monokai).
-*   **Sin Auto-Rechazo Apresurado:** Se ha eliminado la cuenta atrás de 60 segundos que rechazaba comandos automáticamente, dándole control absoluto al desarrollador para revisar, editar o aprobar la ejecución interactiva indefinidamente con un prompt seguro basado en `Confirm.ask`.
+### 🛡️ D. Previsualización y Control de Permisos Dinámicos ([y/n/a])
+Jellyfish implementa un sistema interactivo y estructurado de confirmación para todos los comandos bash sugeridos por los agentes o iniciados por el Task Runner:
+*   **Decisión Dinámica:** El usuario tiene tres opciones claramente diferenciadas:
+    - `[y]` **Permitir una vez:** Ejecuta el comando actual de forma segura y continúa con la ejecución.
+    - `[n]` **Denegar:** Cancela la ejecución del comando actual de forma controlada y devuelve la advertencia de denegación al agente.
+    - `[a]` **Permitir siempre:** Guarda la preferencia de auto-aprobación permanente para el proyecto activo.
+*   **Persistencia:** La opción `[a]` escribe un archivo JSON de configuración persistente en el directorio del proyecto (`.jellyfish_project_config.json`), eliminando futuras interrupciones para este proyecto en particular.
 
 ### 🎭 E. Modo de Product Owner Dinámico para el Agente `@default`
 Para apegarse fielmente a las metodologías ágiles:
@@ -139,6 +142,20 @@ Para asegurar la disponibilidad de la base vectorial local de embeddings:
 *   Al iniciar Jellyfish OS, el sistema verifica de forma no bloqueante si el servicio de Ollama responde en la URL configurada.
 *   Si el servicio no responde, intenta levantarlo automáticamente ejecutando `ollama serve` en segundo plano.
 *   Si no está instalado o no se puede iniciar, muestra un Warning controlado en la terminal y pone el estado del RAG en `RAG[ERR]` de forma segura, previniendo que se intente inicializar incorrectamente o que se borre la base vectorial local ChromaDB existente.
+
+### 🚫 G. Lista Negra de Seguridad Rigurosa (Safety Blacklist)
+Para evitar que el host se vea comprometido por comandos destructivos sugeridos por los agentes, se valida cada comando antes de su ejecución mediante regex:
+*   **Comandos Bloqueados:**
+    - `rm` recursivo destructivo (`rm -rf /`, `rm -rf *` y borrados fuera de scopes seguros).
+    - Comandos de formateo y manipulación cruda de discos (`mkfs`, `dd` escribiendo a `/dev/`, `fdisk`, `wipefs`, etc.).
+    - `chmod`/`chown` masivos en directorios de la raíz del sistema (`/etc`, `/usr`, `/lib`, `/var`, etc.).
+    - Entubados sospechosos de descarga y ejecución remota (`curl | sh` / `wget | bash`).
+*   **Comportamiento:** Si un comando coincide, Jellyfish cancela la acción de inmediato, emite una alerta roja y registra el incidente en los logs de seguridad sin dar ninguna opción para continuar.
+
+### 🐍 H. Aislamiento por Entorno Virtual (`.venv`)
+*   Al activar un proyecto con `/project`, Jellyfish inspecciona el directorio raíz.
+*   Si detecta archivos Python o dependencias (`requirements.txt`, `.py`), crea automáticamente un entorno virtual aislado en `.venv` dentro del proyecto.
+*   Todos los comandos ejecutados en el contexto del proyecto activo son encapsulados automáticamente activando dicho entorno virtual, aislando las dependencias del sistema principal (host) y manteniéndolo limpio.
 
 ---
 
@@ -210,6 +227,9 @@ Fase 4: Cierre del Sprint
 | `/config` | — | `/config <show\|provider\|model\|key>` | Configura en caliente cualquier parámetro del `.env` sin tener que cerrar Jellyfish. |
 | `/ignore` | — | `/ignore <show\|add\|remove>` | Administra las reglas de exclusión de indexado RAG dentro del archivo `.jellyfishignore`. |
 | `/project` | `/p` | `/project` | Abre el administrador de proyectos Scrum. Permite inicializar la estructura Scrum en una carpeta, ver el estado actual del proyecto, desvincular o borrar el proyecto activo. |
+| `/compile` | — | `/compile` | Ejecuta la compilación y validación estática del proyecto activo según su tecnología. |
+| `/gon` | — | `/gon` | Activa las guías interactivas del proyecto y Scrum. |
+| `/goff` | — | `/goff` | Desactiva las guías interactivas del proyecto y Scrum. |
 | `/clear` | — | `/clear` | Limpia la pantalla del terminal de forma segura. |
 | `/research` | — | `/research <consulta>` | Ejecuta la tubería de investigación profunda en 4 fases utilizando subagentes y citación de archivos. |
 | `/auto` | `/build` | `/auto` | Lanza la orquestación y el desarrollo de software autónomo bajo Scrum. |

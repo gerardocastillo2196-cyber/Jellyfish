@@ -304,15 +304,156 @@ class ProjectOrchestrator:
         console.print(f"[dim]   Equipo seleccionado: {', '.join(f'@{a}' for a in sorted(unique_agents))}[/dim]")
         console.print(f"[dim]   Tareas planificadas: {len(tasks)}[/dim]")
 
-        self.metrics.append({
-            "fase": "📋 Scrum Master",
-            "detalle": f"{len(tasks)} tareas → {len(unique_agents)} agentes",
-            "tiempo": elapsed,
-            "status": "✅",
-        })
-        return True
-
     # ─── FASE 3: Task Runner (Ejecución Dinámica) ──────────────────────
+
+    def _run_environment_probe(self) -> dict:
+        """Ejecuta comandos de diagnóstico en la terminal para identificar capacidades del sistema.
+        Guarda los resultados en env_capabilities.json.
+        """
+        console.print("\n[bold cyan]🔍 Ejecutando Agente Validador del Entorno (Environment Probe)...[/bold cyan]")
+        capabilities = {}
+        
+        commands = {
+            "python_version": "python3 --version",
+            "java_version": "java -version",
+            "docker_version": "docker --version",
+            "docker_compose_version": "docker compose version || docker-compose --version",
+            "gradle_version": "gradle --version",
+            "node_version": "node --version",
+            "npm_version": "npm --version",
+            "git_version": "git --version"
+        }
+        
+        import subprocess
+        for key, cmd in commands.items():
+            try:
+                res = subprocess.run(
+                    cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5
+                )
+                output = (res.stdout.strip() + "\n" + res.stderr.strip()).strip()
+                if res.returncode == 0 and output:
+                    first_line = output.split('\n')[0].strip()
+                    capabilities[key] = first_line
+                elif output:
+                    first_line = output.split('\n')[0].strip()
+                    capabilities[key] = first_line
+                else:
+                    capabilities[key] = "No disponible"
+            except Exception:
+                capabilities[key] = "No disponible"
+                
+        cap_path = os.path.join(self.project_path, "env_capabilities.json")
+        try:
+            with open(cap_path, "w", encoding="utf-8") as f:
+                json.dump(capabilities, f, indent=2)
+            console.print(f"[green]✓ Capacidades del sistema guardadas en env_capabilities.json[/green]")
+        except Exception as e:
+            logger.error("Error escribiendo env_capabilities.json: %s", e)
+            
+        return capabilities
+
+    def _detect_compile_command(self) -> str:
+        """Detecta el comando de compilación o verificación para el proyecto activo."""
+        if not self.project_path or not os.path.isdir(self.project_path):
+            return ""
+        
+        docker_android_yml = os.path.join(self.project_path, "docker-compose.android.yml")
+        if os.path.isfile(docker_android_yml):
+            return "docker compose -f docker-compose.android.yml run --rm android-builder ./gradlew assembleDebug --no-daemon"
+            
+        docker_yml = os.path.join(self.project_path, "docker-compose.yml")
+        if os.path.isfile(docker_yml):
+            return "docker compose build"
+            
+        gradlew = os.path.join(self.project_path, "gradlew")
+        if os.path.isfile(gradlew):
+            return "./gradlew assembleDebug --no-daemon"
+            
+        package_json = os.path.join(self.project_path, "package.json")
+        if os.path.isfile(package_json):
+            return "npm run build"
+            
+        has_python = False
+        for root, dirs, files in os.walk(self.project_path):
+            dirs[:] = [d for d in dirs if d not in ('.git', 'venv', '.venv', 'node_modules')]
+            for f in files:
+                if f.endswith('.py') or f in ('requirements.txt', 'pyproject.toml', 'setup.py'):
+                    has_python = True
+                    break
+            if has_python:
+                break
+                
+        if has_python:
+            return "python3 -m compileall -q ."
+            
+        return ""
+
+    def _extract_relevant_errors(self, build_output: str) -> str:
+        """Extrae las líneas de error más relevantes de la salida de compilación."""
+        if not build_output:
+            return "Sin salida de error."
+            
+        lines = build_output.split('\n')
+        relevant_lines = []
+        error_keywords = ["error:", "failed", "exception", "caused by:", "unresolved reference", "e:", "w:", "kapt"]
+        
+        for line in lines:
+            if any(kw in line.lower() for kw in error_keywords):
+                relevant_lines.append(line)
+                
+        if not relevant_lines:
+            return "\n".join(lines[-30:])
+            
+        return "\n".join(relevant_lines[-40:])
+
+    def _run_build_command(self, cmd: str) -> tuple[int, str]:
+        """Ejecuta el comando de compilación en el directorio del proyecto y captura salida/código de salida."""
+        from core.terminal import run_terminal_command
+        console.print(f"\n       [yellow]🛠 Solicitando ejecución de comando de compilación: {cmd}[/yellow]")
+        
+        ret_dict = {'returncode': 0}
+        output = run_terminal_command(
+            cmd,
+            self.state,
+            silent_history=True,
+            timeout=300,
+            force_confirm=True,
+            return_code_dict=ret_dict
+        )
+        return ret_dict['returncode'], output
+
+    def _extract_and_write_files(self, content: str) -> list[str]:
+        """Extrae y escribe en disco los archivos de código real desde el contenido generado."""
+        created_files = []
+        
+        xml_matches = re.findall(r'<write_file\s+path="([^"]+)">\s*\n?(.*?)\s*\n?</write_file>', content, re.DOTALL)
+        for rel_path, file_content in xml_matches:
+            full_path = os.path.join(self.project_path, rel_path.strip())
+            try:
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                with open(full_path, "w", encoding="utf-8") as f:
+                    f.write(file_content)
+                created_files.append(rel_path.strip())
+            except Exception as e:
+                console.print(f"[red]       ✗ Error creando archivo {rel_path}: {e}[/red]")
+                logger.error("Error al escribir archivo real de agente: %s", e)
+
+        md_matches = re.findall(r'\[WRITE_FILE:\s*([^\]\s]+)\]\s*\n*```[a-zA-Z0-9_-]*\n(.*?)\n```', content, re.DOTALL)
+        for rel_path, file_content in md_matches:
+            rel_clean = rel_path.strip()
+            if rel_clean in created_files:
+                continue
+            full_path = os.path.join(self.project_path, rel_clean)
+            try:
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                with open(full_path, "w", encoding="utf-8") as f:
+                    f.write(file_content)
+                created_files.append(rel_clean)
+            except Exception as e:
+                console.print(f"[red]       ✗ Error creando archivo {rel_clean}: {e}[/red]")
+                logger.error("Error al escribir archivo real de agente: %s", e)
+                
+        return created_files
 
     def _run_task_runner(self, user_idea: str) -> None:
         """Parsea SPRINT_BOARD.md y ejecuta cada tarea con su agente asignado."""
@@ -334,7 +475,6 @@ class ProjectOrchestrator:
             output_file = task.get("output_file", "").strip()
             task_id_str = task.get("id", f"T-{task_num:03d}")
 
-            # Fallback para entregable
             if not output_file or output_file == "—":
                 output_file = f"TASK_{task_id_str.replace('-', '_')}.md"
 
@@ -346,12 +486,10 @@ class ProjectOrchestrator:
 
             t0 = time.perf_counter()
 
-            # Cargar perfil del agente
             agent_prompt = self._load_agent_prompt(agent_name)
             if not agent_prompt:
                 agent_prompt = f"Eres @{agent_name}, un especialista técnico del equipo de desarrollo."
 
-            # Contexto acumulado
             accumulated = self._build_accumulated_context()
 
             system = (
@@ -385,86 +523,133 @@ class ProjectOrchestrator:
                 f"Genera el contenido completo de {output_file}."
             )
 
-            progress_msg = f"@{agent_name}: {task_desc[:50]}..."
-            with TaskProgress(tui_engine, f"auto_task_{i}", progress_msg):
-                result = self._call_agent(system, user_prompt)
+            # Cargar capacidades del entorno
+            capabilities_str = ""
+            cap_path = os.path.join(self.project_path, "env_capabilities.json")
+            if os.path.isfile(cap_path):
+                capabilities_str = _safe_read(cap_path)
 
-            elapsed = time.perf_counter() - t0
+            env_capabilities_prompt = ""
+            if capabilities_str:
+                env_capabilities_prompt = (
+                    f"\n\n[ENTORNO REAL DEL HOST / CONTENEDORES]\n"
+                    f"Tu código debe ser 100% compatible con las siguientes herramientas y versiones reales del entorno:\n"
+                    f"```json\n{capabilities_str}\n```\n"
+                    f"Asegúrate de alinear las versiones de Gradle, Kotlin, Python, Room, etc., a estas capacidades. "
+                    f"No propongas herramientas ni configuraciones incompatibles con estas versiones."
+                )
 
-            if not result:
-                console.print(f"[red]       ✗ Sin respuesta de @{agent_name}[/red]")
+            system = system + env_capabilities_prompt
+
+            # Lazo de compilación y depuración (Compile & Debug Loop) - Sprint 11
+            max_attempts = 3
+            build_cmd = self._detect_compile_command()
+            
+            agent_messages = [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_prompt}
+            ]
+            
+            success_task = False
+            task_result = ""
+            task_elapsed = 0.0
+            
+            for attempt in range(1, max_attempts + 1):
+                attempt_t0 = time.perf_counter()
+                if attempt > 1:
+                    console.print(f"       [bold yellow]🔄 Reintento {attempt}/{max_attempts} de compilación y corrección...[/bold yellow]")
+                
+                progress_msg = f"@{agent_name}: {task_desc[:40]}... (Intento {attempt}/{max_attempts})"
+                with TaskProgress(tui_engine, f"auto_task_{i}_{attempt}", progress_msg):
+                    task_result = _call_llm_silent(
+                        self.state, agent_messages,
+                        provider=self.state.provider,
+                        model=self.state.model
+                    )
+                
+                attempt_elapsed = time.perf_counter() - attempt_t0
+                task_elapsed += attempt_elapsed
+                
+                if not task_result:
+                    console.print(f"[red]       ✗ Sin respuesta de @{agent_name}[/red]")
+                    break
+                    
+                # Escribir el entregable principal
+                self._write_project_file(output_file, task_result)
+                
+                # Extraer y escribir archivos de código real
+                created_files = self._extract_and_write_files(task_result)
+                if created_files:
+                    console.print("       [bold green]⚒ Archivos reales creados/actualizados en el disco:[/bold green]")
+                    for f_path in created_files:
+                        console.print(f"         [green]- {f_path}[/green]")
+                
+                # Si no hay comando de compilación detectado, asumimos éxito inmediato
+                if not build_cmd:
+                    console.print("       [dim]ℹ No se detectó comando de compilación para este proyecto. Completando tarea.[/dim]")
+                    success_task = True
+                    break
+                    
+                # Intentar compilar el proyecto
+                returncode, build_output = self._run_build_command(build_cmd)
+                if returncode == 0:
+                    console.print("       [bold green]✓ ¡Compilación exitosa! Tarea validada con éxito.[/bold green]")
+                    success_task = True
+                    break
+                else:
+                    if attempt < max_attempts:
+                        error_lines = self._extract_relevant_errors(build_output)
+                        console.print(f"       [bold red]⚠ La compilación falló (código {returncode}). Preparando feedback para reintento...[/bold red]")
+                        
+                        agent_messages.append({"role": "assistant", "content": task_result})
+                        
+                        feedback = (
+                            f"Tu código falló en la compilación con el siguiente error. Analiza las dependencias, corrígelo e itera:\n"
+                            f"```\n{error_lines}\n```\n"
+                            f"Corrige los archivos correspondientes y vuelve a generarlos utilizando las etiquetas <write_file> o [WRITE_FILE: ...]."
+                        )
+                        agent_messages.append({"role": "user", "content": feedback})
+                    else:
+                        console.print(f"       [bold red]❌ Se alcanzó el límite de {max_attempts} intentos. La compilación sigue fallando.[/bold red]")
+                        success_task = False
+
+            if not task_result:
                 self.metrics.append({
                     "fase": f"@{agent_name} ({task_id_str})",
                     "detalle": f"ERROR — {task_desc[:30]}",
-                    "tiempo": elapsed,
+                    "tiempo": task_elapsed,
                     "status": "❌",
                 })
                 continue
 
-            self._write_project_file(output_file, result)
-
-            # --- PARSER DE ARCHIVOS DE CÓDIGO REAL ---
-            created_files = []
+            tokens = estimate_tokens(task_result)
+            status_symbol = "✅" if success_task else "⚠"
+            status_text = "Completado con éxito" if success_task else "Completado con advertencias (fallo de compilación)"
             
-            # Formato 1: XML tags
-            xml_matches = re.findall(r'<write_file\s+path="([^"]+)">\s*\n?(.*?)\s*\n?</write_file>', result, re.DOTALL)
-            for rel_path, file_content in xml_matches:
-                full_path = os.path.join(self.project_path, rel_path.strip())
-                try:
-                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                    with open(full_path, "w", encoding="utf-8") as f:
-                        f.write(file_content)
-                    created_files.append(rel_path.strip())
-                except Exception as e:
-                    console.print(f"[red]       ✗ Error creando archivo {rel_path}: {e}[/red]")
-                    logger.error("Error al escribir archivo real de agente: %s", e)
-
-            # Formato 2: Markdown headers
-            md_matches = re.findall(r'\[WRITE_FILE:\s*([^\]\s]+)\]\s*\n*```[a-zA-Z0-9_-]*\n(.*?)\n```', result, re.DOTALL)
-            for rel_path, file_content in md_matches:
-                rel_clean = rel_path.strip()
-                if rel_clean in created_files:
-                    continue
-                full_path = os.path.join(self.project_path, rel_clean)
-                try:
-                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                    with open(full_path, "w", encoding="utf-8") as f:
-                        f.write(file_content)
-                    created_files.append(rel_clean)
-                except Exception as e:
-                    console.print(f"[red]       ✗ Error creando archivo {rel_clean}: {e}[/red]")
-                    logger.error("Error al escribir archivo real de agente: %s", e)
-
-            if created_files:
-                console.print("       [bold green]⚒ Archivos reales creados/actualizados en el disco:[/bold green]")
-                for f_path in created_files:
-                    console.print(f"         [green]- {f_path}[/green]")
-
-            tokens = estimate_tokens(result)
-            console.print(f"[green]       ✓ {output_file}[/green] [dim]({tokens:,} tokens · {elapsed:.1f}s)[/dim]")
+            console.print(f"[green]       {status_symbol} {output_file}[/green] [dim]({tokens:,} tokens · {task_elapsed:.1f}s total)[/dim]")
 
             self.metrics.append({
                 "fase": f"@{agent_name} ({task_id_str})",
                 "detalle": f"~{tokens:,} tokens → {output_file}",
-                "tiempo": elapsed,
-                "status": "✅",
+                "tiempo": task_elapsed,
+                "status": status_symbol,
             })
 
             # Actualizar DAILY.md con handoff
-            self._write_task_handoff(task_id_str, agent_name, task_desc, output_file)
+            self._write_task_handoff_with_status(task_id_str, agent_name, task_desc, output_file, status_text)
 
         # Actualizar tablero: mover todo a DONE
         self._mark_all_done(tasks)
 
-    def _write_task_handoff(self, task_id: str, agent: str, desc: str, output: str) -> None:
-        """Registra un handoff en DAILY.md para trazabilidad entre agentes."""
+    def _write_task_handoff_with_status(self, task_id: str, agent: str, desc: str, output: str, status: str) -> None:
+        """Registra un handoff en DAILY.md con el estado de compilación para trazabilidad."""
         daily_path = os.path.join(self.project_path, "DAILY.md")
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
         entry = (
             f"\n### [{timestamp}] @{agent} — {task_id}\n"
             f"**Tarea:** {desc}\n"
             f"**Archivo generado:** `{output}`\n"
-            f"**Estado:** ✅ Completado\n\n"
+            f"**Estado:** {status}\n\n"
         )
         try:
             existing = _safe_read(daily_path)
@@ -513,6 +698,13 @@ class ProjectOrchestrator:
             padding=(1, 2),
         ))
 
+        # AGENTE VALIDADOR DEL ENTORNO (Environment Probe - Sprint 11)
+        try:
+            self._run_environment_probe()
+        except Exception as e:
+            logger.error("Error ejecutando Environment Probe: %s", e)
+            console.print(f"[yellow]⚠ No se pudo ejecutar el Environment Probe: {e}[/yellow]")
+
         # Fase 1: Product Owner
         if not self._run_product_owner(user_idea):
             total_time = time.perf_counter() - total_start
@@ -527,6 +719,28 @@ class ProjectOrchestrator:
 
         # Fase 3: Task Runner (Ejecución Dinámica)
         self._run_task_runner(user_idea)
+
+        # Compilación automática final del pipeline (Sprint 11)
+        build_cmd = self._detect_compile_command()
+        if build_cmd:
+            console.print("\n[bold yellow]🛠 Ejecutando compilación de validación final del proyecto...[/bold yellow]")
+            returncode, build_output = self._run_build_command(build_cmd)
+            if returncode == 0:
+                console.print("[bold green]✓ ¡Compilación final exitosa! El proyecto está listo.[/bold green]\n")
+                self.metrics.append({
+                    "fase": "🛠 Compilación Final",
+                    "detalle": f"Comando: {build_cmd}",
+                    "tiempo": 0.0,
+                    "status": "✅",
+                })
+            else:
+                console.print(f"[bold red]⚠ La compilación final falló con código {returncode}.[/bold red]\n")
+                self.metrics.append({
+                    "fase": "🛠 Compilación Final",
+                    "detalle": "Fallo de compilación",
+                    "tiempo": 0.0,
+                    "status": "❌",
+                })
 
         # Vincular archivos al contexto
         for fname in self.generated_files:

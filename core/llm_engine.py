@@ -449,39 +449,22 @@ def stream_ollama(state, rag_context: str = "") -> str | None:
                     f"\n[bold green]⚡ Auto-ejecutando comando de lectura:[/bold green]\n"
                     f"[cyan]{cmd_display}[/cyan]"
                 )
-                approved = True
+                output = run_terminal_command(cmd_clean, state, force_confirm=False)
             else:
-                from rich.syntax import Syntax
-                from rich.panel import Panel
-                
-                # Mostrar el comando completo con resaltado de sintaxis bash para claridad total
-                syntax = Syntax(cmd_clean, "bash", theme="monokai", word_wrap=True)
-                panel = Panel(
-                    syntax,
-                    title="[bold yellow]⚡ Comando Sugerido por el Agente[/bold yellow]",
-                    border_style="yellow",
-                    expand=False
-                )
-                console.print(panel)
-                
-                approved = Confirm.ask(
-                    "[bold yellow]¿Deseas ejecutar este comando en la terminal?[/bold yellow]",
-                    default=True
-                )
+                # La confirmación, validación y [y/n/a] se manejan centralizadamente en terminal.py
+                output = run_terminal_command(cmd_clean, state, force_confirm=True)
 
-            if approved:
-                output = run_terminal_command(cmd_clean, state)
-                executed_any = True
+            executed_any = True
 
-                state.history.append({"role": "assistant", "content": full})
-                state.history.append({
-                    "role": "user",
-                    "content": (
-                        f"El comando se ejecutó. Aquí está el resultado:\n"
-                        f"<terminal_output>\n{output[:3000]}\n</terminal_output>\n"
-                        f"Analiza el resultado y continúa."
-                    )
-                })
+            state.history.append({"role": "assistant", "content": full})
+            state.history.append({
+                "role": "user",
+                "content": (
+                    f"El comando se ejecutó. Aquí está el resultado:\n"
+                    f"<terminal_output>\n{output[:3000]}\n</terminal_output>\n"
+                    f"Analiza el resultado y continúa."
+                )
+            })
 
         if not executed_any:
             break

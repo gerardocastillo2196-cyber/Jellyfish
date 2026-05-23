@@ -78,6 +78,7 @@ class JellyfishCompleter(Completer):
         "/research": "Ejecutar agente investigador multi-pasos",
         "/auto": "Ejecutar agencia autónoma de desarrollo completa",
         "/build": "→ /auto (alias)",
+        "/compile": "Compilar el proyecto activo usando detección dinámica de comandos",
         "/help": "Ver guía de comandos",
         "/exit": "Cerrar Jellyfish",
         "/Goff": "Desactivar guías de construcción del proyecto",
@@ -249,6 +250,9 @@ def main():
     # Mostrar la guía del proyecto si no hay un proyecto activo o está incompleto
     from core.crud import show_project_guide_if_needed
     show_project_guide_if_needed(state)
+
+    # Sprint 11 — Aislamiento y Control de Ejecución Seguro
+    console.print("[dim cyan]🛡  Modo de Aislamiento de Proyecto y Control de Ejecución Seguro Activo.[/dim cyan]")
 
     # Sprint 8.0 — Key bindings globales
     kb = KeyBindings()
