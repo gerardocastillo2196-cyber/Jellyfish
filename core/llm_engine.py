@@ -35,6 +35,69 @@ _http_client: httpx.Client | None = None
 _http_client_lock = threading.Lock()
 
 
+def ensure_ollama_running(ollama_url: str = "http://localhost:11434") -> bool:
+    """Verifica si Ollama está activo. Si no, intenta levantarlo en segundo plano.
+
+    Sprint 11 — Levantamiento automático de Ollama.
+    """
+    import subprocess
+    from urllib.parse import urlparse
+    parsed = urlparse(ollama_url)
+    if parsed.scheme and parsed.netloc:
+        base_url = f"{parsed.scheme}://{parsed.netloc}"
+    else:
+        base_url = ollama_url.rstrip("/")
+    api_url = f"{base_url}/api/tags"
+    
+    try:
+        # Intentar una petición rápida con timeout corto
+        with httpx.Client(timeout=1.5) as client:
+            resp = client.get(api_url)
+            if resp.status_code == 200:
+                logger.info("Ollama ya se encuentra activo en %s", base_url)
+                return True
+    except (httpx.ConnectError, httpx.TimeoutException, httpx.RequestError):
+        pass
+        
+    # Si no responde, intentar levantarlo
+    logger.info("Ollama no responde. Intentando iniciar servicio 'ollama serve'...")
+    console.print(f"[yellow]⚠ Ollama no responde en {base_url}. Intentando iniciar 'ollama serve' en segundo plano...[/yellow]")
+    
+    try:
+        # Ejecutar ollama serve en segundo plano
+        subprocess.Popen(
+            ["ollama", "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            preexec_fn=os.setpgrp if hasattr(os, "setpgrp") else None
+        )
+        
+        # Esperar y verificar hasta 3 veces si responde (cada 2 segundos)
+        for i in range(3):
+            time.sleep(2.0)
+            try:
+                with httpx.Client(timeout=1.5) as client:
+                    resp = client.get(api_url)
+                    if resp.status_code == 200:
+                        console.print("[green]✓ Ollama iniciado correctamente en segundo plano.[/green]")
+                        logger.info("Ollama iniciado exitosamente en el intento %d", i+1)
+                        return True
+            except (httpx.ConnectError, httpx.TimeoutException, httpx.RequestError):
+                pass
+    except FileNotFoundError:
+        console.print("[bold red]⚠ Alerta: El comando 'ollama' no está instalado en el sistema.[/bold red]")
+        logger.warning("El ejecutable 'ollama' no fue encontrado.")
+        return False
+    except Exception as e:
+        console.print(f"[bold red]⚠ Alerta: No se pudo iniciar Ollama automáticamente: {e}[/bold red]")
+        logger.error("Error al levantar Ollama: %s", e)
+        return False
+        
+    console.print("[bold yellow]⚠ Advertencia: Se ejecutó 'ollama serve' pero no responde. Es posible que debas iniciarlo manualmente.[/bold yellow]")
+    logger.warning("Ollama se ejecutó pero no responde en %s", base_url)
+    return False
+
+
 def _get_http_client() -> httpx.Client:
     """Retorna un cliente httpx persistente con connection pooling.
 
@@ -69,7 +132,7 @@ def _get_provider_config(state, provider: str | None = None) -> tuple[str, dict]
     """
     provider_name = normalize_provider(provider or state.provider)
     if provider_name == "ollama":
-        return state.ollama_url, {"Content-Type": "application/json"}
+        return state.ollama_base_url, {"Content-Type": "application/json"}
 
     base_url = state.base_urls.get(provider_name) or getattr(state, f"{provider_name}_base_url", "")
     if not base_url:

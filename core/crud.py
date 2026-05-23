@@ -586,7 +586,7 @@ def _show_provider_info(state):
     """Muestra información del proveedor de IA activo."""
     provider_meta = PROVIDER_CONFIGS.get(state.provider, {})
     key_status = "No requiere API key" if state.provider == "ollama" else _mask_key(state.api_keys.get(state.provider, ""))
-    base_url = state.base_urls.get(state.provider, state.ollama_url)
+    base_url = state.base_urls.get(state.provider, state.ollama_base_url)
     console.print(Panel(
         f"[bold]Proveedor:[/bold] {state.provider.upper()} — {provider_meta.get('label', '')}\n"
         f"[bold]Modelo:[/bold] {state.model}\n"

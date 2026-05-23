@@ -134,6 +134,12 @@ Para apegarse fielmente a las metodologías ágiles:
 *   En el momento en que se activa un proyecto con `/project`, el sistema reconfigura en caliente el Prompt del Sistema del agente `@default` para actuar como el **Product Owner (PO)**.
 *   Bajo este rol, el agente conversará contigo para estructurar tus ideas en el `BACKLOG.md` mediante historias de usuario y criterios de aceptación, y se rehusará a actuar como Scrum Master o programar tareas hasta que confirmes la aprobación del backlog del producto.
 
+### ⚙️ F. Gestión Inteligente de Ollama y Tolerancia del RAG
+Para asegurar la disponibilidad de la base vectorial local de embeddings:
+*   Al iniciar Jellyfish OS, el sistema verifica de forma no bloqueante si el servicio de Ollama responde en la URL configurada.
+*   Si el servicio no responde, intenta levantarlo automáticamente ejecutando `ollama serve` en segundo plano.
+*   Si no está instalado o no se puede iniciar, muestra un Warning controlado en la terminal y pone el estado del RAG en `RAG[ERR]` de forma segura, previniendo que se intente inicializar incorrectamente o que se borre la base vectorial local ChromaDB existente.
+
 ---
 
 ## 📋 4. Orquestador de Metodología Scrum y Flujo Autónomo
@@ -174,6 +180,8 @@ Fase 3: Task Runner (Ejecución Autónoma)
        2. Actualiza el tablero: Mueve la tarea a la columna IN PROGRESS.
        3. El agente genera y ejecuta comandos en la terminal (con streaming live en tu consola).
        4. El agente escribe los archivos de código correspondientes a la tarea.
+          * El Task Runner implementa un parser que busca bloques de código reales dentro de la respuesta del agente.
+          * Si el agente responde usando etiquetas XML (<write_file path="...">...</write_file>) o anotaciones Markdown ([WRITE_FILE: path] + code block), el sistema operativo crea automáticamente los directorios y archivos de código real.
        5. Al terminar, el sistema mueve la tarea a la columna DONE en el tablero.
        6. El agente registra su bitácora de actualización en `DAILY.md`.
        │

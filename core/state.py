@@ -341,6 +341,15 @@ class JellyfishState:
                 except Exception:
                     pass
 
+    @property
+    def ollama_url(self) -> str:
+        """Alias heredado para ollama_base_url para asegurar compatibilidad."""
+        return getattr(self, "ollama_base_url", "http://localhost:11434/api/chat")
+
+    @ollama_url.setter
+    def ollama_url(self, value: str) -> None:
+        self.ollama_base_url = value
+
     def save_config(self, **kwargs) -> None:
         """Guarda configuraciones en el archivo .env y las recarga en memoria.
         
