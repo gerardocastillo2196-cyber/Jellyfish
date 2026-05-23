@@ -6,6 +6,8 @@ import logging
 import signal
 from rich.panel import Panel
 from rich.console import Console
+from prompt_toolkit import PromptSession
+from prompt_toolkit.validation import Validator, ValidationError
 
 logger = logging.getLogger("jellyfish.terminal")
 console = Console()
@@ -16,17 +18,24 @@ DEFAULT_TIMEOUT = 120
 # Sprint 1.3 — Lista negra de comandos destructivos (regex).
 # Estos patrones nunca se ejecutarán, sin importar la confirmación del usuario.
 _DESTRUCTIVE_PATTERNS: list[re.Pattern] = [
-    # rm con flags que incluyan r y f en cualquier orden (-rf, -fr, -Rf, -rRf, etc.)
-    re.compile(r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\b|\brm\s+-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*\b", re.IGNORECASE),
-    re.compile(r"\bmkfs\b", re.IGNORECASE),                       # mkfs.*
-    re.compile(r"\bdd\b.*\bof=/dev/", re.IGNORECASE),             # dd of=/dev/sda
-    re.compile(r"\bchmod\s+(-[a-zA-Z]*R[a-zA-Z]*|--recursive)\s+[0-7]*7[0-7]*\s+/", re.IGNORECASE),  # chmod -R 777 /
-    re.compile(r">\s*/dev/sda", re.IGNORECASE),                   # > /dev/sda
-    re.compile(r"\bformat\b.*[cCdDeE]:\\\\", re.IGNORECASE),     # format C:\ (Windows)
-    re.compile(r":\(\)\{.*\};:", re.IGNORECASE),                  # fork bomb
-    re.compile(r"\b(find|fd)\b.*\s-delete\b", re.IGNORECASE),     # borrado masivo via find/fd
-    re.compile(r"\b(wipefs|fdisk|sfdisk|parted)\b", re.IGNORECASE),  # particiones/discos
-    re.compile(r"\bshred\b.*\s(/|~|\$HOME)\b", re.IGNORECASE),    # destrucción de datos
+    # 1. Eliminaciones masivas fuera del scope o destructivas (rm recursivo)
+    re.compile(r"\brm\s+(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)\b", re.IGNORECASE),
+    # 2. Comandos de formateo o manipulación cruda de discos
+    re.compile(r"\bmkfs\b", re.IGNORECASE),
+    re.compile(r"\bdd\b.*\bof=/dev/", re.IGNORECASE),
+    re.compile(r"\b(wipefs|fdisk|sfdisk|parted|gparted)\b", re.IGNORECASE),
+    re.compile(r">\s*/dev/sda", re.IGNORECASE),
+    re.compile(r"\bformat\b.*[cCdDeE]:\\\\", re.IGNORECASE),
+    # 3. Alteraciones críticas de usuarios o del sistema (chmod/chown masivos en raíz)
+    re.compile(r"\b(chmod|chown)\b.*(-R|--recursive).*(?:/(?:$|\s)|/(etc|var|usr|bin|sbin|lib|sys|proc|dev|boot|root|home|opt|srv)\b)", re.IGNORECASE),
+    re.compile(r"\bchmod\s+(-[a-zA-Z]*R[a-zA-Z]*|--recursive)\s+[0-7]*7[0-7]*\s+/", re.IGNORECASE),
+    # 4. Comandos de red o ejecución remota sospechosos
+    re.compile(r"\b(curl|wget)\b.*\s*\|\s*(sh|bash|zsh|dash|ash)\b", re.IGNORECASE),
+    re.compile(r"\b(sh|bash|zsh|dash|ash)\s+<.*\b(curl|wget)\b", re.IGNORECASE),
+    # Fork bomb / shred / borrado masivo find
+    re.compile(r":\(\)\{.*\};:", re.IGNORECASE),
+    re.compile(r"\b(find|fd)\b.*\s-delete\b", re.IGNORECASE),
+    re.compile(r"\bshred\b.*\s(/|~|\$HOME)\b", re.IGNORECASE),
 ]
 
 _SHELL_META_RE = re.compile(r"[|&;<>()$`*?\[\]{}~]")
@@ -125,6 +134,8 @@ def run_terminal_command(
     state,
     silent_history: bool = False,
     timeout: int = DEFAULT_TIMEOUT,
+    force_confirm: bool = False,
+    return_code_dict: dict = None,
 ) -> str:
     """Ejecuta un comando en la terminal del sistema.
 
@@ -141,6 +152,8 @@ def run_terminal_command(
         state: Instancia de JellyfishState para inyectar el resultado.
         silent_history: Si es True, no agrega el resultado al historial.
         timeout: Segundos máximos de ejecución antes de abortar.
+        force_confirm: Si es True, requiere confirmación del usuario [y/n/a].
+        return_code_dict: Diccionario opcional para retornar el código de salida.
 
     Returns:
         La salida del comando como string.
@@ -165,18 +178,70 @@ def run_terminal_command(
     dangerous, matched_pattern = _is_destructive(actual_command)
     if dangerous:
         msg = (
-            f"🛑 Comando bloqueado por política de seguridad.\n"
-            f"   Patrón detectado: {matched_pattern}\n"
-            f"   Comando: {actual_command[:120]}"
+            f"🛑 INCIDENTE DE SEGURIDAD: Comando destructivo detectado y bloqueado automáticamente.\n"
+            f"   Patrón de lista negra: {matched_pattern}\n"
+            f"   Comando: {actual_command[:150]}"
         )
-        console.print(f"[bold red]{msg}[/bold red]")
-        logger.warning("Comando destructivo bloqueado: %s", actual_command[:120])
+        console.print(f"\n[bold red]{'━'*80}\n{msg}\n{'━'*80}[/bold red]\n")
+        logger.error("COMANDO DESTRUCTIVO BLOQUEADO: %s (Patrón: %s)", actual_command, matched_pattern)
+        if return_code_dict is not None:
+            return_code_dict['returncode'] = -1
         return msg
 
+    # Sprint 11 — Sistema de permisos dinámicos y configuración por proyecto [y/n/a]
+    requires_prompt = force_confirm
+    if requires_prompt and state.is_project_auto_approved():
+        requires_prompt = False
+
+    if requires_prompt:
+        from rich.syntax import Syntax
+        
+        class YesNoAlwaysValidator(Validator):
+            def validate(self, document):
+                text = document.text.strip().lower()
+                if text not in ('y', 'n', 'a'):
+                    raise ValidationError(message="Ingresa 'y' (una vez), 'n' (denegar) o 'a' (siempre en este proyecto)")
+
+        syntax = Syntax(actual_command, "bash", theme="monokai", word_wrap=True)
+        panel = Panel(
+            syntax,
+            title="[bold yellow]⚡ SOLICITUD DE EJECUCIÓN DE COMANDO[/bold yellow]",
+            subtitle="[bold white][y][/bold white] Permitir una vez  ·  [bold white][n][/bold white] Denegar  ·  [bold white][a][/bold white] Permitir siempre para este proyecto",
+            border_style="yellow",
+            expand=False,
+            padding=(1, 2)
+        )
+        console.print()
+        console.print(panel)
+
+        try:
+            session = PromptSession()
+            decision = session.prompt("Decisión [y/n/a]: ", validator=YesNoAlwaysValidator()).strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            decision = 'n'
+            console.print("\n[red]✗ Comando denegado por interrupción.[/red]")
+
+        if decision == 'n':
+            console.print("[red]✗ Ejecución denegada por el usuario.[/red]\n")
+            if return_code_dict is not None:
+                return_code_dict['returncode'] = -1
+            return "Ejecución denegada por el usuario."
+        elif decision == 'a':
+            state.enable_project_auto_approve()
+            console.print("[green]✓ Auto-aprobación activada para este proyecto en adelante.[/green]\n")
+
     try:
-        popen_command, use_shell = _prepare_subprocess_command(actual_command)
         # Sprint 8.4 — Ejecutar comandos en la carpeta del proyecto activo si está configurado
         exec_cwd = state.active_project if getattr(state, "active_project", None) and os.path.exists(state.active_project) else None
+
+        # Sprint 11 — Activar entorno virtual si existe en el proyecto
+        if exec_cwd and os.path.isfile(os.path.join(exec_cwd, ".venv", "bin", "activate")):
+            import shlex
+            venv_activate = os.path.join(exec_cwd, ".venv", "bin", "activate")
+            popen_command = f". {shlex.quote(venv_activate)} && {actual_command}"
+            use_shell = True
+        else:
+            popen_command, use_shell = _prepare_subprocess_command(actual_command)
 
         import threading
         import sys
@@ -211,6 +276,9 @@ def run_terminal_command(
         console.print(f"╰{'─'*80}╯")
 
         res = "".join(captured_lines).strip()
+        if return_code_dict is not None:
+            return_code_dict['returncode'] = process.returncode
+
         if not res:
             res = f"✓ Comando ejecutado sin salida (exit code: {process.returncode})"
             console.print(f"[dim]{res}[/dim]")
@@ -243,16 +311,22 @@ def run_terminal_command(
         msg = f"⏰ Timeout: el comando excedió los {actual_timeout} segundos."
         console.print(f"[bold red]{msg}[/bold red]")
         logger.warning("Timeout ejecutando: %s", actual_command[:100])
+        if return_code_dict is not None:
+            return_code_dict['returncode'] = -1
         return msg
 
     except FileNotFoundError as e:
         msg = f"Comando no encontrado: {e}"
         console.print(f"[dim red]{msg}[/dim red]")
         logger.error("Comando no encontrado: %s", e)
+        if return_code_dict is not None:
+            return_code_dict['returncode'] = -1
         return msg
 
     except Exception as e:
         msg = f"Error al ejecutar comando: {e}"
         console.print(f"[dim red]{msg}[/dim red]")
         logger.error("Error terminal: %s", e)
+        if return_code_dict is not None:
+            return_code_dict['returncode'] = -1
         return str(e)

@@ -338,6 +338,9 @@ def handle_slash_command(cmd_input: str, state, rag, plugins, display_header_fun
     elif command in ("/auto", "/build"):
         _handle_auto(arg, state, display_header_func)
 
+    elif command == "/compile":
+        _handle_compile(state)
+
     else:
         console.print(f"[yellow]Comando desconocido: {command}. Usa /help.[/yellow]")
 
@@ -382,6 +385,24 @@ def _handle_auto(arg: str, state, display_header_func) -> None:
         display_header_func()
 
 
+def _handle_compile(state) -> None:
+    """Ejecuta el comando de compilación del proyecto activo en tiempo real."""
+    if not state.active_project:
+        console.print("[red]⚠ No hay un proyecto activo vinculado. Usa /project primero.[/red]")
+        return
+        
+    from core.project_orchestrator import ProjectOrchestrator
+    orchestrator = ProjectOrchestrator(state)
+    build_cmd = orchestrator._detect_compile_command()
+    
+    if not build_cmd:
+        console.print("[yellow]⚠ No se detectó ningún comando de compilación para este proyecto.[/yellow]")
+        return
+        
+    console.print(f"[bold yellow]🛠 Compilando proyecto activo con comando: {build_cmd}...[/bold yellow]")
+    run_terminal_command(build_cmd, state)
+
+
 def _show_help(display_header_func):
     """Muestra la guía de comandos y manual completo."""
     manual = """
@@ -398,10 +419,13 @@ Jellyfish es un framework de agentes técnicos impulsados por IA. Combina modelo
 *   **Contexto RAG (Indexación Vectorial):** Al hacer `/add` sobre una *carpeta*, Jellyfish trocea el código y lo guarda en una base vectorial (ChromaDB) aislada por proyecto. Cada pregunta recupera solo los fragmentos más relevantes.
 *   **Importante:** El RAG ahora crea una base de datos separada por cada proyecto indexado (basada en el hash del directorio), evitando que el código de proyectos distintos se mezcle.
 
-**B. Bucle Auto-ReAct (Autonomía)**
-Cuando el modelo sugiere comandos Bash, Jellyfish pide confirmación. Si la apruebas, ejecuta el comando e inyecta la salida al modelo (hasta 3 ciclos). Novedades de seguridad:
+**B. Bucle Auto-ReAct (Autonomía y Permisos Dinámicos)**
+Cuando el modelo o el Task Runner sugieren comandos Bash, Jellyfish detiene la ejecución para pedir confirmación interactiva a través de un sistema de permisos:
+*   `[y] Permitir una vez:` Ejecuta el comando actual de forma aislada.
+*   `[n] Denegar:` Detiene de forma segura y devuelve un mensaje de cancelación al agente.
+*   `[a] Permitir siempre para este proyecto:` Activa la auto-aprobación permanente para el proyecto actual, persistiendo la decisión en `.jellyfish_project_config.json`.
+*   **Lista negra rígida:** Los comandos destructivos (como `rm` recursivo destructivo, `mkfs`, `fdisk`, `dd of=/dev/`, `chmod`/`chown` masivos en directorios raíz, y `curl | sh`) se abortan de inmediato y reportan un incidente de seguridad, sin dar opción de omisión al usuario.
 *   **Auto-rechazo:** Si no respondes en 60 segundos, el comando se rechaza automáticamente.
-*   **Lista negra:** Comandos como `rm -rf`, `mkfs`, `dd of=/dev/*` o fork bombs son bloqueados de forma permanente, sin importar la confirmación.
 *   **Ctrl+C grácil:** Interrumpir el stream conserva la respuesta parcial ya recibida sin matar Jellyfish.
 
 **C. Orquestador Multi-Agente (`/research`)**
@@ -499,7 +523,23 @@ Las Skills enseñan al agente comandos Bash pre-configurados con manejo de error
 
 ---
 
-## 🚀 6. HERRAMIENTAS DE SISTEMA
+## 📁 6. GESTIÓN DE PROYECTOS Y GUÍAS DE CONSTRUCCIÓN
+
+### `/project <ruta>` — Aislamiento y Entornos Virtuales
+*   `/project [ruta_directorio]` — Carga o inicializa un proyecto Scrum o Cascada en Jellyfish.
+*   **Aislamiento automático:** Al cargar un proyecto con código Python, Jellyfish crea automáticamente un entorno virtual `.venv` y lo activa para aislar todas las instalaciones de dependencias del sistema host.
+*   **Locks de concurrencia:** Crea un lock en la raíz del proyecto para evitar colisiones de ChromaDB o archivos si se abre en otra sesión de Jellyfish.
+
+### Guías de Construcción (`/gon` y `/goff`)
+*   `/gon` — Activa la guía interactiva del proyecto para sprints y metodología Scrum.
+*   `/goff` — Desactiva las guías interactivas para una experiencia de chat más limpia.
+
+### `/compile` — Compilación y Verificación de Integridad
+*   `/compile` — Lanza la compilación del proyecto utilizando la detección automática de herramientas (ej. Java, Node, Python) en un entorno de ejecución seguro.
+
+---
+
+## 🚀 7. HERRAMIENTAS DE SISTEMA
 
 ### `/run` (alias: `/r`) — Terminal Integrada
 *   `/run [comando]`: Ejecuta un comando sin salir de Jellyfish. La salida se inyecta al historial.
@@ -522,7 +562,7 @@ Las Skills enseñan al agente comandos Bash pre-configurados con manejo de error
 
 ---
 
-## 🔑 7. VARIABLES DE ENTORNO AVANZADAS (`.env`)
+## 🔑 8. VARIABLES DE ENTORNO AVANZADAS (`.env`)
 
 | Variable | Default | Descripción |
 |---|---|---|
@@ -545,6 +585,10 @@ Las Skills enseñan al agente comandos Bash pre-configurados con manejo de error
 | `/add [ruta]` | — | Añadir archivo o carpeta al contexto/RAG |
 | `/context` | `/c` | Gestionar contexto activo |
 | `/rag <status|reindex|remove|clear>` | — | Control del índice vectorial |
+| `/project <ruta>` | — | Cargar/Crear un proyecto Scrum o Cascada |
+| `/compile` | — | Compilar y validar el proyecto activo |
+| `/gon` | — | Activar guías del proyecto (Guides On) |
+| `/goff` | — | Desactivar guías del proyecto (Guides Off) |
 | `/purge` | — | Borrar todo contexto y RAG |
 | `/agent` | `/a` | Gestionar agentes |
 | `/skill` | `/s` | Gestionar habilidades |

@@ -341,6 +341,75 @@ class JellyfishState:
                 except Exception:
                     pass
 
+            # Entornos virtuales automáticos por proyecto (Sprint 11)
+            try:
+                self.setup_project_virtual_env()
+            except Exception as e:
+                logger.error("Error en setup_project_virtual_env: %s", e)
+
+    def setup_project_virtual_env(self) -> None:
+        """Identifica si el proyecto activo tiene Python, y si es así crea un venv automáticamente."""
+        if not self.active_project or not os.path.isdir(self.active_project):
+            return
+            
+        has_python = False
+        for root, dirs, files in os.walk(self.active_project):
+            # Ignorar directorios comunes para mayor velocidad
+            dirs[:] = [d for d in dirs if d not in ('.git', 'venv', '.venv', 'node_modules')]
+            for f in files:
+                if f.endswith('.py') or f in ('requirements.txt', 'pyproject.toml', 'setup.py', 'Pipfile'):
+                    has_python = True
+                    break
+            if has_python:
+                break
+                
+        if has_python:
+            venv_path = os.path.join(self.active_project, ".venv")
+            if not os.path.isdir(venv_path):
+                from rich.console import Console
+                import subprocess
+                Console().print(f"\n[yellow]⚡ Detectada tecnología Python en el proyecto. Creando entorno virtual (.venv)...[/yellow]")
+                try:
+                    subprocess.run(["python3", "-m", "venv", ".venv"], cwd=self.active_project, check=True)
+                    Console().print("[green]✓ Entorno virtual (.venv) creado con éxito.[/green]")
+                except Exception as e:
+                    Console().print(f"[red]⚠ Error al crear el entorno virtual: {e}[/red]")
+
+    def is_project_auto_approved(self) -> bool:
+        """Retorna True si el proyecto activo tiene la auto-aprobación de comandos activada (Sprint 11)."""
+        if not self.active_project or not os.path.isdir(self.active_project):
+            return False
+        config_path = os.path.join(self.active_project, ".jellyfish_project_config.json")
+        if not os.path.isfile(config_path):
+            return False
+        try:
+            import json
+            with open(config_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data.get("allow_all_commands", False)
+        except Exception:
+            return False
+
+    def enable_project_auto_approve(self) -> None:
+        """Activa la auto-aprobación persistente para el proyecto activo (Sprint 11)."""
+        if not self.active_project or not os.path.isdir(self.active_project):
+            return
+        config_path = os.path.join(self.active_project, ".jellyfish_project_config.json")
+        try:
+            import json
+            data = {}
+            if os.path.isfile(config_path):
+                try:
+                    with open(config_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except Exception:
+                    pass
+            data["allow_all_commands"] = True
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4)
+        except Exception as e:
+            logger.error("Error guardando auto-aprobación del proyecto: %s", e)
+
     @property
     def ollama_url(self) -> str:
         """Alias heredado para ollama_base_url para asegurar compatibilidad."""
