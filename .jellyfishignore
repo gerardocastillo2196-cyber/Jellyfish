@@ -6,6 +6,8 @@ env/
 __pycache__/
 node_modules/
 code_vector_db/
+code_vector_db*/
+code_vector_db*
 test_db/
 dist/
 build/

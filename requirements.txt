@@ -3,6 +3,7 @@
 
 # --- Core ---
 requests>=2.31.0
+httpx>=0.28.0
 rich>=13.0.0
 prompt_toolkit>=3.0.40
 python-dotenv>=1.0.0

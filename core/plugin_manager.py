@@ -6,6 +6,7 @@ import subprocess
 import logging
 import traceback
 import tempfile
+import shutil
 from rich.console import Console
 
 logger = logging.getLogger("jellyfish.plugins")
@@ -13,6 +14,7 @@ console = Console()
 
 # Sprint 4.2 — Tiempo máximo de ejecución para cada plugin en modo sandbox
 _PLUGIN_TIMEOUT_S = 30
+_PLUGIN_MEMORY_LIMIT_BYTES = 512 * 1024 * 1024
 
 # Sprint 4.2 — Wrapper que ejecuta la función execute() del plugin en un
 # subproceso Python aislado, pasando args por stdin y recibiendo resultado por stdout.
@@ -33,6 +35,20 @@ except Exception as e:
 """
 
 
+def _limit_plugin_resources() -> None:
+    """Aplica límites defensivos en sistemas POSIX."""
+    try:
+        import resource
+
+        resource.setrlimit(resource.RLIMIT_CPU, (_PLUGIN_TIMEOUT_S + 5, _PLUGIN_TIMEOUT_S + 5))
+        resource.setrlimit(resource.RLIMIT_AS, (_PLUGIN_MEMORY_LIMIT_BYTES, _PLUGIN_MEMORY_LIMIT_BYTES))
+        resource.setrlimit(resource.RLIMIT_FSIZE, (10 * 1024 * 1024, 10 * 1024 * 1024))
+        resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
+    except Exception:
+        # preexec_fn no debe romper el arranque del subproceso.
+        pass
+
+
 class PluginManager:
     """Sistema de plugins dinámicos para Jellyfish.
 
@@ -50,6 +66,7 @@ class PluginManager:
 
     def __init__(self, plugins_dir: str):
         self.plugins_dir = plugins_dir
+        self._plugins_root = os.path.realpath(plugins_dir)
         # Metadatos de plugins descubiertos: {name -> filepath}
         self._plugin_files: dict[str, str] = {}
         # Módulos cargados (solo en modo legado)
@@ -81,7 +98,10 @@ class PluginManager:
                 continue
 
             plugin_name = filename[:-3]
-            filepath = os.path.join(self.plugins_dir, filename)
+            filepath = os.path.realpath(os.path.join(self.plugins_dir, filename))
+            if not filepath.startswith(self._plugins_root + os.sep):
+                logger.warning("Plugin fuera de plugins_dir ignorado: %s", filepath)
+                continue
             self._plugin_files[plugin_name] = filepath
 
             if not self._sandbox:
@@ -146,7 +166,12 @@ class PluginManager:
             return self._run_inprocess(plugin_name, args)
 
     def _run_sandboxed(self, plugin_name: str, args: str) -> str:
-        """Ejecuta el plugin en un subproceso Python aislado (Sprint 4.2)."""
+        """Ejecuta el plugin en un subproceso aislado con timeout.
+
+        Si bubblewrap está disponible, se usa un sandbox de filesystem/red.
+        Si no, se cae a Python aislado (-I), entorno sin secretos y límites
+        básicos de recursos.
+        """
         filepath = self._plugin_files[plugin_name]
 
         # Escribir el runner wrapper en un archivo temporal
@@ -160,12 +185,12 @@ class PluginManager:
             return f"Error creando sandbox runner: {e}"
 
         try:
-            result = subprocess.run(
-                [sys.executable, runner_path, filepath, args],
-                capture_output=True,
-                text=True,
-                timeout=_PLUGIN_TIMEOUT_S,
-            )
+            cmd, mode = self._sandbox_command(runner_path, filepath, args)
+            result = self._run_plugin_process(cmd)
+            if mode == "bubblewrap" and result.returncode != 0 and not result.stdout.strip():
+                logger.warning("Bubblewrap no pudo iniciar plugin, usando fallback aislado.")
+                fallback = [sys.executable, "-I", runner_path, filepath, args]
+                result = self._run_plugin_process(fallback)
             stdout = result.stdout.strip()
             stderr = result.stderr.strip()
 
@@ -201,6 +226,74 @@ class PluginManager:
             except OSError:
                 pass
 
+    def _sandbox_command(self, runner_path: str, plugin_path: str, args: str) -> tuple[list[str], str]:
+        """Construye el comando de sandbox más fuerte disponible."""
+        bwrap = shutil.which("bwrap")
+        if not bwrap:
+            return [sys.executable, "-I", runner_path, plugin_path, args], "python-isolated"
+
+        cmd = [
+            bwrap,
+            "--die-with-parent",
+            "--new-session",
+            "--unshare-all",
+            "--proc", "/proc",
+            "--dev", "/dev",
+            "--tmpfs", "/tmp",
+            "--tmpfs", "/sandbox",
+        ]
+
+        for path in ("/usr", "/bin", "/lib", "/lib64"):
+            if os.path.exists(path):
+                cmd.extend(["--ro-bind", path, path])
+
+        # Si Jellyfish corre desde un venv bajo /home, Python necesita ese venv,
+        # pero no se expone el resto del proyecto ni el .env.
+        python_cmd = sys.executable
+        venv_root = os.path.realpath(sys.prefix)
+        if venv_root and os.path.exists(venv_root) and not venv_root.startswith(("/usr", "/bin", "/lib")):
+            cmd.extend(["--ro-bind", venv_root, "/venv"])
+            try:
+                python_cmd = os.path.join("/venv", os.path.relpath(sys.executable, venv_root))
+            except ValueError:
+                python_cmd = "/venv/bin/python"
+
+        cmd.extend([
+            "--ro-bind", runner_path, "/sandbox/runner.py",
+            "--ro-bind", plugin_path, "/sandbox/plugin.py",
+            "--chdir", "/sandbox",
+            "--setenv", "PYTHONDONTWRITEBYTECODE", "1",
+            "--setenv", "PYTHONNOUSERSITE", "1",
+            python_cmd,
+            "-I",
+            "/sandbox/runner.py",
+            "/sandbox/plugin.py",
+            args,
+        ])
+        return cmd, "bubblewrap"
+
+    def _run_plugin_process(self, cmd: list[str]) -> subprocess.CompletedProcess:
+        """Ejecuta el comando del plugin con entorno limpio y límites básicos."""
+        return subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=_PLUGIN_TIMEOUT_S,
+            env=self._plugin_env(),
+            preexec_fn=_limit_plugin_resources if os.name == "posix" else None,
+        )
+
+    def _plugin_env(self) -> dict:
+        env = {
+            "PATH": os.getenv("PATH", "/usr/bin:/bin"),
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONNOUSERSITE": "1",
+        }
+        for key in ("LANG", "LC_ALL"):
+            if os.getenv(key):
+                env[key] = os.getenv(key)
+        return env
+
     def _run_inprocess(self, plugin_name: str, args: str) -> str:
         """Ejecuta el plugin en el proceso principal (modo legado)."""
         if plugin_name not in self.plugins:
@@ -233,7 +326,9 @@ class PluginManager:
         if not self._plugin_files:
             return "No hay plugins instalados."
 
-        mode_tag = "[sandbox]" if self._sandbox else "[legado]"
+        mode_tag = "[bubblewrap]" if self._sandbox and shutil.which("bwrap") else (
+            "[python-isolated]" if self._sandbox else "[legado]"
+        )
         lines = [f"Modo: {mode_tag}"]
         for name, filepath in sorted(self._plugin_files.items()):
             # Leer docstring de execute() sin importar el módulo completo

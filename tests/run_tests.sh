@@ -264,7 +264,8 @@ with tempfile.TemporaryDirectory() as tmpdir:
     print('✅ Recarga OK' if 'recargados' in r3.lower() else f'❌ Recarga falló: {r3}')
 
     listing = pm.list_plugins()
-    print('✅ Listado con modo sandbox correcto' if 'eco' in listing and 'sandbox' in listing.lower() else f'❌ Listado incompleto: {listing[:80]}')
+    is_sandbox_tag = any(t in listing.lower() for t in ('sandbox', 'bubblewrap', 'python-isolated'))
+    print('✅ Listado con modo sandbox correcto' if 'eco' in listing and is_sandbox_tag else f'❌ Listado incompleto: {listing[:80]}')
 "
 fi
 

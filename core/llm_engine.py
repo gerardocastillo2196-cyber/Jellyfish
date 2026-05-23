@@ -1,9 +1,9 @@
 import os
-import signal
 import time
 import json
 import re
 import logging
+import threading
 import httpx
 from rich.console import Console
 from rich.panel import Panel
@@ -11,10 +11,9 @@ from rich.markdown import Markdown
 from rich.live import Live
 from rich.prompt import Confirm
 
-from core.terminal import run_terminal_command
-from core.state import (
-    OPENAI_BASE_URL, DEEPSEEK_BASE_URL, OPENROUTER_BASE_URL,
-)
+from core.terminal import run_terminal_command, is_readonly_command
+from core.state import normalize_provider, estimate_tokens
+import core.state as _state_module
 
 # Timeout en segundos para la confirmación interactiva del Action Loop (Sprint 1.4)
 _CONFIRM_TIMEOUT_S = 60
@@ -31,28 +30,61 @@ _BASH_REGEX = re.compile(
     re.DOTALL
 )
 
+# Sprint 8.0 — Cliente HTTP persistente (singleton) para reutilizar conexiones
+_http_client: httpx.Client | None = None
+_http_client_lock = threading.Lock()
 
-def _get_provider_config(state) -> tuple:
-    """Retorna (url, headers) según el proveedor configurado en la instancia del estado."""
-    if state.provider == "openai":
-        return f"{OPENAI_BASE_URL}/chat/completions", {
-            "Authorization": f"Bearer {state.openai_api_key}",
-            "Content-Type": "application/json",
-        }
-    elif state.provider == "deepseek":
-        return f"{state.deepseek_base_url}/chat/completions", {
-            "Authorization": f"Bearer {state.deepseek_api_key}",
-            "Content-Type": "application/json",
-        }
-    elif state.provider == "openrouter":
-        return f"{OPENROUTER_BASE_URL}/chat/completions", {
-            "Authorization": f"Bearer {state.openrouter_api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/jellyfish-os",
-            "X-Title": "Jellyfish OS",
-        }
-    else:  # ollama (default)
+
+def _get_http_client() -> httpx.Client:
+    """Retorna un cliente httpx persistente con connection pooling.
+
+    Sprint 8.0 — Evita crear un nuevo cliente en cada request, reduciendo
+    la latencia por renegociación SSL y establecimiento de conexión TCP.
+    """
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        with _http_client_lock:
+            if _http_client is None or _http_client.is_closed:
+                _http_client = httpx.Client(
+                    timeout=httpx.Timeout(300.0, connect=30.0),
+                    limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+                    follow_redirects=True,
+                )
+    return _http_client
+
+
+def _chat_completions_url(base_url: str) -> str:
+    """Construye el endpoint Chat Completions sin duplicar el sufijo."""
+    base = (base_url or "").rstrip("/")
+    if base.endswith("/chat/completions"):
+        return base
+    return f"{base}/chat/completions"
+
+
+def _get_provider_config(state, provider: str | None = None) -> tuple[str, dict]:
+    """Retorna (url, headers) para el proveedor activo u override.
+
+    Ollama usa su endpoint nativo. Los demas proveedores pasan por endpoints
+    compatibles con OpenAI Chat Completions.
+    """
+    provider_name = normalize_provider(provider or state.provider)
+    if provider_name == "ollama":
         return state.ollama_url, {"Content-Type": "application/json"}
+
+    base_url = state.base_urls.get(provider_name) or getattr(state, f"{provider_name}_base_url", "")
+    if not base_url:
+        raise ValueError(f"Proveedor '{provider_name}' requiere configurar base_url.")
+
+    api_key = state.api_keys.get(provider_name) or getattr(state, f"{provider_name}_api_key", "")
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    if provider_name == "openrouter":
+        headers["HTTP-Referer"] = "https://github.com/jellyfish-os"
+        headers["X-Title"] = "Jellyfish OS"
+
+    return _chat_completions_url(base_url), headers
 
 
 def _parse_sse_line(line_bytes: bytes, provider: str) -> str:
@@ -84,7 +116,12 @@ def _parse_ollama_line(line_bytes: bytes) -> str:
     return ""
 
 
-def _call_llm_silent(state, messages: list) -> str | None:
+def _call_llm_silent(
+    state,
+    messages: list,
+    provider: str | None = None,
+    model: str | None = None,
+) -> str | None:
     """Llama al LLM sin mostrar streaming en pantalla (para subagentes internos).
 
     Sprint 1.2 — Usa httpx en modo síncrono con streaming silencioso.
@@ -97,10 +134,11 @@ def _call_llm_silent(state, messages: list) -> str | None:
     Returns:
         La respuesta completa del modelo como string, o None si hay error.
     """
-    url, headers = _get_provider_config(state)
-    is_cloud = state.provider != "ollama"
+    provider_name = normalize_provider(provider or state.provider)
+    url, headers = _get_provider_config(state, provider_name)
+    is_cloud = provider_name != "ollama"
     payload = {
-        "model": state.model,
+        "model": model or state.model,
         "messages": messages,
         "stream": True,
     }
@@ -110,28 +148,34 @@ def _call_llm_silent(state, messages: list) -> str | None:
     try:
         full = ""
         parse_fn = (
-            (lambda line: _parse_sse_line(line, state.provider))
+            (lambda line: _parse_sse_line(line, provider_name))
             if is_cloud
             else _parse_ollama_line
         )
-        # Sprint 3.1 — httpx con streaming síncrono
-        with httpx.Client(timeout=300) as client:
-            with client.stream("POST", url, headers=headers, json=payload) as response:
-                if response.status_code != 200:
-                    logger.warning(
-                        "_call_llm_silent HTTP %s de %s", response.status_code, state.provider
-                    )
-                    return None
-                for line in response.iter_lines():
-                    if not line:
-                        continue
-                    chunk = parse_fn(line.encode("utf-8"))
-                    if chunk:
-                        full += chunk
+        # Sprint 8.0 — Reusar cliente HTTP persistente
+        client = _get_http_client()
+        with client.stream("POST", url, headers=headers, json=payload) as response:
+            if response.status_code != 200:
+                logger.warning(
+                    "_call_llm_silent HTTP %s de %s", response.status_code, provider_name
+                )
+                return None
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                chunk = parse_fn(line.encode("utf-8"))
+                if chunk:
+                    full += chunk
+        if full:
+            tokens_input = sum(estimate_tokens(m.get("content", "")) for m in messages)
+            tokens_output = estimate_tokens(full)
+            total_tokens = tokens_input + tokens_output
+            if hasattr(state, "add_session_tokens"):
+                state.add_session_tokens(total_tokens)
         return full if full else None
 
     except httpx.ConnectError:
-        logger.error("No se puede conectar al proveedor %s (silent)", state.provider)
+        logger.error("No se puede conectar al proveedor %s (silent)", provider_name)
         return None
     except Exception as e:
         logger.error("Error en _call_llm_silent: %s", e)
@@ -143,6 +187,8 @@ def _stream_request(
     messages: list,
     agent_name: str,
     _aborted: list | None = None,
+    provider: str | None = None,
+    model: str | None = None,
 ) -> str | None:
     """Realiza la petición HTTP con streaming al proveedor configurado en el estado.
 
@@ -159,11 +205,13 @@ def _stream_request(
     Returns:
         La respuesta completa del modelo, o None si hay error / cancelación.
     """
-    url, headers = _get_provider_config(state)
-    is_cloud = state.provider != "ollama"
+    provider_name = normalize_provider(provider or state.provider)
+    model_name = model or state.model
+    url, headers = _get_provider_config(state, provider_name)
+    is_cloud = provider_name != "ollama"
 
     payload = {
-        "model": state.model,
+        "model": model_name,
         "messages": messages,
         "stream": True,
     }
@@ -171,70 +219,81 @@ def _stream_request(
         payload["temperature"] = 0.2
 
     full = ""
-    provider_label = f"{state.provider}:{state.model}" if is_cloud else f"@{agent_name}"
+    provider_label = f"{provider_name}:{model_name}" if is_cloud else f"@{agent_name}"
     parse_fn = (
-        (lambda line: _parse_sse_line(line, state.provider))
+        (lambda line: _parse_sse_line(line, provider_name))
         if is_cloud
         else _parse_ollama_line
     )
 
     try:
-        with httpx.Client(timeout=300) as client:
-            with client.stream("POST", url, headers=headers, json=payload) as response:
-                if response.status_code != 200:
-                    error_body = response.read()[:500].decode("utf-8", errors="replace")
+        # Sprint 8.0 — Reusar cliente HTTP persistente
+        client = _get_http_client()
+        with client.stream("POST", url, headers=headers, json=payload) as response:
+            if response.status_code != 200:
+                error_body = response.read()[:500].decode("utf-8", errors="replace")
+                console.print(
+                    f"[bold red]Error HTTP {response.status_code} de {provider_name}:[/bold red]\n"
+                    f"[dim]{error_body}[/dim]"
+                )
+                return None
+
+            # Sprint 3.3 — Streaming con soporte de interrupción grácil
+            with Live(
+                Panel("", title=provider_label),
+                refresh_per_second=12,
+                console=console,
+            ) as live:
+                try:
+                    for line in response.iter_lines():
+                        # Verificar señal de cancelación (Ctrl+C capturado en jellyfish.py)
+                        if _aborted and _aborted[0]:
+                            console.print(
+                                "\n[dim]⚡ Stream interrumpido — respuesta parcial conservada.[/dim]"
+                            )
+                            break
+
+                        if not line:
+                            continue
+
+                        chunk = parse_fn(line.encode("utf-8"))
+                        if chunk:
+                            full += chunk
+                            live.update(Panel(
+                                Markdown(full),
+                                title=provider_label,
+                                border_style="bright_black",
+                            ))
+
+                except KeyboardInterrupt:
+                    # Sprint 3.3 — Ctrl+C dentro del stream: conservar lo recibido
                     console.print(
-                        f"[bold red]Error HTTP {response.status_code} de {state.provider}:[/bold red]\n"
-                        f"[dim]{error_body}[/dim]"
+                        "\n[dim]⚡ Stream interrumpido — respuesta parcial conservada.[/dim]"
                     )
-                    return None
+                    if _aborted is not None:
+                        _aborted[0] = True
 
-                # Sprint 3.3 — Streaming con soporte de interrupción grácil
-                with Live(
-                    Panel("", title=provider_label),
-                    refresh_per_second=12,
-                    console=console,
-                ) as live:
-                    try:
-                        for line in response.iter_lines():
-                            # Verificar señal de cancelación (Ctrl+C capturado en jellyfish.py)
-                            if _aborted and _aborted[0]:
-                                console.print(
-                                    "\n[dim]⚡ Stream interrumpido — respuesta parcial conservada.[/dim]"
-                                )
-                                break
-
-                            if not line:
-                                continue
-
-                            chunk = parse_fn(line.encode("utf-8"))
-                            if chunk:
-                                full += chunk
-                                live.update(Panel(
-                                    Markdown(full),
-                                    title=provider_label,
-                                    border_style="bright_black",
-                                ))
-
-                    except KeyboardInterrupt:
-                        # Sprint 3.3 — Ctrl+C dentro del stream: conservar lo recibido
-                        console.print(
-                            "\n[dim]⚡ Stream interrumpido — respuesta parcial conservada.[/dim]"
-                        )
-                        if _aborted is not None:
-                            _aborted[0] = True
-
+        if full:
+            tokens_input = sum(estimate_tokens(m.get("content", "")) for m in messages)
+            tokens_output = estimate_tokens(full)
+            total_tokens = tokens_input + tokens_output
+            if hasattr(state, "add_session_tokens"):
+                state.add_session_tokens(total_tokens)
+            console.print(
+                f"[dim]⚡ Respuesta: {total_tokens:,} tokens "
+                f"(Input: {tokens_input:,} | Output: {tokens_output:,})[/dim]"
+            )
         return full if full else None
 
     except httpx.ConnectError:
-        if state.provider == "ollama":
+        if provider_name == "ollama":
             console.print(
                 "[bold red]Error: No se puede conectar a Ollama.[/bold red]\n"
                 "[dim]Asegúrate de que Ollama esté ejecutándose: ollama serve[/dim]"
             )
         else:
             console.print(
-                f"[bold red]Error: No se puede conectar al proveedor {state.provider}.[/bold red]\n"
+                f"[bold red]Error: No se puede conectar al proveedor {provider_name}.[/bold red]\n"
                 "[dim]Verifica tu conexión a internet y la URL del API.[/dim]"
             )
         return None
@@ -244,7 +303,7 @@ def _stream_request(
         return None
 
     except Exception as e:
-        console.print(f"[red]Error LLM ({state.provider}): {e}[/red]")
+        console.print(f"[red]Error LLM ({provider_name}): {e}[/red]")
         logger.error("Error en _stream_request: %s", e, exc_info=True)
         return None
 
@@ -288,8 +347,12 @@ def stream_ollama(state, rag_context: str = "") -> str | None:
                 )
             })
 
-        # Realizar la petición — Sprint 3.3: pasar la señal _aborted
-        full = _stream_request(state, messages, state.active_agent, _aborted=_aborted)
+        # Sprint 8.0 — Activar flag de spinner en TUI
+        _state_module._llm_busy = True
+        try:
+            full = _stream_request(state, messages, state.active_agent, _aborted=_aborted)
+        finally:
+            _state_module._llm_busy = False
 
         # Si fue cancelado por Ctrl+C, conservar lo que llegó y salir del ReAct
         if _aborted[0]:
@@ -316,29 +379,32 @@ def stream_ollama(state, rag_context: str = "") -> str | None:
 
             cmd_display = cmd_clean[:200] + "..." if len(cmd_clean) > 200 else cmd_clean
 
-            # Bug fix: rich.Confirm.ask atrapa SIGALRM internamente y reimprime
-            # el prompt en bucle. Usamos input() nativo que SÍ respeta la señal.
-            approved = False
-            try:
-                def _timeout_handler(signum, frame):
-                    raise TimeoutError
-                old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
-                signal.alarm(_CONFIRM_TIMEOUT_S)
+            # Sprint 8.0 — Auto-aprobación para comandos de solo lectura
+            if is_readonly_command(cmd_clean):
+                cmd_display = cmd_clean[:200] + "..." if len(cmd_clean) > 200 else cmd_clean
                 console.print(
-                    f"\n[bold yellow]¿Ejecutar comando sugerido?[/bold yellow]\n"
-                    f"[cyan]{cmd_display}[/cyan]\n"
-                    f"[dim](auto-rechaza en {_CONFIRM_TIMEOUT_S}s)[/dim] "
-                    "[bold][[y/n][/bold]: ",
-                    end=""
+                    f"\n[bold green]⚡ Auto-ejecutando comando de lectura:[/bold green]\n"
+                    f"[cyan]{cmd_display}[/cyan]"
                 )
-                raw = input().strip().lower()
-                signal.alarm(0)
-                signal.signal(signal.SIGALRM, old_handler)
-                approved = raw in ("y", "yes", "s", "si", "sí")
-            except (TimeoutError, OSError, EOFError):
-                signal.alarm(0)
-                console.print("\n[dim]⏰ Sin respuesta — comando rechazado automáticamente.[/dim]")
-                approved = False
+                approved = True
+            else:
+                from rich.syntax import Syntax
+                from rich.panel import Panel
+                
+                # Mostrar el comando completo con resaltado de sintaxis bash para claridad total
+                syntax = Syntax(cmd_clean, "bash", theme="monokai", word_wrap=True)
+                panel = Panel(
+                    syntax,
+                    title="[bold yellow]⚡ Comando Sugerido por el Agente[/bold yellow]",
+                    border_style="yellow",
+                    expand=False
+                )
+                console.print(panel)
+                
+                approved = Confirm.ask(
+                    "[bold yellow]¿Deseas ejecutar este comando en la terminal?[/bold yellow]",
+                    default=True
+                )
 
             if approved:
                 output = run_terminal_command(cmd_clean, state)

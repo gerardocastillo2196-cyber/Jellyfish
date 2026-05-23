@@ -31,9 +31,14 @@ _main_console = Console(force_terminal=True, width=120)
 
 def display_header(active_agent="default", model_name="none", num_skills=0,
                    num_docs=0, rag_status="RAG[OFF]", provider="ollama",
-                   silent=False):
-    """Renderiza el header completo de Jellyfish de forma atómica.
-    
+                   project_name="", project_methodology="", silent=False,
+                   token_budget=None, llm_busy=False, session_tokens=0):
+    """Renderiza el header usando el motor TUI (header fijo).
+
+    Sprint 7.0 — Delega al TUIEngine para pintar el header en la zona fija.
+    Si el TUI no está inicializado, usa el fallback clásico.
+    Sprint 8.0 — Soporta token_budget y llm_busy para el header enriquecido.
+
     Args:
         active_agent: Nombre del agente activo.
         model_name: Nombre del modelo LLM.
@@ -41,8 +46,34 @@ def display_header(active_agent="default", model_name="none", num_skills=0,
         num_docs: Número de documentos en contexto.
         rag_status: Estado del motor RAG.
         provider: Nombre del proveedor de IA activo.
+        project_name: Nombre del proyecto activo.
+        project_methodology: Metodología del proyecto activo.
         silent: Si True, retorna el output como string sin imprimir.
+        token_budget: Dict con info del presupuesto de tokens (de state.token_budget_info()).
+        llm_busy: True si hay una petición LLM en vuelo.
+        session_tokens: Tokens totales consumidos en la sesión actual.
     """
+    try:
+        from core.tui import tui_engine
+        if tui_engine._initialized:
+            tui_engine.render_header(
+                active_agent=active_agent,
+                model_name=model_name,
+                num_skills=num_skills,
+                num_docs=num_docs,
+                rag_status=rag_status,
+                provider=provider,
+                project_name=project_name,
+                project_methodology=project_methodology,
+                token_budget=token_budget,
+                llm_busy=llm_busy,
+                session_tokens=session_tokens,
+            )
+            return
+    except ImportError:
+        pass
+
+    # Fallback clásico (para compatibilidad)
     buf = StringIO()
     term_width = min(_main_console.width, get_term_width())
     local_console = Console(file=buf, force_terminal=True, width=term_width)
@@ -87,12 +118,29 @@ def display_header(active_agent="default", model_name="none", num_skills=0,
     local_console.print(status_line)
     local_console.print(Text("─" * term_width, style="dim #5e008b"))
 
-    output = buf.getvalue().replace("\n", "\x1b[K\r\n")
+    output = buf.getvalue()
     if silent:
         return output
 
-    sys.stdout.write("\x1b[H" + output + "\x1b[J")
+    # Sprint 8.2 — Imprimir como texto normal (sin posicionamiento de cursor)
+    sys.stdout.write(output)
     sys.stdout.flush()
+
+
+def osc8_link(url: str, text: str) -> str:
+    """Genera un hipervínculo clickable en terminales compatibles con OSC 8.
+
+    Sprint 8.0 — Soportado por iTerm2, Kitty, WezTerm, Alacritty (>= 0.14),
+    VSCode Terminal, GNOME Terminal (>= 3.26) y Windows Terminal.
+
+    Args:
+        url: La URL del enlace (puede ser file:// para archivos locales).
+        text: El texto visible del enlace.
+
+    Returns:
+        String con secuencias de escape OSC 8 que la terminal interpreta como enlace.
+    """
+    return f"\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\"
 
 
 def print_panel(content, title=None, border_style="#af00ff", is_markdown=False):
@@ -109,7 +157,7 @@ def print_panel(content, title=None, border_style="#af00ff", is_markdown=False):
 
 def print_code(code: str, filename: str = "", language: str = "python"):
     """Muestra código con resaltado de sintaxis usando Rich Syntax.
-    
+
     Args:
         code: El código fuente a mostrar.
         filename: Nombre del archivo (para el título del panel).
@@ -143,13 +191,16 @@ def print_code(code: str, filename: str = "", language: str = "python"):
 def interactive_picker(title: str, options: list, add_back: bool = True,
                        refresh_func=None) -> str | None:
     """Selector interactivo con flechas del teclado.
-    
+
+    Sprint 7.0 — Adaptado para funcionar dentro de la scroll region del TUI.
+    El header NO se redibuja desde aquí; se mantiene fijo por el motor TUI.
+
     Args:
         title: Título del menú.
         options: Lista de opciones.
         add_back: Si True, agrega la opción 'VOLVER'.
         refresh_func: Función que retorna el header como string (para rendering atómico).
-        
+
     Returns:
         La opción seleccionada, o None si se seleccionó 'VOLVER'.
     """
@@ -164,21 +215,26 @@ def interactive_picker(title: str, options: list, add_back: bool = True,
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
 
+    # El número total de líneas que ocupará el menú (título + opciones)
+    num_lines = len(options) + 1
+    first_iter = True
+
     try:
         tty.setraw(fd)
         while True:
-            # Renderizar header + menú en un solo buffer
-            full_output = ""
-            if refresh_func:
-                header_out = refresh_func()
-                if header_out:
-                    full_output = header_out
+            # Si no es la primera iteración, subir y borrar las líneas impresas anteriormente
+            if not first_iter:
+                sys.stdout.write("\r\x1b[2K" + "\x1b[A\x1b[2K" * num_lines)
+                sys.stdout.flush()
+            else:
+                first_iter = False
 
+            # Construir el menú
             buf = StringIO()
             term_width = get_term_width()
             local_console = Console(file=buf, force_terminal=True, width=term_width)
+            
             local_console.print(Text(f" {title.upper()} ", style="bold white on #5e008b"))
-
             for i, opt in enumerate(options):
                 if i == current_index:
                     local_console.print(Text(f" > {opt}", style="bold #df00ff"))
@@ -186,9 +242,7 @@ def interactive_picker(title: str, options: list, add_back: bool = True,
                     local_console.print(Text(f"   {opt}", style="dim white"))
 
             menu_output = buf.getvalue().replace("\n", "\x1b[K\r\n")
-
-            # Envío atómico único (Cero Parpadeo)
-            sys.stdout.write("\x1b[H" + full_output + menu_output + "\x1b[J")
+            sys.stdout.write(menu_output)
             sys.stdout.flush()
 
             char = sys.stdin.read(1)
@@ -205,6 +259,10 @@ def interactive_picker(title: str, options: list, add_back: bool = True,
 
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        # Limpiar el menú por completo de la pantalla al terminar
+        if not first_iter:
+            sys.stdout.write("\r\x1b[2K" + "\x1b[A\x1b[2K" * num_lines)
+            sys.stdout.flush()
 
     selected = options[current_index]
     return None if selected == ".. VOLVER" else selected
@@ -212,11 +270,11 @@ def interactive_picker(title: str, options: list, add_back: bool = True,
 
 def file_browser(start_path: str = ".", header_func=None) -> str | None:
     """Explorador de archivos interactivo con navegación por flechas.
-    
+
     Args:
         start_path: Ruta inicial.
         header_func: Función que genera el header (para rendering atómico).
-        
+
     Returns:
         Ruta seleccionada, o None si se canceló.
     """
