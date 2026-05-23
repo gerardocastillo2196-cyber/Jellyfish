@@ -191,7 +191,12 @@ class JellyfishLexer(Lexer):
 
 # --- INICIALIZACIÓN ---
 state = JellyfishState()
-rag = CodeKnowledgeBase(DB_PATH, active_project=state.active_project)
+
+# Sprint 11 — Asegurar que Ollama está levantado
+from core.llm_engine import ensure_ollama_running
+ollama_ok = ensure_ollama_running(state.ollama_base_url)
+
+rag = CodeKnowledgeBase(DB_PATH, active_project=state.active_project, ollama_connected=ollama_ok)
 plugins = PluginManager(PLUGINS_DIR)
 
 

@@ -360,8 +360,22 @@ class ProjectOrchestrator:
                 f"ID: {task_id_str}\n"
                 f"Descripción: {task_desc}\n"
                 f"Tu entregable: Genera el contenido COMPLETO del archivo {output_file}.\n"
-                f"Genera SOLAMENTE Markdown listo para guardar. NO incluyas explicaciones externas.\n"
-                f"Sé técnico, detallado y profesional. Si es código, incluye bloques de código completos.\n"
+                f"Genera Markdown listo para guardar. Sé técnico, detallado y profesional.\n\n"
+                f"[REGLA CRÍTICA DE SEPARACIÓN DE CÓDIGO Y DOCUMENTACIÓN]\n"
+                f"Si la tarea requiere crear o modificar archivos de código real, scripts, andamiajes o configuraciones en el disco del proyecto, "
+                f"debes especificar cada uno de ellos dentro de tu entregable utilizando etiquetas con la ruta del archivo. "
+                f"Puedes usar cualquiera de los siguientes dos formatos:\n\n"
+                f"Formato 1 (Estructura XML):\n"
+                f"<write_file path=\"ruta/relativa/archivo.ext\">\n"
+                f"contenido del archivo real aquí...\n"
+                f"</write_file>\n\n"
+                f"Formato 2 (Anotación Markdown):\n"
+                f"[WRITE_FILE: ruta/relativa/archivo.ext]\n"
+                f"```lenguaje\n"
+                f"contenido del archivo real aquí...\n"
+                f"```\n\n"
+                f"Puedes incluir múltiples archivos si es necesario. El Task Runner los extraerá y creará automáticamente en el disco. "
+                f"Asegúrate de que las rutas relativas sean correctas a partir de la raíz del proyecto."
             )
 
             user_prompt = (
@@ -388,6 +402,44 @@ class ProjectOrchestrator:
                 continue
 
             self._write_project_file(output_file, result)
+
+            # --- PARSER DE ARCHIVOS DE CÓDIGO REAL ---
+            created_files = []
+            
+            # Formato 1: XML tags
+            xml_matches = re.findall(r'<write_file\s+path="([^"]+)">\s*\n?(.*?)\s*\n?</write_file>', result, re.DOTALL)
+            for rel_path, file_content in xml_matches:
+                full_path = os.path.join(self.project_path, rel_path.strip())
+                try:
+                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                    with open(full_path, "w", encoding="utf-8") as f:
+                        f.write(file_content)
+                    created_files.append(rel_path.strip())
+                except Exception as e:
+                    console.print(f"[red]       ✗ Error creando archivo {rel_path}: {e}[/red]")
+                    logger.error("Error al escribir archivo real de agente: %s", e)
+
+            # Formato 2: Markdown headers
+            md_matches = re.findall(r'\[WRITE_FILE:\s*([^\]\s]+)\]\s*\n*```[a-zA-Z0-9_-]*\n(.*?)\n```', result, re.DOTALL)
+            for rel_path, file_content in md_matches:
+                rel_clean = rel_path.strip()
+                if rel_clean in created_files:
+                    continue
+                full_path = os.path.join(self.project_path, rel_clean)
+                try:
+                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                    with open(full_path, "w", encoding="utf-8") as f:
+                        f.write(file_content)
+                    created_files.append(rel_clean)
+                except Exception as e:
+                    console.print(f"[red]       ✗ Error creando archivo {rel_clean}: {e}[/red]")
+                    logger.error("Error al escribir archivo real de agente: %s", e)
+
+            if created_files:
+                console.print("       [bold green]⚒ Archivos reales creados/actualizados en el disco:[/bold green]")
+                for f_path in created_files:
+                    console.print(f"         [green]- {f_path}[/green]")
+
             tokens = estimate_tokens(result)
             console.print(f"[green]       ✓ {output_file}[/green] [dim]({tokens:,} tokens · {elapsed:.1f}s)[/dim]")
 

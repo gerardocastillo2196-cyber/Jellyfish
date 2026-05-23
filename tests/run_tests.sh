@@ -131,10 +131,15 @@ if should_run 3; then
 
             model_cfg=$(python3 -c "import sys; sys.path.insert(0,'.'); from core.state import MODEL; print(MODEL)" 2>/dev/null || echo "")
             embed_cfg=$(python3 -c "import sys; sys.path.insert(0,'.'); from core.state import EMBED_MODEL; print(EMBED_MODEL)" 2>/dev/null || echo "")
+            provider_cfg=$(python3 -c "import sys; sys.path.insert(0,'.'); from core.state import PROVIDER; print(PROVIDER)" 2>/dev/null || echo "")
 
-            echo "$models" | tr ',' '\n' | grep -qF "$model_cfg" \
-                && ok "Modelo '$model_cfg' disponible" \
-                || fail "Modelo '$model_cfg' no instalado — ollama pull $model_cfg"
+            if [[ "$provider_cfg" == "ollama" ]]; then
+                echo "$models" | tr ',' '\n' | grep -qF "$model_cfg" \
+                    && ok "Modelo '$model_cfg' disponible" \
+                    || fail "Modelo '$model_cfg' no instalado — ollama pull $model_cfg"
+            else
+                ok "Modelo '$model_cfg' es de proveedor cloud ($provider_cfg) — no requiere descarga local"
+            fi
 
             echo "$models" | tr ',' '\n' | grep -qF "${embed_cfg%%:*}" \
                 && ok "Embed model '$embed_cfg' disponible" \

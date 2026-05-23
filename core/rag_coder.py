@@ -237,14 +237,24 @@ class CodeKnowledgeBase:
     Sprint 2.4: Delimitadores UUID blindados anti-inyección de prompt.
     """
 
-    def __init__(self, db_path: str, active_project: str = ""):
+    def __init__(self, db_path: str, active_project: str = "", ollama_connected: bool = True):
         self.db_base_path = db_path   # Ruta base; la DB real incluirá el hash del proyecto
         self.db_path = db_path        # Se actualiza en index_codebase() o al cargar proyecto activo
-        self.embeddings = OllamaEmbeddings(model=EMBED_MODEL)
+        self.ollama_connected = ollama_connected
         self.vector_db: Optional[Chroma] = None
         self.indexed_file_count: int = 0
         self.indexed_chunk_count: int = 0
         self.indexed_dir: str = ""    # Directorio actualmente indexado
+
+        if self.ollama_connected:
+            try:
+                self.embeddings = OllamaEmbeddings(model=EMBED_MODEL)
+            except Exception as e:
+                logger.warning("Error inicializando embeddings de Ollama: %s", e)
+                self.ollama_connected = False
+                self.embeddings = None
+        else:
+            self.embeddings = None
 
         project_path = active_project or ACTIVE_PROJECT
         if project_path:
@@ -252,7 +262,10 @@ class CodeKnowledgeBase:
             self.db_path = f"{self.db_base_path}_{_dir_hash(self.indexed_dir)}"
 
         # Intentar cargar base existente con auto-recovery
-        self._try_load_existing_db()
+        if self.ollama_connected:
+            self._try_load_existing_db()
+        else:
+            logger.warning("RAG inactivo debido a que Ollama está desconectado.")
 
     def _try_load_existing_db(self) -> None:
         """Intenta cargar la base de datos vectorial existente."""
@@ -313,6 +326,9 @@ class CodeKnowledgeBase:
         Returns:
             Número de chunks procesados.
         """
+        if not self.ollama_connected:
+            console.print("[bold red]⚠ Error: RAG no disponible. Ollama está desconectado.[/bold red]")
+            return 0
         abs_path = os.path.abspath(path)
         project_hash = _dir_hash(abs_path)
 
@@ -541,6 +557,8 @@ class CodeKnowledgeBase:
     @property
     def status_text(self) -> str:
         """Texto de estado para la barra del header."""
+        if not self.ollama_connected:
+            return "RAG[ERR]"
         if self.is_active:
             return f"RAG[{self.indexed_chunk_count}]"
         return "RAG[OFF]"

@@ -453,3 +453,73 @@ class TestDynamicScrum:
         _cleanup_lock(str(project_dir))
         assert not lock_file.exists()
 
+    def test_task_runner_parser(self, tmp_path):
+        import shutil
+        import re
+        import os
+        
+        # Simular project path
+        project_path = str(tmp_path / "parser_test")
+        os.makedirs(project_path, exist_ok=True)
+        
+        # Simular respuesta de agente con XML y Markdown annotations
+        agent_response = """
+Hola Scrum Master, aquí tienes la documentación.
+<write_file path="src/backend/app.py">
+def main():
+    print("hello from backend")
+</write_file>
+
+Y también el archivo frontend:
+[WRITE_FILE: public/index.html]
+```html
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>App</h1>
+</body>
+</html>
+```
+Todo listo.
+"""
+        
+        created_files = []
+        
+        # Formato 1: XML tags
+        xml_matches = re.findall(r'<write_file\s+path="([^"]+)">\s*\n?(.*?)\s*\n?</write_file>', agent_response, re.DOTALL)
+        for rel_path, file_content in xml_matches:
+            full_path = os.path.join(project_path, rel_path.strip())
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            with open(full_path, "w", encoding="utf-8") as f:
+                f.write(file_content)
+            created_files.append(rel_path.strip())
+            
+        # Formato 2: Markdown headers
+        md_matches = re.findall(r'\[WRITE_FILE:\s*([^\]\s]+)\]\s*\n*```[a-zA-Z0-9_-]*\n(.*?)\n```', agent_response, re.DOTALL)
+        for rel_path, file_content in md_matches:
+            rel_clean = rel_path.strip()
+            if rel_clean in created_files:
+                continue
+            full_path = os.path.join(project_path, rel_clean)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            with open(full_path, "w", encoding="utf-8") as f:
+                f.write(file_content)
+            created_files.append(rel_clean)
+
+        assert "src/backend/app.py" in created_files
+        assert "public/index.html" in created_files
+        
+        # Verificar existencia física
+        assert os.path.exists(os.path.join(project_path, "src/backend/app.py"))
+        assert os.path.exists(os.path.join(project_path, "public/index.html"))
+        
+        with open(os.path.join(project_path, "src/backend/app.py"), "r") as f:
+            assert "hello from backend" in f.read()
+
+    def test_ensure_ollama_running_mock(self):
+        from core.llm_engine import ensure_ollama_running
+        # Ping a un puerto no en uso para verificar que retorna False y maneja el error sin crashear
+        res = ensure_ollama_running("http://localhost:59999")
+        assert res is False
+
+
