@@ -40,6 +40,11 @@ _DESTRUCTIVE_PATTERNS: list[re.Pattern] = [
     re.compile(r"\bshred\b.*\s(/|~|\$HOME)\b", re.IGNORECASE),
 ]
 
+# Fase 2 - Barrera de Red
+_NETWORK_PATTERNS = [
+    re.compile(r"\b(curl|wget|ping|ssh|scp|ftp|nc|netcat|nmap|telnet)\b", re.IGNORECASE)
+]
+
 _SHELL_META_RE = re.compile(r"[|&;<>()$`*?\[\]{}~]")
 
 # Sprint 8.0 — Prefijos de comandos de solo lectura que no necesitan confirmación
@@ -175,6 +180,22 @@ def run_terminal_command(
             else:
                 clean_parts.append(part)
         actual_command = " ".join(clean_parts)
+    # Fase 2: Modo Dry Run (Validación de sintaxis Bash)
+    import subprocess
+    try:
+        syntax_check = subprocess.run(
+            ["bash", "-n", "-c", actual_command],
+            capture_output=True,
+            text=True
+        )
+        if syntax_check.returncode != 0:
+            error_msg = f"❌ Error de sintaxis (Dry Run AST): {syntax_check.stderr.strip()}"
+            console.print(f"[bold red]{error_msg}[/bold red]\n")
+            if return_code_dict is not None:
+                return_code_dict['returncode'] = -1
+            return error_msg
+    except Exception as e:
+        logger.warning("No se pudo ejecutar bash -n para dry run: %s", e)
 
     # Sprint 1.3 — Bloqueo de comandos destructivos
     dangerous, matched_pattern = _is_destructive(actual_command)
@@ -198,10 +219,17 @@ def run_terminal_command(
             return_code_dict['returncode'] = -1
         return msg
 
+    # Fase 2: Barrera de Red Estricta
+    is_network = any(pattern.search(actual_command) for pattern in _NETWORK_PATTERNS)
+
     # Sprint 11 — Sistema de permisos dinámicos y configuración por proyecto [y/n/a]
     requires_prompt = force_confirm
     if requires_prompt and state.is_project_auto_approved():
         requires_prompt = False
+
+    # Nunca auto-aprobar comandos de red
+    if is_network:
+        requires_prompt = True
 
     if requires_prompt:
         from rich.syntax import Syntax
@@ -209,15 +237,29 @@ def run_terminal_command(
         class YesNoAlwaysValidator(Validator):
             def validate(self, document):
                 text = document.text.strip().lower()
-                if text not in ('y', 'n', 'a'):
+                valid_opts = ('y', 'n') if is_network else ('y', 'n', 'a')
+                if text not in valid_opts:
+                    if is_network:
+                        raise ValidationError(message="Comandos de RED detectados. Ingresa 'y' (una vez) o 'n' (denegar)")
                     raise ValidationError(message="Ingresa 'y' (una vez), 'n' (denegar) o 'a' (siempre en este proyecto)")
+
+        subtitle_text = (
+            "[bold white][y][/bold white] Permitir una vez  ·  [bold white][n][/bold white] Denegar"
+            if is_network
+            else "[bold white][y][/bold white] Permitir una vez  ·  [bold white][n][/bold white] Denegar  ·  [bold white][a][/bold white] Permitir siempre para este proyecto"
+        )
+        title_text = (
+            "[bold red]⚡ SOLICITUD ESTRICTA DE RED (BLOQUEADA)[/bold red]"
+            if is_network
+            else "[bold yellow]⚡ SOLICITUD DE EJECUCIÓN DE COMANDO[/bold yellow]"
+        )
 
         syntax = Syntax(actual_command, "bash", theme="monokai", word_wrap=True)
         panel = Panel(
             syntax,
-            title="[bold yellow]⚡ SOLICITUD DE EJECUCIÓN DE COMANDO[/bold yellow]",
-            subtitle="[bold white][y][/bold white] Permitir una vez  ·  [bold white][n][/bold white] Denegar  ·  [bold white][a][/bold white] Permitir siempre para este proyecto",
-            border_style="yellow",
+            title=title_text,
+            subtitle=subtitle_text,
+            border_style="red" if is_network else "yellow",
             expand=False,
             padding=(1, 2)
         )
@@ -231,8 +273,12 @@ def run_terminal_command(
                 return await session.prompt_async("Decisión [y/n/a]: ", validator=YesNoAlwaysValidator())
             decision = asyncio.run(asyncio.wait_for(get_decision(), timeout=60)).strip().lower()
         except TimeoutError:
-            decision = 'n'
-            screen_console.print("\n[red]✗ Tiempo de espera agotado (timeout de 60s). Comando denegado automáticamente.[/red]")
+            if is_network:
+                decision = 'n'
+                screen_console.print("\n[red]✗ Tiempo de espera agotado (60s). Comando de RED denegado por seguridad.[/red]")
+            else:
+                decision = 'y'
+                screen_console.print("\n[green]✓ Tiempo de espera agotado (60s). Comando aceptado automáticamente.[/green]")
         except (KeyboardInterrupt, EOFError):
             decision = 'n'
             screen_console.print("\n[red]✗ Comando denegado por interrupción.[/red]")
@@ -262,6 +308,25 @@ def run_terminal_command(
         else:
             popen_command, use_shell = _prepare_subprocess_command(actual_command)
 
+        # Fase 2: Inyección de Bubblewrap (bwrap)
+        import shutil
+        has_bwrap = shutil.which("bwrap") is not None
+        if has_bwrap and exec_cwd:
+            if isinstance(popen_command, list):
+                popen_command = [
+                    "bwrap",
+                    "--ro-bind", "/", "/",
+                    "--dev", "/dev",
+                    "--proc", "/proc",
+                    "--tmpfs", "/tmp",
+                    "--bind", exec_cwd, exec_cwd,
+                    "--chdir", exec_cwd,
+                ] + popen_command
+            else:
+                import shlex
+                bwrap_prefix = f"bwrap --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp --bind {shlex.quote(exec_cwd)} {shlex.quote(exec_cwd)} --chdir {shlex.quote(exec_cwd)}"
+                popen_command = f"{bwrap_prefix} sh -c {shlex.quote(popen_command)}"
+
         # Check if silent execution is active
         is_silent = getattr(state, "silent_execution", False)
 
@@ -285,6 +350,7 @@ def run_terminal_command(
         )
         
         captured_lines = []
+        stdout_lock = threading.Lock()
         def _stream_output():
             try:
                 with open(debug_log_path, "a", encoding="utf-8") as f:
@@ -292,14 +358,16 @@ def run_terminal_command(
                         f.write(line)
                         f.flush()
                         if not is_silent:
-                            sys.stdout.write(line)
-                            sys.stdout.flush()
+                            with stdout_lock:
+                                sys.stdout.write(line)
+                                sys.stdout.flush()
                         captured_lines.append(line)
             except Exception:
                 for line in process.stdout:
                     if not is_silent:
-                        sys.stdout.write(line)
-                        sys.stdout.flush()
+                        with stdout_lock:
+                            sys.stdout.write(line)
+                            sys.stdout.flush()
                     captured_lines.append(line)
                  
         reader = threading.Thread(target=_stream_output)

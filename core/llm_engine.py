@@ -98,22 +98,26 @@ def ensure_ollama_running(ollama_url: str = "http://localhost:11434") -> bool:
     return False
 
 
-def _get_http_client() -> httpx.Client:
-    """Retorna un cliente httpx persistente con connection pooling.
+_async_http_client = None
+_async_http_client_lock = threading.Lock()
 
-    Sprint 8.0 — Evita crear un nuevo cliente en cada request, reduciendo
-    la latencia por renegociación SSL y establecimiento de conexión TCP.
+def _get_async_http_client() -> httpx.AsyncClient:
+    """Retorna un cliente httpx asíncrono persistente con connection pooling.
+
+    Fase 3 — Streaming Asíncrono para optimización de LLM.
+    Evita crear un nuevo cliente en cada request, reduciendo
+    la latencia por renegociación SSL y conexión TCP.
     """
-    global _http_client
-    if _http_client is None or _http_client.is_closed:
-        with _http_client_lock:
-            if _http_client is None or _http_client.is_closed:
-                _http_client = httpx.Client(
+    global _async_http_client
+    if _async_http_client is None or _async_http_client.is_closed:
+        with _async_http_client_lock:
+            if _async_http_client is None or _async_http_client.is_closed:
+                _async_http_client = httpx.AsyncClient(
                     timeout=httpx.Timeout(300.0, connect=30.0),
                     limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
                     follow_redirects=True,
                 )
-    return _http_client
+    return _async_http_client
 
 
 def _chat_completions_url(base_url: str) -> str:
@@ -290,51 +294,56 @@ def _stream_request(
     )
 
     try:
-        # Sprint 8.0 — Reusar cliente HTTP persistente
-        client = _get_http_client()
-        with client.stream("POST", url, headers=headers, json=payload) as response:
-            if response.status_code != 200:
-                error_body = response.read()[:500].decode("utf-8", errors="replace")
-                console.print(
-                    f"[bold red]Error HTTP {response.status_code} de {provider_name}:[/bold red]\n"
-                    f"[dim]{error_body}[/dim]"
-                )
-                return None
+        import asyncio
 
-            # Sprint 3.3 — Streaming con soporte de interrupción grácil
-            with Live(
-                Panel("", title=provider_label),
-                refresh_per_second=12,
-                console=console,
-            ) as live:
-                try:
-                    for line in response.iter_lines():
-                        # Verificar señal de cancelación (Ctrl+C capturado en jellyfish.py)
-                        if _aborted and _aborted[0]:
-                            console.print(
-                                "\n[dim]⚡ Stream interrumpido — respuesta parcial conservada.[/dim]"
-                            )
-                            break
-
-                        if not line:
-                            continue
-
-                        chunk = parse_fn(line.encode("utf-8"))
-                        if chunk:
-                            full += chunk
-                            live.update(Panel(
-                                Markdown(full),
-                                title=provider_label,
-                                border_style="bright_black",
-                            ))
-
-                except KeyboardInterrupt:
-                    # Sprint 3.3 — Ctrl+C dentro del stream: conservar lo recibido
+        async def _run_stream():
+            nonlocal full
+            # Fase 3 — Reusar cliente asíncrono persistente
+            client = _get_async_http_client()
+            async with client.stream("POST", url, headers=headers, json=payload) as response:
+                if response.status_code != 200:
+                    error_body = (await response.aread())[:500].decode("utf-8", errors="replace")
                     console.print(
-                        "\n[dim]⚡ Stream interrumpido — respuesta parcial conservada.[/dim]"
+                        f"[bold red]Error HTTP {response.status_code} de {provider_name}:[/bold red]\n"
+                        f"[dim]{error_body}[/dim]"
                     )
-                    if _aborted is not None:
-                        _aborted[0] = True
+                    return
+
+                # Sprint 3.3 — Streaming con soporte de interrupción grácil
+                with Live(
+                    Panel("", title=provider_label),
+                    refresh_per_second=12,
+                    console=console,
+                ) as live:
+                    try:
+                        async for line in response.aiter_lines():
+                            # Verificar señal de cancelación (Ctrl+C capturado en jellyfish.py)
+                            if _aborted and _aborted[0]:
+                                console.print(
+                                    "\n[dim]⚡ Stream interrumpido — respuesta parcial conservada.[/dim]"
+                                )
+                                break
+
+                            if not line:
+                                continue
+
+                            chunk = parse_fn(line.encode("utf-8"))
+                            if chunk:
+                                full += chunk
+                                live.update(Panel(
+                                    Markdown(full),
+                                    title=provider_label,
+                                    border_style="bright_black",
+                                ))
+                    except KeyboardInterrupt:
+                        # Sprint 3.3 — Ctrl+C dentro del stream: conservar lo recibido
+                        console.print(
+                            "\n[dim]⚡ Stream interrumpido — respuesta parcial conservada.[/dim]"
+                        )
+                        if _aborted is not None:
+                            _aborted[0] = True
+
+        asyncio.run(_run_stream())
 
         if full:
             tokens_input = sum(estimate_tokens(m.get("content", "")) for m in messages)

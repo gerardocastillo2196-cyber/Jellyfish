@@ -17,7 +17,8 @@ class AgencyOrchestrator:
         self.state = state
 
     def classify_agency(self, user_prompt: str) -> str:
-        """Determina cuál es la mejor agencia para resolver el requerimiento."""
+        """Determina cuál es la mejor agencia para resolver el requerimiento (forzando JSON)."""
+        import json
         # Obtener las agencias disponibles en el catálogo
         agencies = list(self.state.agency_catalog.keys())
         if not agencies:
@@ -28,12 +29,13 @@ class AgencyOrchestrator:
             "y asignarla a la agencia más calificada para realizar el proyecto.\n"
             f"Agencias disponibles: {', '.join(agencies)}\n\n"
             "Reglas de clasificación:\n"
-            "- 'development': Para construir software, programar, andamiar código, resolver bugs, desarrollo web, scripts, etc.\n"
-            "- 'marketing': Para estrategias de venta, redacción publicitaria, SEO, campañas, landing pages de venta, contenido, etc.\n"
-            "- 'research': Para investigación profunda, análisis científico, reportes, recopilación de información, etc.\n"
-            "- 'management': Para planificar proyectos generales, Scrum puro, estimaciones abstractas.\n"
-            "- 'default' / otra: Cualquier tema que no encaje en las anteriores.\n\n"
-            "Responde ÚNICAMENTE con el nombre de la agencia en minúsculas (ej. development). Sin formato, sin Markdown."
+            "- 'development': Para construir software, programar, resolver bugs, desarrollo web, scripts, etc.\n"
+            "- 'marketing': Para estrategias de venta, redacción publicitaria, SEO, campañas, copy, etc.\n"
+            "- 'research': Para investigación profunda, análisis científico, reportes, ciencia de datos, etc.\n"
+            "- 'management': Para planificar proyectos abstractos o puramente metodológicos.\n"
+            "- 'default': Cualquier tema genérico que no encaje en las anteriores.\n\n"
+            "CRÍTICO: Debes responder ÚNICAMENTE con un objeto JSON puro, sin bloques markdown. "
+            'Ejemplo: {"agency": "development"}'
         )
         
         messages = [
@@ -47,25 +49,35 @@ class AgencyOrchestrator:
                 provider=self.state.provider,
                 model=self.state.model
             )
-            classified = response.strip().lower()
-            # Limpiar posibles comillas o markdown
-            classified = classified.replace("`", "").replace("'", "").replace("\"", "").replace("[", "").replace("]", "").strip()
             
-            if classified in agencies:
-                return classified
-            # Fallback de coincidencia parcial
-            for agency in agencies:
-                if agency in classified:
-                    return agency
+            if not response:
+                return "development"
+
+            # Parsear JSON de forma robusta
+            import re
+            json_match = re.search(r"\{.*\}", response, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group(0))
+                classified = data.get("agency", "development").lower().strip()
+                if classified in agencies:
+                    return classified
+                # Fallback de coincidencia parcial
+                for agency in agencies:
+                    if agency in classified:
+                        return agency
         except Exception as e:
-            logger.error("Error al clasificar agencia: %s", e)
+            logger.error("Error al clasificar agencia con JSON: %s", e)
         
         # Fallback por defecto si algo falla
         return "development"
 
     def route_and_execute(self, user_prompt: str) -> str:
         """Clasifica el prompt, cambia la agencia activa y ejecuta el orquestador."""
-        agency = self.classify_agency(user_prompt)
+        from core.tui import TaskProgress, tui_engine
+        
+        with TaskProgress(tui_engine, "auto_ceo", "CEO: Analizando requerimientos y seleccionando agencia idónea..."):
+            agency = self.classify_agency(user_prompt)
+            
         self.state.active_agency = agency
         
         # Retrocompatibilidad absoluta: delegamos al ProjectOrchestrator,

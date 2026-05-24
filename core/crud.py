@@ -132,7 +132,12 @@ def handle_crud(entity_type: str, state, display_header_func=None) -> None:
         if not action:
             break
 
-        items = [f[:-3] for f in os.listdir(base_dir) if f.endswith(".md")]
+        items = []
+        for root_dir, _, files in os.walk(base_dir):
+            for file in sorted(files):
+                if file.endswith(".md"):
+                    rel_path = os.path.relpath(os.path.join(root_dir, file), base_dir)
+                    items.append(rel_path[:-3])
 
         if action == "cargar":
             if not items:

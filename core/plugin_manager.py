@@ -93,16 +93,20 @@ class PluginManager:
         if not os.path.exists(self.plugins_dir):
             return
 
-        for filename in sorted(os.listdir(self.plugins_dir)):
-            if not filename.endswith(".py") or filename.startswith("__"):
-                continue
+        for root_dir, _, files in os.walk(self.plugins_dir):
+            for filename in sorted(files):
+                if not filename.endswith(".py") or filename.startswith("__"):
+                    continue
 
-            plugin_name = filename[:-3]
-            filepath = os.path.realpath(os.path.join(self.plugins_dir, filename))
-            if not filepath.startswith(self._plugins_root + os.sep):
-                logger.warning("Plugin fuera de plugins_dir ignorado: %s", filepath)
-                continue
-            self._plugin_files[plugin_name] = filepath
+                filepath = os.path.realpath(os.path.join(root_dir, filename))
+                # El nombre del plugin incluye el subdirectorio si existe
+                rel_path = os.path.relpath(filepath, self._plugins_root)
+                plugin_name = rel_path[:-3] # Quitar .py
+                
+                if not filepath.startswith(self._plugins_root + os.sep):
+                    logger.warning("Plugin fuera de plugins_dir ignorado: %s", filepath)
+                    continue
+                self._plugin_files[plugin_name] = filepath
 
             if not self._sandbox:
                 # Modo legado: importación directa
