@@ -400,9 +400,6 @@ def main():
                         user_input, state, rag, plugins, refresh_header
                     )
                     
-                    cmd_base = user_input.split(" ", 1)[0].lower()
-                    if cmd_base in ("/auto", "/build"):
-                        refresh_header(force=True)
                     continue
 
                 # --- RAG: Siempre buscar contexto relevante ---

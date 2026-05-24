@@ -260,7 +260,7 @@ def run_terminal_command(
             title=title_text,
             subtitle=subtitle_text,
             border_style="red" if is_network else "yellow",
-            expand=False,
+            expand=True,
             padding=(1, 2)
         )
         screen_console.print()
@@ -268,9 +268,11 @@ def run_terminal_command(
 
         try:
             import asyncio
+            from prompt_toolkit.patch_stdout import patch_stdout
             session = PromptSession()
             async def get_decision():
-                return await session.prompt_async("Decisión [y/n/a]: ", validator=YesNoAlwaysValidator())
+                with patch_stdout():
+                    return await session.prompt_async("\n❯ Decisión [y/n/a]: ", validator=YesNoAlwaysValidator())
             decision = asyncio.run(asyncio.wait_for(get_decision(), timeout=60)).strip().lower()
         except TimeoutError:
             if is_network:
@@ -359,15 +361,13 @@ def run_terminal_command(
                         f.flush()
                         if not is_silent:
                             with stdout_lock:
-                                sys.stdout.write(line)
-                                sys.stdout.flush()
+                                screen_console.print(line, end="")
                         captured_lines.append(line)
             except Exception:
                 for line in process.stdout:
                     if not is_silent:
                         with stdout_lock:
-                            sys.stdout.write(line)
-                            sys.stdout.flush()
+                            screen_console.print(line, end="")
                     captured_lines.append(line)
                  
         reader = threading.Thread(target=_stream_output)
@@ -385,9 +385,9 @@ def run_terminal_command(
             return_code_dict['returncode'] = process.returncode
 
         if is_silent:
-            if process.returncode != 0:
-                screen_console.print(f"\n[bold red]❌ Comando falló con código {process.returncode}:[/bold red]")
-                screen_console.print(res)
+            # En modo silencioso, los errores de subprocesos se omiten de la TUI.
+            # Se guardan en jellyfish_debug.log y en el historial para que el agente los analice.
+            pass
         else:
             if not res:
                 res = f"✓ Comando ejecutado sin salida (exit code: {process.returncode})"

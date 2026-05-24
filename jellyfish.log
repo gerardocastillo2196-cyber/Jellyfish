@@ -311,3 +311,95 @@ Traceback (most recent call last):
     raise RuntimeError('Event loop is closed')
 RuntimeError: Event loop is closed
 2026-05-23 22:50:33,432 [jellyfish.llm] INFO: Respuesta: 7842 tokens (Input: 7159 | Output: 683)
+2026-05-23 23:04:36,687 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 23:04:36,699 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 23:04:36,857 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 23:04:36,858 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-23 23:04:36,858 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-23 23:04:36,858 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-23 23:04:36,858 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-23 23:04:49,162 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 23:37:40,634 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 23:37:40,637 [jellyfish.state] WARNING: Límite de contexto alcanzado (100000 chars), omitiendo archivos restantes.
+2026-05-23 23:39:05,435 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 23:39:05,438 [jellyfish.state] WARNING: Límite de contexto alcanzado (100000 chars), omitiendo archivos restantes.
+2026-05-23 23:39:57,319 [jellyfish.llm] INFO: Respuesta: 32605 tokens (Input: 32124 | Output: 481)
+2026-05-23 23:43:09,100 [jellyfish.llm] INFO: Respuesta: 32717 tokens (Input: 32113 | Output: 604)
+2026-05-23 23:43:46,708 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 23:43:46,710 [jellyfish.state] WARNING: Límite de contexto alcanzado (100000 chars), omitiendo archivos restantes.
+2026-05-23 23:43:55,393 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 23:43:55,395 [jellyfish.state] WARNING: Límite de contexto alcanzado (100000 chars), omitiendo archivos restantes.
+2026-05-23 23:44:02,134 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 23:44:06,884 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 23:44:35,051 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 23:44:36,646 [jellyfish.rag] INFO: ✓ SCRUM_METHODOLOGY.md (2 chunks)
+2026-05-23 23:44:36,647 [jellyfish.rag] INFO: ✓ SPRINT_BOARD.md (1 chunks)
+2026-05-23 23:44:36,648 [jellyfish.rag] INFO: ✓ DAILY.md (1 chunks)
+2026-05-23 23:44:36,649 [jellyfish.rag] INFO: ✓ BACKLOG.md (1 chunks)
+2026-05-23 23:44:36,649 [jellyfish.rag] INFO: 📦 Preparando 5 fragmentos para indexación...
+2026-05-23 23:44:37,271 [jellyfish.rag] INFO: ⚡ Generando embeddings: 5/5 (100%) ...
+2026-05-24 00:24:57,995 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 00:36:23,504 [jellyfish.llm] INFO: Respuesta: 19990 tokens (Input: 19685 | Output: 305)
+2026-05-24 00:39:15,759 [jellyfish.llm] INFO: Respuesta: 21002 tokens (Input: 19893 | Output: 1109)
+2026-05-24 01:04:25,291 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 01:04:25,295 [jellyfish.state] WARNING: Límite de contexto alcanzado (100000 chars), omitiendo archivos restantes.
+2026-05-24 06:28:02,268 [jellyfish.llm] INFO: Respuesta: 33055 tokens (Input: 32759 | Output: 296)
+2026-05-24 06:41:12,476 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 06:41:12,478 [jellyfish.state] WARNING: Límite de contexto alcanzado (100000 chars), omitiendo archivos restantes.
+2026-05-24 06:44:42,536 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 06:44:42,549 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-24 06:44:42,713 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-24 06:44:42,713 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-24 06:44:42,713 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-24 06:44:42,714 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-24 06:44:42,714 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-24 06:47:20,287 [jellyfish.llm] INFO: Respuesta: 5260 tokens (Input: 4846 | Output: 414)
+2026-05-24 07:02:48,284 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 07:02:48,299 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-24 07:02:48,462 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-24 07:02:48,462 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-24 07:02:48,462 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-24 07:02:48,462 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-24 07:02:48,463 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-24 07:19:15,994 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 07:22:11,956 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 07:22:11,970 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-24 07:22:12,133 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-24 07:22:12,133 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-24 07:22:12,134 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-24 07:22:12,134 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-24 07:22:12,134 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-24 07:22:47,017 [jellyfish.llm] INFO: Respuesta: 5761 tokens (Input: 5299 | Output: 462)
+2026-05-24 07:38:32,257 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 07:38:32,271 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-24 07:38:32,462 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-24 07:38:32,463 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-24 07:38:32,463 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-24 07:38:32,463 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-24 07:38:32,464 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-24 07:45:30,010 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 07:45:30,025 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-24 07:45:30,186 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-24 07:45:30,187 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-24 07:45:30,187 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-24 07:45:30,187 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-24 07:45:30,187 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-24 07:45:50,312 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 07:55:21,146 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 08:01:43,474 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 08:01:43,489 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-24 08:01:43,662 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-24 08:01:43,663 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-24 08:01:43,663 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-24 08:01:43,663 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-24 08:01:43,663 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-24 08:02:21,166 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 08:02:21,179 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-24 08:02:21,350 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-24 08:02:21,350 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-24 08:02:21,351 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-24 08:02:21,351 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-24 08:02:21,351 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-24 08:35:52,248 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-24 08:43:52,307 [jellyfish.llm] INFO: Respuesta: 12457 tokens (Input: 11959 | Output: 498)
+2026-05-24 08:45:00,044 [jellyfish.llm] INFO: Respuesta: 12693 tokens (Input: 12496 | Output: 197)
