@@ -176,6 +176,7 @@ def _safe_read(filepath: str) -> str:
 
 
 import re
+FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 import atexit
 
 def estimate_tokens(text: str) -> int:
@@ -228,9 +229,12 @@ class JellyfishState:
         self.active_project: str = ""   # Ruta absoluta del proyecto activo
         self.project_methodology: str = "scrum"  # Metodología del proyecto (scrum o cascada)
         self.session_tokens: int = 0    # Tokens acumulados de la sesión activa
+        self.active_agency: str = "default"
+        self.agency_catalog: dict[str, list[str]] = {}
         
         # Cargar configuración dinámica
         self.load_config()
+        self.scan_agencies()
         self.load_agent("default")
 
     def add_session_tokens(self, count: int) -> None:
@@ -247,6 +251,11 @@ class JellyfishState:
 
         self.provider = normalize_provider(os.getenv("JELLYFISH_PROVIDER", "ollama"))
         self.model = os.getenv("JELLYFISH_MODEL", "qwen2.5-agent:latest")
+        if self.provider == "gemini":
+            if self.model == "gemini-1.5-pro":
+                self.model = "gemini-3.1-pro-preview"
+            elif self.model == "gemini-1.5-flash":
+                self.model = "gemini-2.5-flash"
 
         # Base URLs y API keys por proveedor. Tambien se exponen como atributos
         # legacy: openai_api_key, deepseek_base_url, etc.
@@ -510,9 +519,54 @@ class JellyfishState:
         # Recargar de inmediato en memoria
         self.load_config()
 
+    def scan_agencies(self) -> None:
+        """Escanea todos los archivos .md en agents/ y los agrupa por agencia según metadatos."""
+        self.agency_catalog = {}
+        agents_dir = os.path.join(AGENCY_DIR, "agents")
+        if not os.path.exists(agents_dir):
+            return
+        
+        # El agente "default" especial siempre pertenece a la agencia default
+        self.agency_catalog.setdefault("default", []).append("default")
+        
+        for f in sorted(os.listdir(agents_dir)):
+            if f.endswith(".md") and not f.startswith("template"):
+                agent_name = f[:-3].lower()
+                filepath = os.path.join(agents_dir, f)
+                agency_name = "default"
+                
+                # Leer metadatos YAML de frontmatter
+                try:
+                    with open(filepath, "r", encoding="utf-8", errors="ignore") as fh:
+                        content = fh.read()
+                        match = FRONTMATTER_RE.match(content)
+                        if match:
+                            meta_text = match.group(1)
+                            for line in meta_text.splitlines():
+                                if ":" in line:
+                                    k, v = line.split(":", 1)
+                                    if k.strip().lower() == "agency":
+                                        agency_name = v.strip().lower()
+                                        break
+                except Exception as e:
+                    logger.warning("Error al leer metadatos de agente %s: %s", agent_name, e)
+                
+                if agent_name == "default":
+                    continue
+                self.agency_catalog.setdefault(agency_name, []).append(agent_name)
+
+    def get_agent_agency(self, agent_name: str) -> str:
+        """Retorna la agencia a la que pertenece un agente, o 'default'."""
+        for agency, agents in self.agency_catalog.items():
+            if agent_name.lower().strip() in agents:
+                return agency
+        return "default"
+
     def load_agent(self, agent_name: str) -> None:
         """Carga un perfil de agente y reinicia el historial de conversación."""
         self.active_agent = agent_name.lower().strip()
+        self.active_agency = self.get_agent_agency(self.active_agent)
+        
         template_file = os.path.join(AGENCY_DIR, "agents", "template.md")
         agent_file = os.path.join(AGENCY_DIR, "agents", f"{self.active_agent}.md")
 
@@ -520,7 +574,8 @@ class JellyfishState:
         self.system_prompt = ""
         template_content = _safe_read(template_file)
         if template_content:
-            self.system_prompt = f"[PROTOCOLO MAESTRO]\n{template_content}\n\n"
+            template_clean = FRONTMATTER_RE.sub("", template_content)
+            self.system_prompt = f"[PROTOCOLO MAESTRO]\n{template_clean}\n\n"
 
         # 2. Cargar Perfil Específico
         if self.active_agent == "default":
@@ -543,10 +598,12 @@ class JellyfishState:
         else:
             agent_content = _safe_read(agent_file)
             if agent_content:
-                self.system_prompt += f"[PERFIL ESPECÍFICO DE @{self.active_agent.upper()}]\n{agent_content}"
+                agent_clean = FRONTMATTER_RE.sub("", agent_content)
+                self.system_prompt += f"[PERFIL ESPECÍFICO DE @{self.active_agent.upper()}]\n{agent_clean}"
             else:
                 logger.warning("Agente '%s' no encontrado, usando default.", self.active_agent)
                 self.active_agent = "default"
+                self.active_agency = "default"
                 self.system_prompt += "Eres Jellyfish, un asistente técnico avanzado."
 
         self.history = []

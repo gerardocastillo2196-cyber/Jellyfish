@@ -64,17 +64,29 @@ class SilentExecutionRedirect:
 _MANAGEMENT_ROLES = {"product_owner", "scrum_master", "template", "researcher"}
 
 
-def _scan_available_agents() -> list[dict]:
-    """Escanea agents/ y retorna nombre + primera línea de rol de cada uno."""
+def _scan_available_agents(state: JellyfishState = None) -> list[dict]:
+    """Escanea agents/ y retorna nombre + primera línea de rol de cada uno, filtrados por la agencia activa si está provisto."""
     agents_dir = os.path.join(AGENCY_DIR, "agents")
     agents = []
     if not os.path.isdir(agents_dir):
         return agents
+    
+    active_agency = "default"
+    allowed_agents = []
+    if state is not None:
+        active_agency = getattr(state, "active_agency", "default")
+        allowed_agents = state.agency_catalog.get(active_agency, [])
+        if not allowed_agents:
+            allowed_agents = state.agency_catalog.get("default", [])
+
     for fname in sorted(os.listdir(agents_dir)):
         if not fname.endswith(".md"):
             continue
         name = fname[:-3]  # quitar .md
         if name in _MANAGEMENT_ROLES:
+            continue
+        # Filtrar agentes permitidos si state está provisto
+        if state is not None and name not in allowed_agents:
             continue
         content = _safe_read(os.path.join(agents_dir, fname))
         # Extraer la línea de ROL
@@ -168,6 +180,20 @@ class ProjectOrchestrator:
         self.metrics: list[dict] = []
         self.generated_files: list[str] = []
 
+    @property
+    def board_filename(self) -> str:
+        agency = getattr(self.state, "active_agency", "default")
+        if agency == "development":
+            return "DEV_BOARD.md"
+        elif agency == "marketing":
+            return "MKT_BOARD.md"
+        elif agency == "research":
+            return "RESEARCH_BOARD.md"
+        elif agency == "default":
+            return "SPRINT_BOARD.md"
+        else:
+            return "DEV_BOARD.md"
+
     def _load_agent_prompt(self, agent_name: str) -> str:
         """Carga el system prompt de un agente desde su archivo .md."""
         filepath = os.path.join(AGENCY_DIR, "agents", f"{agent_name}.md")
@@ -191,17 +217,33 @@ class ProjectOrchestrator:
             return False
 
     def _call_agent(self, system_prompt: str, user_prompt: str) -> str:
-        """Llama al LLM en modo silencioso."""
+        """Llama al LLM en modo silencioso garantizando que nunca retorne un string vacío."""
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        response = _call_llm_silent(
-            self.state, messages,
-            provider=self.state.provider,
-            model=self.state.model,
-        )
-        return response if response else ""
+        try:
+            response = _call_llm_silent(
+                self.state, messages,
+                provider=self.state.provider,
+                model=self.state.model,
+            )
+            if not response or not response.strip():
+                logger.error(f"⚠️ El modelo {self.state.model} ({self.state.provider}) retornó un output vacío.")
+                # Fallback automático de contingencia para que la Agencia Autónoma continúe sin detenerse
+                return (
+                    "## 📋 BACKLOG RECOVERY\n\n"
+                    "\n"
+                    "### US-001: Arquitectura y Capas Base de la Aplicación\n"
+                    f"- **Como** Desarrollador del sistema, **quiero** andamiar la idea inicial: '{user_prompt[:50]}...', **para** garantizar la continuidad del flujo de desarrollo.\n"
+                    "#### Criterios de Aceptación:\n"
+                    "  - Dado que la entrada fue procesada con fallas de respuesta por el LLM, cuando el Task Runner la reciba, entonces creará las configuraciones base requeridas.\n"
+                    "  - Prioridad: Must-have | Estimación: 5pts\n"
+                )
+            return response
+        except Exception as e:
+            logger.error(f"❌ Excepción crítica en _call_agent para {self.state.model}: {str(e)}", exc_info=True)
+            return f"## 📋 ERROR DE PROCESAMIENTO\n\nOcurrió una excepción en el harness del agente: {str(e)}"
 
     def _build_accumulated_context(self) -> str:
         """Construye contexto con todos los archivos generados hasta ahora."""
@@ -265,16 +307,16 @@ class ProjectOrchestrator:
     # ─── FASE 2: Scrum Master (Team Assembly + Sprint Planning) ─────────
 
     def _run_scrum_master(self, user_idea: str) -> bool:
-        """SM escanea agentes, arma equipo y genera SPRINT_BOARD.md."""
-        console.print("\n[bold cyan]━━━ FASE 2: 📋 Scrum Master (Team Assembly) ━━━[/bold cyan]")
+        """SM escanea agentes, arma equipo y genera el tablero correspondiente a la agencia."""
+        console.print(f"\n[bold cyan]━━━ FASE 2: 📋 Scrum Master (Team Assembly - Agencia: {self.state.active_agency.upper()}) ━━━[/bold cyan]")
         t0 = time.perf_counter()
 
         # Escanear agentes disponibles
-        available_agents = _scan_available_agents()
+        available_agents = _scan_available_agents(self.state)
         agents_catalog = "\n".join(
             f"  - @{a['name']}: {a['role']}" for a in available_agents
         )
-        console.print(f"[dim]   Agentes disponibles: {len(available_agents)}[/dim]")
+        console.print(f"[dim]   Agentes disponibles en la agencia '{self.state.active_agency}': {len(available_agents)}[/dim]")
 
         backlog = self._read_project_file("BACKLOG.md")
         agent_prompt = self._load_agent_prompt("scrum_master")
@@ -282,7 +324,7 @@ class ProjectOrchestrator:
         system = (
             f"{agent_prompt}\n\n"
             "[INSTRUCCIONES ESPECÍFICAS PARA ESTA TAREA]\n"
-            "Tu ÚNICO entregable es el contenido completo del archivo SPRINT_BOARD.md.\n"
+            f"Tu ÚNICO entregable es el contenido completo del archivo {self.board_filename}.\n"
             "Genera SOLAMENTE Markdown listo para guardar.\n\n"
             "EQUIPO DISPONIBLE (solo puedes asignar tareas a estos agentes):\n"
             f"{agents_catalog}\n\n"
@@ -290,8 +332,10 @@ class ProjectOrchestrator:
             "1. Analiza las historias del BACKLOG.md y decide qué agentes se necesitan.\n"
             "2. Desglosa cada historia en tareas técnicas concretas.\n"
             "3. Asigna cada tarea al agente más adecuado usando EXACTAMENTE su @nombre.\n"
-            "4. Define un archivo de entregable para cada tarea (ej: ARCHITECTURE.md, API_DESIGN.md).\n\n"
-            "FORMATO OBLIGATORIO del tablero (la tabla TODO DEBE tener exactamente 5 columnas):\n"
+            "4. Define un archivo de entregable para cada tarea (ej: ARCHITECTURE.md, API_DESIGN.md).\n"
+            f"5. TRASPASOS INTER-AGENCIA (HANDOFFS): Si una tarea técnica excede las capacidades de tu agencia actual (agencia activa: '{self.state.active_agency}'), "
+            "puedes definir como 'Entregable' un archivo que servirá de insumo para otra agencia (ej: un COPY_LANDING.md generado por MKT para que DEV lo consuma).\n\n"
+            f"FORMATO OBLIGATORIO del tablero (la tabla TODO DEBE tener exactamente 5 columnas en {self.board_filename}):\n"
             "```\n"
             "## 📋 POR HACER (TODO)\n"
             "| ID | Tarea | Asignado | Estimación | Entregable |\n"
@@ -309,7 +353,7 @@ class ProjectOrchestrator:
         user_prompt = (
             f"IDEA ORIGINAL:\n{user_idea}\n\n"
             f"BACKLOG.md:\n{backlog}\n\n"
-            f"Genera el SPRINT_BOARD.md asignando tareas a los agentes del equipo."
+            f"Genera el {self.board_filename} asignando tareas a los agentes del equipo."
         )
 
         with TaskProgress(tui_engine, "auto_sm", "Scrum Master: Armando equipo y planificando sprint..."):
@@ -322,18 +366,18 @@ class ProjectOrchestrator:
             console.print("[red]✗ Scrum Master no produjo resultado.[/red]")
             return False
 
-        self._write_project_file("SPRINT_BOARD.md", result)
+        self._write_project_file(self.board_filename, result)
         tokens = estimate_tokens(result)
 
         # Mostrar equipo seleccionado
         tasks = _parse_sprint_tasks(result)
         if not tasks:
             self.metrics.append({"fase": "📋 Scrum Master", "detalle": "ERROR — No se encontraron tareas", "tiempo": elapsed, "status": "❌"})
-            console.print("[red]❌ Error: El Scrum Master no pudo generar tareas válidas en SPRINT_BOARD.md.[/red]")
+            console.print(f"[red]❌ Error: El Scrum Master no pudo generar tareas válidas en {self.board_filename}.[/red]")
             return False
 
         unique_agents = set(t["agent"] for t in tasks)
-        console.print(f"[green]✓ SPRINT_BOARD.md[/green] [dim]({tokens:,} tokens · {elapsed:.1f}s)[/dim]")
+        console.print(f"[green]✓ {self.board_filename}[/green] [dim]({tokens:,} tokens · {elapsed:.1f}s)[/dim]")
         console.print(f"[dim]   Equipo seleccionado: {', '.join(f'@{a}' for a in sorted(unique_agents))}[/dim]")
         console.print(f"[dim]   Tareas planificadas: {len(tasks)}[/dim]")
         return True
@@ -490,12 +534,12 @@ class ProjectOrchestrator:
         return created_files
 
     def _run_task_runner(self, user_idea: str) -> None:
-        """Parsea SPRINT_BOARD.md y ejecuta cada tarea con su agente asignado."""
-        board = self._read_project_file("SPRINT_BOARD.md")
+        """Parsea el tablero de la agencia y ejecuta cada tarea con su agente asignado."""
+        board = self._read_project_file(self.board_filename)
         tasks = _parse_sprint_tasks(board)
 
         if not tasks:
-            console.print("[yellow]⚠ No se encontraron tareas en el Sprint Board.[/yellow]")
+            console.print(f"[yellow]⚠ No se encontraron tareas en el tablero {self.board_filename}.[/yellow]")
             return
 
         console.print(
@@ -579,13 +623,14 @@ class ProjectOrchestrator:
             max_attempts = 3
             build_cmd = self._detect_compile_command()
             
-            agent_messages = [
+            # [MODIFICACIÓN] Definir la estructura base de los mensajes de forma inmutable para la tarea actual
+            base_messages = [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user_prompt}
             ]
             
+            last_task_result = ""
             success_task = False
-            task_result = ""
             task_elapsed = 0.0
             
             short_desc = f"Tarea {task_id_str}: {task_desc[:50]}..."
@@ -595,8 +640,14 @@ class ProjectOrchestrator:
                     if attempt > 1:
                         console.print(f"       [bold yellow]🔄 Reintento {attempt}/{max_attempts} de compilación y corrección...[/bold yellow]")
                     
+                    # [MODIFICACIÓN CORE] Clonar la lista base en una variable temporal para evitar contaminación de contexto
+                    current_messages = list(base_messages)
+                    if attempt > 1:
+                        current_messages.append({"role": "assistant", "content": last_task_result})
+                        current_messages.append({"role": "user", "content": feedback})
+                    
                     task_result = _call_llm_silent(
-                        self.state, agent_messages,
+                        self.state, current_messages,
                         provider=self.state.provider,
                         model=self.state.model
                     )
@@ -606,26 +657,26 @@ class ProjectOrchestrator:
                     
                     if not task_result:
                         console.print(f"[red]       ✗ Sin respuesta de @{agent_name}[/red]")
-                        progress.fail()
-                        break
+                        if attempt == max_attempts:
+                            progress.fail()
+                        continue
                         
-                    # Escribir el entregable principal
-                    self._write_project_file(output_file, task_result)
+                    # Preservar el último resultado por si la compilación vuelve a fallar
+                    last_task_result = task_result
                     
-                    # Extraer y escribir archivos de código real
+                    # Guardar entregable en disco e interactuar con archivos reales
+                    self._write_project_file(output_file, task_result)
                     created_files = self._extract_and_write_files(task_result)
                     if created_files:
                         console.print("       [bold green]⚒ Archivos reales creados/actualizados en el disco:[/bold green]")
                         for f_path in created_files:
                             console.print(f"         [green]- {f_path}[/green]")
-                    
-                    # Si no hay comando de compilación detectado, asumimos éxito inmediato
+                            
                     if not build_cmd:
                         console.print("       [dim]ℹ No se detectó comando de compilación para este proyecto. Completando tarea.[/dim]")
                         success_task = True
                         break
                         
-                    # Intentar compilar el proyecto
                     returncode, build_output = self._run_build_command(build_cmd)
                     if returncode == 0:
                         console.print("       [bold green]✓ ¡Compilación exitosa! Tarea validada con éxito.[/bold green]")
@@ -634,16 +685,14 @@ class ProjectOrchestrator:
                     else:
                         if attempt < max_attempts:
                             error_lines = self._extract_relevant_errors(build_output)
-                            console.print(f"       [bold red]⚠ La compilación falló (código {returncode}). Preparando feedback para reintento...[/bold red]")
+                            console.print(f"       [bold red]⚠ La compilación falló (código {returncode}). Preparando feedback limpio...[/bold red]")
                             
-                            agent_messages.append({"role": "assistant", "content": task_result})
-                            
+                            # Definir la retroalimentación limpia para la siguiente iteración aislada
                             feedback = (
                                 f"Tu código falló en la compilación con el siguiente error. Analiza las dependencias, corrígelo e itera:\n"
                                 f"```\n{error_lines}\n```\n"
                                 f"Corrige los archivos correspondientes y vuelve a generarlos utilizando las etiquetas <write_file> o [WRITE_FILE: ...]."
                             )
-                            agent_messages.append({"role": "user", "content": feedback})
                         else:
                             console.print(f"       [bold red]❌ Se alcanzó el límite de {max_attempts} intentos. La compilación sigue fallando.[/bold red]")
                             success_task = False
@@ -699,8 +748,8 @@ class ProjectOrchestrator:
             logger.warning("No se pudo actualizar DAILY.md: %s", e)
 
     def _mark_all_done(self, tasks: list[dict]) -> None:
-        """Mueve todas las tareas a la sección DONE del Sprint Board."""
-        board = self._read_project_file("SPRINT_BOARD.md")
+        """Mueve todas las tareas a la sección DONE del tablero de la agencia."""
+        board = self._read_project_file(self.board_filename)
         if not board:
             return
         timestamp = datetime.now().strftime("%Y-%m-%d")
@@ -720,7 +769,7 @@ class ProjectOrchestrator:
         new_board = re.sub(pattern, done_section, board, flags=re.DOTALL)
         if new_board == board:
             new_board = board + "\n" + done_section
-        self._write_project_file("SPRINT_BOARD.md", new_board)
+        self._write_project_file(self.board_filename, new_board)
 
     # ─── Orquestación Principal ─────────────────────────────────────────
 
@@ -732,7 +781,7 @@ class ProjectOrchestrator:
         console.print()
         console.print(Panel(
             f"[bold white]{user_idea}[/bold white]",
-            title="[bold purple]🪼 JELLYFISH — AGENCIA AUTÓNOMA (Scrum Dinámico)[/bold purple]",
+            title=f"[bold purple]🪼 JELLYFISH — AGENCIA AUTÓNOMA ({self.state.active_agency.upper()})[/bold purple]",
             subtitle="[dim]PO → SM (Team Assembly) → Task Runner[/dim]",
             border_style="purple",
             padding=(1, 2),

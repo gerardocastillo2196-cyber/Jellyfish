@@ -203,8 +203,7 @@ def handle_crud(entity_type: str, state, display_header_func=None) -> None:
                 except (OSError, IOError) as e:
                     console.print(f"[red]Error eliminando: {e}[/red]")
 
-    if display_header_func:
-        display_header_func()
+
 
 
 def handle_slash_command(cmd_input: str, state, rag, plugins, display_header_func) -> None:
@@ -246,13 +245,10 @@ def handle_slash_command(cmd_input: str, state, rag, plugins, display_header_fun
         from core.tui import tui_engine
         if tui_engine._initialized:
             tui_engine.clear_scroll_region()
-            if display_header_func:
-                display_header_func()
         else:
             os.system("cls" if os.name == "nt" else "clear")
             tui_engine.print_welcome_logo()
-            if display_header_func:
-                display_header_func()
+        display_header_func()
         console.print("[bold red]🪼 Guías del proyecto DESACTIVADAS.[/bold red] Escribe [bold green]/Gon[/bold green] para volver a activarlas.")
         return
 
@@ -262,13 +258,10 @@ def handle_slash_command(cmd_input: str, state, rag, plugins, display_header_fun
         from core.tui import tui_engine
         if tui_engine._initialized:
             tui_engine.clear_scroll_region()
-            if display_header_func:
-                display_header_func()
         else:
             os.system("cls" if os.name == "nt" else "clear")
             tui_engine.print_welcome_logo()
-            if display_header_func:
-                display_header_func()
+        display_header_func()
         show_project_guide_if_needed(state)
         return
 
@@ -277,21 +270,13 @@ def handle_slash_command(cmd_input: str, state, rag, plugins, display_header_fun
         from core.tui import tui_engine
         if tui_engine._initialized:
             tui_engine.clear_scroll_region()
-            if display_header_func:
-                try:
-                    display_header_func(force=True)
-                except TypeError:
-                    display_header_func()
             tui_engine.move_cursor_to_scroll_region()
+            display_header_func()
             show_project_guide_if_needed(state)
         else:
             os.system("cls" if os.name == "nt" else "clear")
             tui_engine.print_welcome_logo()
-            if display_header_func:
-                try:
-                    display_header_func(force=True)
-                except TypeError:
-                    display_header_func()
+            display_header_func()
             show_project_guide_if_needed(state)
 
     elif command == "/help":
@@ -345,6 +330,9 @@ def handle_slash_command(cmd_input: str, state, rag, plugins, display_header_fun
     elif command == "/compile":
         _handle_compile(state)
 
+    elif command == "/agency":
+        _handle_agency(arg, state, display_header_func)
+
     else:
         console.print(f"[yellow]Comando desconocido: {command}. Usa /help.[/yellow]")
 
@@ -376,10 +364,10 @@ def _handle_auto(arg: str, state, display_header_func) -> None:
         )
         return
 
-    from core.project_orchestrator import ProjectOrchestrator
+    from core.agency_orchestrator import AgencyOrchestrator
 
-    orchestrator = ProjectOrchestrator(state)
-    final_report = orchestrator.run(idea)
+    orchestrator = AgencyOrchestrator(state)
+    final_report = orchestrator.route_and_execute(idea)
 
     # Guardar en historial
     state.history.append({"role": "user", "content": f"/auto {idea}"})
@@ -405,6 +393,50 @@ def _handle_compile(state) -> None:
         
     console.print(f"[bold yellow]🛠 Compilando proyecto activo con comando: {build_cmd}...[/bold yellow]")
     run_terminal_command(build_cmd, state)
+
+
+def _handle_agency(arg: str, state, display_header_func) -> None:
+    """Manejador del comando /agency.
+    
+    Uso:
+        /agency - Muestra las agencias disponibles y la activa.
+        /agency switch <nombre> - Cambia la agencia activa.
+    """
+    parts = arg.strip().split()
+    if not parts:
+        # Mostrar catálogo de agencias
+        console.print("\n[bold purple]🏢 Catálogo de Agencias de Jellyfish OS v6[/bold purple]")
+        console.print(f"Agencia activa actual: [bold green]{state.active_agency.upper()}[/bold green]\n")
+        for agency, agents in state.agency_catalog.items():
+            active_marker = "★ " if agency == state.active_agency else "  "
+            agents_list = ", ".join(f"@{a}" for a in agents)
+            console.print(f"{active_marker}[bold cyan]{agency.upper()}[/bold cyan] -> {agents_list}")
+        console.print("\n[dim]Usa `/agency switch <nombre>` para cambiar de agencia.[/dim]\n")
+        return
+
+    subcmd = parts[0].lower()
+    if subcmd == "switch":
+        if len(parts) < 2:
+            console.print("[yellow]Uso: /agency switch <nombre_de_agencia>[/yellow]")
+            return
+        target_agency = parts[1].lower().strip()
+        
+        # Escanear por si acaso se crearon nuevos archivos agentes .md
+        state.scan_agencies()
+        
+        if target_agency not in state.agency_catalog:
+            state.agency_catalog.setdefault(target_agency, [])
+        
+        state.active_agency = target_agency
+        # Recargar agente default bajo la nueva agencia
+        state.load_agent("default")
+        state.active_agency = target_agency
+        
+        console.print(f"[bold green]✓ Cambiado exitosamente a la agencia: {target_agency.upper()}[/bold green]")
+        if display_header_func:
+            display_header_func()
+    else:
+        console.print(f"[yellow]Subcomando desconocido: {subcmd}. Usa `/agency` o `/agency switch <nombre>`.[/yellow]")
 
 
 def _show_help(display_header_func):
@@ -891,7 +923,6 @@ def _handle_config(arg: str, state, display_header_func):
                     console.print("[green]✓ Configuración de subagentes actualizada.[/green]")
                     input("\nPresiona Enter para continuar...")
 
-        display_header_func()
         return
 
     console.print("[yellow]Subcomando /config desconocido. Usa /config show o /config menu.[/yellow]")
@@ -1062,7 +1093,6 @@ def _handle_add(arg: str, state, rag, display_header_func):
     state.refresh_static_context()
     console.print(f"[green]✓ Contexto actualizado: {len(state.context_files)} archivos.[/green]")
     input("\nPresiona Enter para continuar...")
-    display_header_func()
 
 
 def _handle_context(state, display_header_func):
@@ -1086,7 +1116,6 @@ def _handle_context(state, display_header_func):
                 break
             state.context_files.discard(sel)
             state.refresh_static_context()
-    display_header_func()
 
 
 def _handle_purge(state, rag, display_header_func):
@@ -1100,7 +1129,6 @@ def _handle_purge(state, rag, display_header_func):
         rag.clear_index()
         console.print("[bold red]☢ Contexto y base RAG purgados por completo.[/bold red]")
         input("\nPresiona Enter para continuar...")
-    display_header_func()
 
 
 def _handle_rag(arg: str, rag, display_header_func):
@@ -1427,7 +1455,6 @@ def show_project_guide_if_needed(state) -> None:
     redacción de backlog, codificación de lógica, ejecución de tests y bitácoras).
     Se muestra siempre que state.show_guides sea True.
     """
-    # Si las guías están desactivadas explícitamente en el estado (por /Goff)
     if not getattr(state, "show_guides", True):
         return
         
@@ -1437,6 +1464,7 @@ def show_project_guide_if_needed(state) -> None:
     # Info de proyecto activo para la guía
     active_path = getattr(state, "active_project", None)
     methodology = getattr(state, "project_methodology", "scrum").upper()
+    agency = getattr(state, "active_agency", "default").upper()
     
     if active_path:
         project_status = f"[bold green]VINCULADO[/bold green] ({active_path})"
@@ -1444,17 +1472,58 @@ def show_project_guide_if_needed(state) -> None:
         project_status = "[bold yellow]NO VINCULADO[/bold yellow] (Escribe [bold green]/project[/bold green] para crear o abrir uno)"
 
     guide_text = (
-        f"ℹ️  [bold yellow]ESTADO DEL PROYECTO:[/bold yellow] {project_status} · Metodología: [bold cyan]{methodology}[/bold cyan]\n"
+        f"ℹ️  [bold yellow]ESTADO ACTUAL DEL PROYECTO:[/bold yellow] {project_status}\n"
+        f"  • Metodología activa: [bold cyan]{methodology}[/bold cyan]  • Agencia activa: [bold magenta]{agency}[/bold magenta]\n"
         f"──────────────────────────────────────────────────────────────────────────────\n"
-        f"[bold cyan]👥 AGENTES:[/bold cyan] [bold green]@product_owner[/bold green] | [bold green]@scrum_master[/bold green] | [bold green]@arquitecto_software[/bold green] | [bold green]@default[/bold green]\n"
-        f"  [dim]Ejemplo: Escribe [bold]@product_owner[/bold] para cambiar de agente.[/dim]\n"
-        f"[bold magenta]🚀 MODO AUTOMÁTICO (RECOMENDADO):[/bold magenta] Escribe [bold green]/auto <idea>[/bold green] (PO → SM → Arq → Dev → QA)\n"
-        f"  [bold cyan]🔧 MODO MANUAL:[/bold cyan] 1. [bold green]@product_owner[/bold green] (Backlog) -> 2. [bold green]@scrum_master[/bold green] (Sprints) -> 3. [bold green]@default[/bold green] (Codificar)\n"
-        f"[bold cyan]🔍 RAG Y CONTEXTO:[/bold cyan] [bold green]/add <archivo>[/bold green] (leer) · [bold green]/rag index <ruta>[/bold green] (indexar) · [bold green]/rag[/bold green] (ON/OFF)\n"
+        f"[bold cyan]🪼 ARQUITECTURA MULTI-AGENCIA (JELLYFISH OS v6.0)[/bold cyan]\n"
+        f"Jellyfish OS ha evolucionado a un entorno corporativo Multi-Agencia. Los agentes\n"
+        f"están agrupados de forma lógica bajo diferentes departamentos especializados:\n"
+        f"  - [bold green]DEVELOPMENT[/bold green]: Ingeniería de software, bugs, arquitectura y desarrollo.\n"
+        f"  - [bold green]MARKETING[/bold green]: Estrategias de venta, SEO, redacción de copy y contenido.\n"
+        f"  - [bold green]RESEARCH[/bold green]: Investigación profunda, análisis de mercado y ciencia de datos.\n"
+        f"  - [bold green]MANAGEMENT[/bold green]: Orquestación, Scrum Master y Product Owner de proyectos.\n"
+        f"\n"
+        f"[bold cyan]🤖 EL CEO CLASIFICADOR (AGENCY ORCHESTRATOR)[/bold cyan]\n"
+        f"Cuando ejecutas [bold yellow]/auto <tu idea>[/bold yellow], el **CEO invisible** de Jellyfish clasifica\n"
+        f"tu prompt y lo deriva a la agencia más calificada. La agencia seleccionada\n"
+        f"utilizará únicamente sus propios agentes especializados y generará su propio\n"
+        f"tablero de control para evitar interferencias.\n"
+        f"\n"
+        f"[bold cyan]📋 TABLEROS DE TRABAJO DINÁMICOS[/bold cyan]\n"
+        f"Dependiendo de la agencia activa, Jellyfish orquesta el trabajo en tableros específicos:\n"
+        f"  - Desarrollo / Default -> [bold green]DEV_BOARD.md[/bold green] (o SPRINT_BOARD.md por retrocompatibilidad)\n"
+        f"  - Marketing -> [bold green]MKT_BOARD.md[/bold green]\n"
+        f"  - Investigación -> [bold green]RESEARCH_BOARD.md[/bold green]\n"
+        f"\n"
+        f"[bold cyan]🔄 HANDOFFS INTER-AGENCIA (TRASPASOS)[/bold cyan]\n"
+        f"Los Scrum Masters están entrenados para coordinar entregables cruzados. Si una tarea\n"
+        f"excede la agencia activa, puede planificar un entregable (ej. un `COPY_LANDING.md` en\n"
+        f"Marketing) para que sea consumido como insumo por la agencia de Desarrollo.\n"
+        f"\n"
+        f"[bold magenta]🚀 GUÍA DE TRABAJO PASO A PASO[/bold magenta]\n"
+        f"  [bold green]PASO 1: Vincular o Crear un Proyecto[/bold green]\n"
+        f"  • Ejecuta [bold yellow]/project new ./mi-proyecto[/bold yellow] para inicializar tu espacio de trabajo.\n"
+        f"  \n"
+        f"  [bold green]PASO 2: Navegar y Gestionar Agencias[/bold green]\n"
+        f"  • Ejecuta [bold yellow]/agency[/bold yellow] para listar el catálogo de agencias y sus agentes.\n"
+        f"  • Ejecuta [bold yellow]/agency switch <nombre>[/bold yellow] para cambiar manualmente de departamento.\n"
+        f"  • Al cambiar de agencia, el autocompletador de agentes @ solo sugerirá personalidades\n"
+        f"    pertinentes al departamento activo para mantener la estabilidad visual.\n"
+        f"  \n"
+        f"  [bold green]PASO 3: Lanzar el Pipeline Autónomo[/bold green]\n"
+        f"  • Escribe: [bold yellow]/auto [Tu idea de proyecto][/bold yellow]\n"
+        f"    - Ejemplo: [italic]/auto Escribe una campaña publicitaria y diseña su landing page[/italic]\n"
+        f"  • [bold]Fase 1 (PO)[/bold]: Diseña el `BACKLOG.md` con requerimientos de la agencia activa.\n"
+        f"  • [bold]Fase 2 (SM)[/bold]: Desglosa tareas en el tablero específico de la agencia.\n"
+        f"  • [bold]Fase 3 (Dev)[/bold]: Ejecución autónoma, depuración de lógica y compilación final.\n"
+        f"  \n"
+        f"  [bold green]PASO 4: Interactuar con Agentes de la Agencia[/bold green]\n"
+        f"  • Invoca personalidades con [bold cyan]@agente[/bold cyan] (ej. [bold cyan]@backend_dev[/bold cyan]).\n"
+        f"  • Usa [bold yellow]/add <archivo>[/bold yellow] para darles archivos del proyecto como contexto.\n"
         f"──────────────────────────────────────────────────────────────────────────────\n"
-        f"👉 [bold yellow]¿Quieres ocultar esta guía?[/bold yellow] Escribe [bold red]/Goff[/bold red] · Escribe [bold green]/help[/bold green] para ver el manual completo."
+        f"👉 [bold yellow]¿Quieres ocultar esta guía?[/bold yellow] Escribe [bold red]/Goff[/bold red] · Escribe [bold green]/help[/bold green] para ver el manual de comandos."
     )
-    console.print(Panel(guide_text, title="🪼 GUÍA DE CONSTRUCCIÓN DE PROYECTOS", border_style="yellow"))
+    console.print(Panel(guide_text, title="🪼 GUÍA DE CONSTRUCCIÓN MULTI-AGENCIA JELLYFISH OS", border_style="yellow"))
 
 
 def _handle_project(arg: str, state, rag, display_header_func) -> None:
@@ -1476,28 +1545,20 @@ def _handle_project(arg: str, state, rag, display_header_func) -> None:
         raw_path = sub[4:].strip()
         if raw_path:
             _project_create(raw_path, state, rag, display_header_func)
-            if display_header_func:
-                display_header_func()
             return
         console.print("[red]Uso: /project new <ruta_del_proyecto>[/red]")
         return
 
     if sub == "info":
         _project_info(state)
-        if display_header_func:
-            display_header_func()
         return
 
     if sub == "unlink":
         _project_unlink(state, display_header_func)
-        if display_header_func:
-            display_header_func()
         return
 
     if sub in ("delete", "remove"):
         _project_delete(state, display_header_func)
-        if display_header_func:
-            display_header_func()
         return
 
     # --- Menú interactivo ---
@@ -1525,7 +1586,7 @@ def _handle_project(arg: str, state, rag, display_header_func) -> None:
                 project_path = selected_dir
                 
             _project_create(project_path, state, rag, display_header_func)
-            break
+            return
 
         elif action == "Ver Proyecto Activo":
             _project_info(state)
@@ -1539,8 +1600,7 @@ def _handle_project(arg: str, state, rag, display_header_func) -> None:
             _project_delete(state, display_header_func)
             break
 
-    if display_header_func:
-        display_header_func()
+
 
 
 def _project_create(raw_path: str, state, rag, display_header_func, methodology: str = None) -> None:
@@ -1813,6 +1873,9 @@ def _handle_model_picker(state, display_header_func) -> None:
         models.insert(0, "[➕ Descargar nuevo modelo de Ollama]")
     elif target_prov == "gemini":
         models = [
+            "gemini-3.1-pro-preview",
+            "gemini-2.5-pro",
+            "gemini-2.5-flash",
             "gemini-3.5-flash",
             "gemini-3.1-pro-preview-0815",
             "gemini-1.5-flash",
