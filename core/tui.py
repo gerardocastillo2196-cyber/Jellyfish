@@ -296,12 +296,16 @@ class TUIEngine:
             return
 
         task = self._active_tasks[task_id]
-        desc = task["description"]
+        raw_desc = task["description"]
         elapsed = time.time() - task["start_time"]
         agent_val = task.get("agent")
+        
+        term_width = min(120, get_term_width())
+        # Reservar unos 50 caracteres para los prefijos, tiempo y agente
+        max_desc_len = max(10, term_width - 55)
+        desc = raw_desc if len(raw_desc) <= max_desc_len else raw_desc[:max_desc_len] + "..."
 
         buf = StringIO()
-        term_width = min(120, get_term_width())
         local_console = Console(file=buf, force_terminal=True, width=term_width)
 
         if status == "running":
@@ -354,12 +358,14 @@ class TUIEngine:
         output = buf.getvalue()
 
         with self._lock:
+            # Asegurar que no haya saltos de línea intermedios que arruinen el redibujado con \r
+            clean_output = output.rstrip().replace('\n', ' ')
             if status == "running":
-                # Durante la animación, sobreescribimos la misma línea
-                sys.stdout.write(f"\r{output.rstrip()}\x1b[K")
+                # Durante la animación, borrar línea completa primero y luego escribir
+                sys.stdout.write(f"\r\x1b[K{clean_output}")
             else:
                 # Estado final: imprimir y hacer newline
-                sys.stdout.write(f"\r{output.rstrip()}\x1b[K\n")
+                sys.stdout.write(f"\r\x1b[K{clean_output}\n")
             sys.stdout.flush()
 
 

@@ -27,6 +27,8 @@ from core.crud import handle_slash_command
 from core.ui import display_header, claude_style, console
 from core.tui import tui_engine, TaskProgress
 
+from logging.handlers import RotatingFileHandler
+
 # --- Logging ---
 # Refactorizado para evitar contaminación de la interfaz TUI con logs técnicos en stderr.
 # Ahora se escribe de forma persistente en jellyfish.log en el directorio de la agencia.
@@ -35,7 +37,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
     handlers=[
-        logging.FileHandler(log_file_path, encoding="utf-8")
+        RotatingFileHandler(log_file_path, maxBytes=5*1024*1024, backupCount=3, encoding="utf-8")
     ]
 )
 logging.getLogger("chromadb").setLevel(logging.ERROR)
@@ -289,11 +291,7 @@ def main():
     # --- Inicializar motor TUI ---
     tui_engine.init_terminal()
 
-    # Manejar SIGWINCH (cambio de tamaño de ventana)
-    def _handle_resize(signum, frame):
-        pass  # El header se reimprime antes de cada prompt
 
-    signal.signal(signal.SIGWINCH, _handle_resize)
 
     # Renderizar header inicial
     refresh_header(force=True)
@@ -318,7 +316,8 @@ def main():
     def _save_chat(event):
         """Ctrl+S — Guarda el chat actual en un archivo Markdown."""
         import time as _time
-        chat_dir = os.path.join(os.path.expanduser("~/MisModelosIA/agencia"), "memory")
+        base_dir = state.active_project if getattr(state, "active_project", None) else os.getcwd()
+        chat_dir = os.path.join(base_dir, "memory")
         os.makedirs(chat_dir, exist_ok=True)
         filename = f"chat_{_time.strftime('%Y%m%d_%H%M%S')}.md"
         filepath = os.path.join(chat_dir, filename)
@@ -343,7 +342,12 @@ def main():
         lexer=JellyfishLexer(),
     )
 
-
+    # Manejar SIGWINCH (cambio de tamaño de ventana) para forzar un redraw
+    def _handle_resize(signum, frame):
+        if hasattr(session, 'app'):
+            session.app.invalidate()
+            
+    signal.signal(signal.SIGWINCH, _handle_resize)
 
     try:
         while True:

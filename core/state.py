@@ -727,6 +727,11 @@ class JellyfishState:
                 dropped, available_chars
             )
 
+        # Fase 3: Asegurar que el historial dinámico inicie con 'user' (Requisito estricto Gemini/Claude)
+        while selected and selected[0].get("role") != "user":
+            dropped_msg = selected.pop(0)
+            logger.debug("Descartado mensaje inicial del rol '%s' para cumplir esquema API", dropped_msg.get("role"))
+
         return self.static_history + selected
 
     def token_budget_info(self) -> dict:

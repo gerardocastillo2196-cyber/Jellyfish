@@ -131,3 +131,183 @@
 2026-05-23 21:29:06,192 [jellyfish.llm] INFO: Respuesta: 28092 tokens (Input: 27393 | Output: 699)
 2026-05-23 21:30:34,503 [jellyfish.llm] INFO: Respuesta: 29370 tokens (Input: 27476 | Output: 1894)
 2026-05-23 21:32:26,342 [jellyfish.llm] INFO: Respuesta: 27641 tokens (Input: 27257 | Output: 384)
+2026-05-23 22:02:25,958 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 22:02:25,960 [jellyfish.state] WARNING: Límite de contexto alcanzado (100000 chars), omitiendo archivos restantes.
+2026-05-23 22:03:04,910 [jellyfish.llm] INFO: Respuesta: 33304 tokens (Input: 32712 | Output: 592)
+2026-05-23 22:08:32,784 [jellyfish.llm] INFO: Respuesta: 33787 tokens (Input: 32955 | Output: 832)
+2026-05-23 22:11:49,014 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 22:11:49,027 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 22:11:49,190 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 22:11:49,190 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-23 22:15:15,347 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 22:15:15,360 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 22:15:15,526 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 22:15:15,526 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-23 22:15:15,526 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-23 22:15:15,526 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-23 22:15:15,527 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-23 22:16:19,033 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 22:17:24,614 [jellyfish.llm] INFO: Respuesta: 5616 tokens (Input: 4909 | Output: 707)
+2026-05-23 22:45:56,184 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 22:46:28,786 [jellyfish.state] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-23 22:46:28,799 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 22:46:28,966 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 22:46:28,966 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-23 22:46:28,967 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-23 22:46:28,967 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-23 22:46:28,967 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-23 22:46:58,970 [jellyfish.llm] INFO: Respuesta: 6416 tokens (Input: 5726 | Output: 690)
+2026-05-23 22:49:04,374 [jellyfish.llm] ERROR: Error en _stream_request: Event loop is closed
+Traceback (most recent call last):
+  File "/home/gerardo/MisModelosIA/agencia/core/llm_engine.py", line 346, in _stream_request
+    asyncio.run(_run_stream())
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/home/gerardo/MisModelosIA/agencia/core/llm_engine.py", line 303, in _run_stream
+    async with client.stream("POST", url, headers=headers, json=payload) as response:
+               ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py", line 229, in handle_async_request
+    await self._close_connections(closing)
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py", line 345, in _close_connections
+    await connection.aclose()
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpcore/_async/connection.py", line 173, in aclose
+    await self._connection.aclose()
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpcore/_async/http11.py", line 258, in aclose
+    await self._network_stream.aclose()
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpcore/_backends/anyio.py", line 53, in aclose
+    await self._stream.aclose()
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/anyio/streams/tls.py", line 236, in aclose
+    await self.transport_stream.aclose()
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 1344, in aclose
+    self._transport.close()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/asyncio/selector_events.py", line 1205, in close
+    super().close()
+    ~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/asyncio/selector_events.py", line 865, in close
+    self._loop.call_soon(self._call_connection_lost, None)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/base_events.py", line 833, in call_soon
+    self._check_closed()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/asyncio/base_events.py", line 556, in _check_closed
+    raise RuntimeError('Event loop is closed')
+RuntimeError: Event loop is closed
+2026-05-23 22:49:29,694 [jellyfish.llm] INFO: Respuesta: 7096 tokens (Input: 6519 | Output: 577)
+2026-05-23 22:50:12,720 [jellyfish.llm] ERROR: Error en _stream_request: Event loop is closed
+Traceback (most recent call last):
+  File "/home/gerardo/MisModelosIA/agencia/core/llm_engine.py", line 346, in _stream_request
+    asyncio.run(_run_stream())
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/home/gerardo/MisModelosIA/agencia/core/llm_engine.py", line 303, in _run_stream
+    async with client.stream("POST", url, headers=headers, json=payload) as response:
+               ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py", line 229, in handle_async_request
+    await self._close_connections(closing)
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py", line 345, in _close_connections
+    await connection.aclose()
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpcore/_async/connection.py", line 173, in aclose
+    await self._connection.aclose()
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpcore/_async/http11.py", line 258, in aclose
+    await self._network_stream.aclose()
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/httpcore/_backends/anyio.py", line 53, in aclose
+    await self._stream.aclose()
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/anyio/streams/tls.py", line 236, in aclose
+    await self.transport_stream.aclose()
+  File "/home/gerardo/MisModelosIA/agencia/venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 1344, in aclose
+    self._transport.close()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/asyncio/selector_events.py", line 1205, in close
+    super().close()
+    ~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/asyncio/selector_events.py", line 865, in close
+    self._loop.call_soon(self._call_connection_lost, None)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/base_events.py", line 833, in call_soon
+    self._check_closed()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/asyncio/base_events.py", line 556, in _check_closed
+    raise RuntimeError('Event loop is closed')
+RuntimeError: Event loop is closed
+2026-05-23 22:50:33,432 [jellyfish.llm] INFO: Respuesta: 7842 tokens (Input: 7159 | Output: 683)

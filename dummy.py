@@ -1,0 +1,1 @@
+def execute(args): return "Hello from " + args
