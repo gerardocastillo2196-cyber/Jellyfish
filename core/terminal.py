@@ -4,6 +4,7 @@ import shlex
 import subprocess
 import logging
 import signal
+import sys
 from rich.panel import Panel
 from rich.console import Console
 from prompt_toolkit import PromptSession
@@ -11,6 +12,7 @@ from prompt_toolkit.validation import Validator, ValidationError
 
 logger = logging.getLogger("jellyfish.terminal")
 console = Console()
+screen_console = Console(file=sys.stdout)
 
 # Timeout por defecto en segundos
 DEFAULT_TIMEOUT = 120
@@ -188,6 +190,14 @@ def run_terminal_command(
             return_code_dict['returncode'] = -1
         return msg
 
+    # Prevenir prompts repetidos para comandos denegados o fallidos en este turno
+    if actual_command in getattr(state, "denied_commands", set()):
+        msg = f"✗ Comando denegado automáticamente porque ya fue rechazado o falló previamente en este turno."
+        console.print(f"[red]{msg}[/red]\n")
+        if return_code_dict is not None:
+            return_code_dict['returncode'] = -1
+        return msg
+
     # Sprint 11 — Sistema de permisos dinámicos y configuración por proyecto [y/n/a]
     requires_prompt = force_confirm
     if requires_prompt and state.is_project_auto_approved():
@@ -211,24 +221,33 @@ def run_terminal_command(
             expand=False,
             padding=(1, 2)
         )
-        console.print()
-        console.print(panel)
+        screen_console.print()
+        screen_console.print(panel)
 
         try:
+            import asyncio
             session = PromptSession()
-            decision = session.prompt("Decisión [y/n/a]: ", validator=YesNoAlwaysValidator()).strip().lower()
+            async def get_decision():
+                return await session.prompt_async("Decisión [y/n/a]: ", validator=YesNoAlwaysValidator())
+            decision = asyncio.run(asyncio.wait_for(get_decision(), timeout=60)).strip().lower()
+        except TimeoutError:
+            decision = 'n'
+            screen_console.print("\n[red]✗ Tiempo de espera agotado (timeout de 60s). Comando denegado automáticamente.[/red]")
         except (KeyboardInterrupt, EOFError):
             decision = 'n'
-            console.print("\n[red]✗ Comando denegado por interrupción.[/red]")
+            screen_console.print("\n[red]✗ Comando denegado por interrupción.[/red]")
 
         if decision == 'n':
-            console.print("[red]✗ Ejecución denegada por el usuario.[/red]\n")
+            if not hasattr(state, "denied_commands"):
+                state.denied_commands = set()
+            state.denied_commands.add(actual_command)
+            screen_console.print("[red]✗ Ejecución denegada por el usuario.[/red]\n")
             if return_code_dict is not None:
                 return_code_dict['returncode'] = -1
             return "Ejecución denegada por el usuario."
         elif decision == 'a':
             state.enable_project_auto_approve()
-            console.print("[green]✓ Auto-aprobación activada para este proyecto en adelante.[/green]\n")
+            screen_console.print("[green]✓ Auto-aprobación activada para este proyecto en adelante.[/green]\n")
 
     try:
         # Sprint 8.4 — Ejecutar comandos en la carpeta del proyecto activo si está configurado
@@ -243,10 +262,16 @@ def run_terminal_command(
         else:
             popen_command, use_shell = _prepare_subprocess_command(actual_command)
 
+        # Check if silent execution is active
+        is_silent = getattr(state, "silent_execution", False)
+
         import threading
-        import sys
         
-        console.print(f"\n╭─[bold yellow] Salida de Terminal [/bold yellow]{'─'*60}╮")
+        # Prepare debug log path
+        debug_log_path = os.path.join(exec_cwd, "jellyfish_debug.log") if exec_cwd else "jellyfish_debug.log"
+
+        if not is_silent:
+            console.print(f"\n╭─[bold yellow] Salida de Terminal [/bold yellow]{'─'*60}╮")
         
         process = subprocess.Popen(
             popen_command,
@@ -261,11 +286,22 @@ def run_terminal_command(
         
         captured_lines = []
         def _stream_output():
-            for line in process.stdout:
-                sys.stdout.write(line)
-                sys.stdout.flush()
-                captured_lines.append(line)
-                
+            try:
+                with open(debug_log_path, "a", encoding="utf-8") as f:
+                    for line in process.stdout:
+                        f.write(line)
+                        f.flush()
+                        if not is_silent:
+                            sys.stdout.write(line)
+                            sys.stdout.flush()
+                        captured_lines.append(line)
+            except Exception:
+                for line in process.stdout:
+                    if not is_silent:
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
+                    captured_lines.append(line)
+                 
         reader = threading.Thread(target=_stream_output)
         reader.start()
 
@@ -273,19 +309,25 @@ def run_terminal_command(
         process.wait(timeout=actual_timeout)
         reader.join()
         
-        console.print(f"╰{'─'*80}╯")
+        if not is_silent:
+            console.print(f"╰{'─'*80}╯")
 
         res = "".join(captured_lines).strip()
         if return_code_dict is not None:
             return_code_dict['returncode'] = process.returncode
 
-        if not res:
-            res = f"✓ Comando ejecutado sin salida (exit code: {process.returncode})"
-            console.print(f"[dim]{res}[/dim]")
-        elif process.returncode != 0:
-            console.print(f"[red]✗ Comando finalizó con código {process.returncode}[/red]")
+        if is_silent:
+            if process.returncode != 0:
+                screen_console.print(f"\n[bold red]❌ Comando falló con código {process.returncode}:[/bold red]")
+                screen_console.print(res)
         else:
-            console.print("[green]✓ Comando ejecutado exitosamente[/green]")
+            if not res:
+                res = f"✓ Comando ejecutado sin salida (exit code: {process.returncode})"
+                console.print(f"[dim]{res}[/dim]")
+            elif process.returncode != 0:
+                console.print(f"[red]✗ Comando finalizó con código {process.returncode}[/red]")
+            else:
+                console.print("[green]✓ Comando ejecutado exitosamente[/green]")
 
         if not silent_history:
             # Historial recibe versión compacta head+tail de 3000 chars
@@ -309,15 +351,21 @@ def run_terminal_command(
             except Exception:
                 pass
         msg = f"⏰ Timeout: el comando excedió los {actual_timeout} segundos."
-        console.print(f"[bold red]{msg}[/bold red]")
+        screen_console.print(f"[bold red]{msg}[/bold red]")
         logger.warning("Timeout ejecutando: %s", actual_command[:100])
+        
+        # Registrar como denegado/fallido para prevenir loops infinitos de reintento en este turno
+        if not hasattr(state, "denied_commands"):
+            state.denied_commands = set()
+        state.denied_commands.add(actual_command)
+        
         if return_code_dict is not None:
             return_code_dict['returncode'] = -1
         return msg
 
     except FileNotFoundError as e:
         msg = f"Comando no encontrado: {e}"
-        console.print(f"[dim red]{msg}[/dim red]")
+        screen_console.print(f"[dim red]{msg}[/dim red]")
         logger.error("Comando no encontrado: %s", e)
         if return_code_dict is not None:
             return_code_dict['returncode'] = -1
@@ -325,7 +373,7 @@ def run_terminal_command(
 
     except Exception as e:
         msg = f"Error al ejecutar comando: {e}"
-        console.print(f"[dim red]{msg}[/dim red]")
+        screen_console.print(f"[dim red]{msg}[/dim red]")
         logger.error("Error terminal: %s", e)
         if return_code_dict is not None:
             return_code_dict['returncode'] = -1

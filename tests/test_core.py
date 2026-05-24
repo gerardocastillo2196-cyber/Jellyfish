@@ -413,6 +413,46 @@ class TestDynamicScrum:
         assert "scrum_master" not in names
         assert "backend_dev" in names
 
+    def test_run_scrum_master_success(self, tmp_path):
+        from core.state import JellyfishState
+        from core.project_orchestrator import ProjectOrchestrator
+        from unittest.mock import MagicMock
+
+        project_dir = tmp_path / "scrum_proj"
+        project_dir.mkdir()
+        
+        # Create a mock backlog file
+        backlog_file = project_dir / "BACKLOG.md"
+        with open(backlog_file, "w", encoding="utf-8") as f:
+            f.write("# Backlog\n")
+
+        state = JellyfishState()
+        state.active_project = str(project_dir)
+        state.provider = "ollama"
+        state.model = "qwen"
+
+        orchestrator = ProjectOrchestrator(state)
+        
+        # Mock _call_agent to return a valid board content
+        mock_board = """
+# 🗂️ Sprint Board — Sprint 1
+
+## 📋 POR HACER (TODO)
+
+| ID | Tarea | Asignado | Estimación | Entregable |
+|---|---|---|---|---|
+| T-001 | Crear api | @backend_dev | 3pts | api.md |
+
+## ⏳ EN PROCESO (IN PROGRESS)
+| — | — | — | — | — |
+"""
+        orchestrator._call_agent = MagicMock(return_value=mock_board)
+        
+        # Run _run_scrum_master and verify it returns True
+        result = orchestrator._run_scrum_master("Test user idea")
+        assert result is True
+        assert os.path.exists(os.path.join(str(project_dir), "SPRINT_BOARD.md"))
+
     def test_estimate_tokens(self):
         from core.state import estimate_tokens
         # Cadenas vacías o cortas

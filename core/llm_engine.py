@@ -342,10 +342,15 @@ def _stream_request(
             total_tokens = tokens_input + tokens_output
             if hasattr(state, "add_session_tokens"):
                 state.add_session_tokens(total_tokens)
-            console.print(
-                f"[dim]⚡ Respuesta: {total_tokens:,} tokens "
-                f"(Input: {tokens_input:,} | Output: {tokens_output:,})[/dim]"
-            )
+            
+            if not hasattr(state, "_turn_stats"):
+                state._turn_stats = []
+            state._turn_stats.append({
+                "input": tokens_input,
+                "output": tokens_output,
+                "total": total_tokens
+            })
+            logger.info("Respuesta: %d tokens (Input: %d | Output: %d)", total_tokens, tokens_input, tokens_output)
         return full if full else None
 
     except httpx.ConnectError:
@@ -388,9 +393,14 @@ def stream_ollama(state, rag_context: str = "") -> str | None:
     Returns:
         La respuesta completa del modelo (última iteración), o None si hay error.
     """
+    t_start = time.perf_counter()
+    state._turn_stats = []
     react_iteration = 0
     final_response = None
     _aborted = [False]  # Sprint 3.3 — señal mutable de cancelación
+
+    # Limpiar comandos denegados en este turno para prevenir prompts y ejecuciones duplicadas
+    state.denied_commands = set()
 
     while react_iteration < MAX_REACT_LOOPS:
         react_iteration += 1
@@ -493,4 +503,49 @@ def stream_ollama(state, rag_context: str = "") -> str | None:
             final_response += citation_block
             console.print(Markdown(citation_block))
 
+    # --- Resumen Consolidado de Métricas del Turno ---
+    if hasattr(state, "_turn_stats") and state._turn_stats:
+        from rich.text import Text
+        total_in = sum(s["input"] for s in state._turn_stats)
+        total_out = sum(s["output"] for s in state._turn_stats)
+        total_tok = total_in + total_out
+        elapsed = time.perf_counter() - t_start
+        
+        summary_text = Text()
+        summary_text.append("\n📊 MÉTRICAS DE LA PREGUNTA:\n", style="bold cyan")
+        summary_text.append(f"  Input: {total_in:,} tokens  |  Output: {total_out:,} tokens\n", style="dim white")
+        summary_text.append(f"  Total: {total_tok:,} tokens  |  Tiempo: {elapsed:.2f}s\n", style="bold green")
+        console.print(summary_text)
+
     return final_response
+
+
+def is_ollama_running(url: str = "http://localhost:11434") -> bool:
+    """Verifica de forma ultra-rápida si Ollama está respondiendo en localhost."""
+    import httpx
+    try:
+        with httpx.Client(timeout=0.5) as client:
+            resp = client.get(url)
+            return resp.status_code == 200 or resp.status_code == 404
+    except Exception:
+        return False
+
+
+def is_model_available_locally(model_name: str, url: str = "http://localhost:11434") -> bool:
+    """Verifica de forma ultra-rápida si el modelo de Ollama está descargado localmente."""
+    import httpx
+    try:
+        with httpx.Client(timeout=1.0) as client:
+            resp = client.get(f"{url.rstrip('/')}/api/tags")
+            if resp.status_code == 200:
+                models = [m["name"] for m in resp.json().get("models", [])]
+                if model_name in models:
+                    return True
+                # También buscar por nombre base sin tag/versión
+                model_base = model_name.split(":")[0]
+                for m in models:
+                    if m.split(":")[0] == model_base:
+                        return True
+    except Exception:
+        pass
+    return False

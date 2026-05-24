@@ -18,13 +18,6 @@ import sys
 import signal
 import logging
 
-# --- Logging ---
-logging.basicConfig(
-    level=logging.WARNING,
-    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-    handlers=[logging.StreamHandler(sys.stderr)]
-)
-
 # --- Imports del Core ---
 from core.state import JellyfishState, DB_PATH, PLUGINS_DIR, AGENCY_DIR
 from core.rag_coder import CodeKnowledgeBase
@@ -33,6 +26,25 @@ from core.plugin_manager import PluginManager
 from core.crud import handle_slash_command
 from core.ui import display_header, claude_style, console
 from core.tui import tui_engine, TaskProgress
+
+# --- Logging ---
+# Refactorizado para evitar contaminación de la interfaz TUI con logs técnicos en stderr.
+# Ahora se escribe de forma persistente en jellyfish.log en el directorio de la agencia.
+log_file_path = os.path.join(AGENCY_DIR, "jellyfish.log")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    handlers=[
+        logging.FileHandler(log_file_path, encoding="utf-8")
+    ]
+)
+logging.getLogger("chromadb").setLevel(logging.ERROR)
+logging.getLogger("opentelemetry").setLevel(logging.ERROR)
+logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("dotenv.main").setLevel(logging.ERROR)
+logging.getLogger("httpx").setLevel(logging.ERROR)
+logging.getLogger("httpcore").setLevel(logging.ERROR)
+logging.getLogger("asyncio").setLevel(logging.ERROR)
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.formatted_text import HTML
@@ -193,6 +205,22 @@ class JellyfishLexer(Lexer):
 # --- INICIALIZACIÓN ---
 state = JellyfishState()
 
+# Verificar API Key si el proveedor no es Ollama
+if state.provider != "ollama":
+    from core.state import PROVIDER_CONFIGS
+    prov_cfg = PROVIDER_CONFIGS.get(state.provider)
+    if prov_cfg and prov_cfg.get("api_key_env"):
+        env_var = prov_cfg["api_key_env"]
+        key_val = os.getenv(env_var)
+        if not key_val:
+            console.print(f"[yellow]⚠ No se detectó la API Key para el proveedor '{state.provider}' ({env_var}).[/yellow]")
+            key_val = PromptSession().prompt(f"Ingresa tu API Key para {state.provider} (se guardará de forma segura): ").strip()
+            if key_val:
+                from core.crud import _save_provider_key
+                _save_provider_key(state, state.provider, key_val)
+                state.load_config()
+                os.environ[env_var] = key_val
+
 # Sprint 11 — Asegurar que Ollama está levantado
 from core.llm_engine import ensure_ollama_running
 ollama_ok = ensure_ollama_running(state.ollama_base_url)
@@ -201,14 +229,12 @@ rag = CodeKnowledgeBase(DB_PATH, active_project=state.active_project, ollama_con
 plugins = PluginManager(PLUGINS_DIR)
 
 
-def refresh_header(force=False):
+def refresh_header(force=True):
     """Renderiza el header con el estado actual del sistema.
     
     Sprint 8.0 — Ahora pasa el token_budget para la barra visual
     y el flag _llm_busy para el spinner de conectividad.
     """
-    if not force:
-        return
     import core.state as _state_mod
     proj_name = os.path.basename(state.active_project) if state.active_project else ""
     proj_methodology = getattr(state, "project_methodology", "") if state.active_project else ""

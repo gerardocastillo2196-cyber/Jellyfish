@@ -61,11 +61,11 @@ class TUIEngine:
         
         jelly = Text()
         jelly.append("\n", style="")
-        jelly.append("   ▄███▄          ▄███████▄          ▄███▄\n", style="bold purple")
-        jelly.append("   ███████        ███████████        ███████\n", style="bold violet")
-        jelly.append("   █▀█▀█▀█        ███▀███▀███        █▀█▀█▀█\n", style="bold purple")
-        jelly.append("    ▀ ▀ ▀          █  █  █  █         ▀ ▀ ▀\n", style="bold violet")
-        jelly.append("                   ▀  ▀  ▀  ▀\n", style="bold purple")
+        jelly.append("   ▄███▄           ▄███████▄           ▄███▄\n", style="bold purple")
+        jelly.append("  ███████         ███████████         ███████\n", style="bold violet")
+        jelly.append("  █▀█▀█▀█         ███▀███▀███         █▀█▀█▀█\n", style="bold purple")
+        jelly.append("   █ █ █          █  █  █  █           █ █ █\n", style="bold violet")
+        jelly.append("   ▀ ▀ ▀          ▀  ▀  ▀  ▀           ▀ ▀ ▀\n", style="bold purple")
         c.print(jelly)
         
         c.print(Text("   🪼  JELLYFISH OS v5.1 — Habilitado Gemini 3.1 Pro", style="bold #06b6d4"))
@@ -127,55 +127,117 @@ class TUIEngine:
             buf = StringIO()
             local_console = Console(file=buf, force_terminal=True, width=term_width)
 
-            # Sprint 8.4 — Enriched Brand-Style Jellyfish Status Bar (1 line, all accessories)
-            status_line = Text(no_wrap=True)
-            is_narrow = term_width < 95
-            
-            # 1. Jellyfish Tag y Nombre del Agente
-            status_line.append(" JELLYFISH ", style="bold white on #5e008b")
-            status_line.append(" AGENT ", style="bold #df00ff on #26004d")
-            status_line.append(f"{active_agent.upper()[:10]} ", style="bold white on #26004d")
-            
-            # 2. Contexto (CTX)
-            status_line.append("│", style="bold #5e008b on #26004d")
-            ctx_color = "#00ff00" if num_docs > 0 else "dim white"
-            status_line.append(f" CTX[{num_docs}] ", style=f"bold {ctx_color} on #26004d")
-            
-            # 3. RAG Status
-            status_line.append("│", style="bold #5e008b on #26004d")
-            rag_color = "#00ff00" if "OFF" not in rag_status else "dim white"
-            status_line.append(f" {rag_status} ", style=f"bold {rag_color} on #26004d")
-            
-            # 4. Habilidades (SKL) - Omitir si es muy angosto
-            if not is_narrow:
+            from core.llm_engine import is_ollama_running, is_model_available_locally
+            ollama_ok = is_ollama_running()
+            model_status_icon = "🟢"
+            if provider == "ollama":
+                if not ollama_ok:
+                    model_status_icon = "🔴"
+                elif not is_model_available_locally(model_name):
+                    model_status_icon = "⚠️"
+            else:
+                import os
+                key_env = "GEMINI_API_KEY" if provider == "gemini" else "ANTHROPIC_API_KEY" if provider == "claude" else ""
+                if key_env and not os.getenv(key_env):
+                    model_status_icon = "🔑"
+
+            # Barra de estado responsive (una fila o dos filas)
+            if term_width >= 115:
+                status_line = Text(no_wrap=True)
+                status_line.append(" JELLYFISH ", style="bold white on #5e008b")
+                status_line.append(" AGENT ", style="bold #df00ff on #26004d")
+                status_line.append(f"{active_agent.upper()[:10]} ", style="bold white on #26004d")
+                
+                status_line.append("│", style="bold #5e008b on #26004d")
+                ctx_color = "#00ff00" if num_docs > 0 else "dim white"
+                status_line.append(f" CTX[{num_docs}] ", style=f"bold {ctx_color} on #26004d")
+                
+                status_line.append("│", style="bold #5e008b on #26004d")
+                rag_color = "#00ff00" if "OFF" not in rag_status else "dim white"
+                status_line.append(f" {rag_status} ", style=f"bold {rag_color} on #26004d")
+
+                status_line.append("│", style="bold #5e008b on #26004d")
+                ollama_color = "#00ff00" if ollama_ok else "#ef4444"
+                status_line.append(" OLLAMA[ON] " if ollama_ok else " OLLAMA[OFF] ", style=f"bold {ollama_color} on #26004d")
+                
                 status_line.append("│", style="bold #5e008b on #26004d")
                 status_line.append(f" SKL[{num_skills}] ", style="bold cyan on #26004d")
-            
-            # 5. Proyecto Activo (si existe)
-            if project_name:
-                status_line.append("│", style="bold #5e008b on #26004d")
-                method_suffix = f" ({project_methodology.upper()})" if project_methodology else ""
-                proj_disp = project_name.split("/")[-1] # Mostrar el nombre del directorio final
-                status_line.append(f" PROJ: {proj_disp[:15]}{method_suffix} ", style="bold #f59e0b on #26004d")
                 
-            # 6. Tokens acumulados de sesión (TOK)
-            status_line.append("│", style="bold #5e008b on #26004d")
-            status_line.append(f" TOK: {session_tokens:,} ", style="bold #38bdf8 on #26004d")
+                if project_name:
+                    status_line.append("│", style="bold #5e008b on #26004d")
+                    method_suffix = f" ({project_methodology.upper()})" if project_methodology else ""
+                    proj_disp = project_name.split("/")[-1]
+                    status_line.append(f" PROJ: {proj_disp[:15]}{method_suffix} ", style="bold #f59e0b on #26004d")
+                    
+                status_line.append("│", style="bold #5e008b on #26004d")
+                status_line.append(f" TOK: {session_tokens:,} ", style="bold #38bdf8 on #26004d")
 
-            # 7. Modelo LLM y Proveedor
-            status_line.append("│", style="bold #5e008b on #26004d")
-            model_max = 10 if is_narrow else 20
-            model_short = model_name[:model_max] + "..." if len(model_name) > model_max else model_name
-            status_line.append(f" {model_short} [{provider.upper()}] ", style="bold white on #26004d")
+                status_line.append("│", style="bold #5e008b on #26004d")
+                model_short = model_name[:20] if len(model_name) > 20 else model_name
+                status_line.append(f" {model_short} ({model_status_icon}) [{provider.upper()}] ", style="bold white on #26004d")
 
-            # Spinner LLM (animación braille compacta)
-            if llm_busy:
-                self._spinner_frame = (self._spinner_frame + 1) % len(self._SPINNER_CHARS)
-                spinner_char = self._SPINNER_CHARS[self._spinner_frame]
-                status_line.append(f" {spinner_char}", style="bold #f97316 on #26004d")
+                if llm_busy:
+                    self._spinner_frame = (self._spinner_frame + 1) % len(self._SPINNER_CHARS)
+                    spinner_char = self._SPINNER_CHARS[self._spinner_frame]
+                    status_line.append(f" {spinner_char}", style="bold #f97316 on #26004d")
 
-            # Usar overflow='ellipsis' al imprimir para que quepa perfectamente
-            local_console.print(status_line, overflow="ellipsis", no_wrap=True)
+                len_line = len(status_line.plain)
+                if len_line < term_width:
+                    status_line.append(" " * (term_width - len_line), style="on #26004d")
+                
+                local_console.print(status_line, overflow="ellipsis", no_wrap=True)
+            else:
+                # Two rows
+                row1 = Text(no_wrap=True)
+                row1.append(" JELLYFISH ", style="bold white on #5e008b")
+                row1.append(" AGENT ", style="bold #df00ff on #26004d")
+                row1.append(f"{active_agent.upper()[:10]} ", style="bold white on #26004d")
+                
+                row1.append("│", style="bold #5e008b on #26004d")
+                ctx_color = "#00ff00" if num_docs > 0 else "dim white"
+                row1.append(f" CTX[{num_docs}] ", style=f"bold {ctx_color} on #26004d")
+                
+                row1.append("│", style="bold #5e008b on #26004d")
+                rag_color = "#00ff00" if "OFF" not in rag_status else "dim white"
+                row1.append(f" {rag_status} ", style=f"bold {rag_color} on #26004d")
+
+                row1.append("│", style="bold #5e008b on #26004d")
+                ollama_color = "#00ff00" if ollama_ok else "#ef4444"
+                row1.append(" OLL[ON] " if ollama_ok else " OLL[OFF] ", style=f"bold {ollama_color} on #26004d")
+                
+                row1.append("│", style="bold #5e008b on #26004d")
+                row1.append(f" SKL[{num_skills}] ", style="bold cyan on #26004d")
+                
+                if project_name:
+                    row1.append("│", style="bold #5e008b on #26004d")
+                    method_suffix = f" ({project_methodology.upper()})" if project_methodology else ""
+                    proj_disp = project_name.split("/")[-1]
+                    row1.append(f" PROJ: {proj_disp[:15]}{method_suffix} ", style="bold #f59e0b on #26004d")
+
+                len_row1 = len(row1.plain)
+                if len_row1 < term_width:
+                    row1.append(" " * (term_width - len_row1), style="on #26004d")
+
+                row2 = Text(no_wrap=True)
+                row2.append(" TOK: ", style="bold #38bdf8 on #26004d")
+                row2.append(f"{session_tokens:,} ", style="bold white on #26004d")
+                
+                row2.append("│", style="bold #5e008b on #26004d")
+                model_short = model_name[:40] if len(model_name) > 40 else model_name
+                row2.append(f" {model_short} ({model_status_icon}) [{provider.upper()}] ", style="bold white on #26004d")
+
+                if llm_busy:
+                    self._spinner_frame = (self._spinner_frame + 1) % len(self._SPINNER_CHARS)
+                    spinner_char = self._SPINNER_CHARS[self._spinner_frame]
+                    row2.append(f" {spinner_char}", style="bold #f97316 on #26004d")
+
+                len_row2 = len(row2.plain)
+                if len_row2 < term_width:
+                    row2.append(" " * (term_width - len_row2), style="on #26004d")
+
+                local_console.print(row1, overflow="ellipsis", no_wrap=True)
+                local_console.print(row2, overflow="ellipsis", no_wrap=True)
+
             local_console.print(Text("─" * term_width, style="dim #5e008b"))
 
             header_output = buf.getvalue()
@@ -206,7 +268,7 @@ class TUIEngine:
 
     # ─── Paneles de Progreso (Task Boxes) ─────────────────────────────
 
-    def start_task(self, task_id: str, description: str) -> None:
+    def start_task(self, task_id: str, description: str, agent: str = None) -> None:
         """Inicia un panel de progreso parpadeante para una tarea larga.
         
         Muestra una línea con fondo rojo parpadeante que indica que la tarea
@@ -215,12 +277,14 @@ class TUIEngine:
         Args:
             task_id: Identificador único de la tarea.
             description: Descripción corta de lo que se está haciendo.
+            agent: Nombre opcional del agente asignado.
         """
         self._active_tasks[task_id] = {
             "description": description,
             "status": "running",
             "start_time": time.time(),
             "stop_event": threading.Event(),
+            "agent": agent,
         }
 
         # Imprimir el indicador inicial
@@ -239,12 +303,14 @@ class TUIEngine:
         thread.start()
         self._active_tasks[task_id]["thread"] = thread
 
-    def finish_task(self, task_id: str, success: bool = True) -> None:
+    def finish_task(self, task_id: str, success: bool = True, tokens: int = None, agent: str = None) -> None:
         """Finaliza un panel de progreso, cambiándolo a verde (done) o rojo fijo (error).
         
         Args:
             task_id: Identificador de la tarea.
             success: True para verde "DONE", False para rojo fijo "ERROR".
+            tokens: Número acumulado de tokens procesados en la tarea.
+            agent: Nombre del agente que completó la tarea.
         """
         if task_id not in self._active_tasks:
             return
@@ -259,6 +325,10 @@ class TUIEngine:
         elapsed = time.time() - task["start_time"]
         task["status"] = "done" if success else "error"
         task["elapsed"] = elapsed
+        if tokens is not None:
+            task["tokens"] = tokens
+        if agent is not None:
+            task["agent"] = agent
 
         # Pintar el estado final (verde o rojo fijo)
         self._print_task_indicator(task_id, task["status"])
@@ -280,6 +350,7 @@ class TUIEngine:
         task = self._active_tasks[task_id]
         desc = task["description"]
         elapsed = time.time() - task["start_time"]
+        agent_val = task.get("agent")
 
         buf = StringIO()
         term_width = min(120, get_term_width())
@@ -289,25 +360,47 @@ class TUIEngine:
             if blink_on:
                 indicator = Text()
                 indicator.append(" ⟳ PROCESANDO ", style="bold white on red")
-                indicator.append(f" {desc} ", style="bold red")
+                if agent_val:
+                    indicator.append(f" @{agent_val}: ", style="bold red")
+                indicator.append(f"{desc} ", style="bold red")
                 indicator.append(f" [{elapsed:.0f}s] ", style="dim red")
             else:
                 indicator = Text()
                 indicator.append("               ", style="on #1a1a1a")
-                indicator.append(f" {desc} ", style="dim #666666")
+                if agent_val:
+                    indicator.append(f" @{agent_val}: ", style="dim #666666")
+                indicator.append(f"{desc} ", style="dim #666666")
                 indicator.append(f" [{elapsed:.0f}s] ", style="dim #444444")
         elif status == "done":
             indicator = Text()
             elapsed_final = task.get("elapsed", elapsed)
-            indicator.append(" ✓ COMPLETADO ", style="bold white on green")
-            indicator.append(f" {desc} ", style="bold green")
-            indicator.append(f" [{elapsed_final:.1f}s] ", style="dim green")
+            tokens_final = task.get("tokens", None)
+            agent_final = task.get("agent", agent_val)
+            
+            # Formato requerido: ✓ COMPLETADO @agente: [Descripción corta de la tarea] ([X] tokens · [Y]s)
+            if agent_final:
+                indicator.append(" ✓ COMPLETADO ", style="bold white on green")
+                indicator.append(f" @{agent_final}: {desc} ", style="bold green")
+                if tokens_final is not None:
+                    indicator.append(f" ({tokens_final:,} tokens · {elapsed_final:.1f}s) ", style="dim green")
+                else:
+                    indicator.append(f" ({elapsed_final:.1f}s) ", style="dim green")
+            else:
+                indicator.append(" ✓ COMPLETADO ", style="bold white on green")
+                indicator.append(f" {desc} ", style="bold green")
+                indicator.append(f" [{elapsed_final:.1f}s] ", style="dim green")
         else:  # error
             indicator = Text()
             elapsed_final = task.get("elapsed", elapsed)
-            indicator.append(" ✗ ERROR ", style="bold white on red")
-            indicator.append(f" {desc} ", style="bold red")
-            indicator.append(f" [{elapsed_final:.1f}s] ", style="dim red")
+            agent_final = task.get("agent", agent_val)
+            if agent_final:
+                indicator.append(" ✗ ERROR ", style="bold white on red")
+                indicator.append(f" @{agent_final}: {desc} ", style="bold red")
+                indicator.append(f" [{elapsed_final:.1f}s] ", style="dim red")
+            else:
+                indicator.append(" ✗ ERROR ", style="bold white on red")
+                indicator.append(f" {desc} ", style="bold red")
+                indicator.append(f" [{elapsed_final:.1f}s] ", style="dim red")
 
         local_console.print(indicator)
         output = buf.getvalue()
@@ -331,21 +424,26 @@ class TaskProgress:
         # Al salir del with, automáticamente cambia a verde "COMPLETADO"
     """
 
-    def __init__(self, tui: TUIEngine, task_id: str, description: str):
+    def __init__(self, tui: TUIEngine, task_id: str, description: str, agent: str = None):
         self.tui = tui
         self.task_id = task_id
         self.description = description
+        self.agent = agent
+        self.tokens = None
         self._success = True
 
     def __enter__(self):
-        self.tui.start_task(self.task_id, self.description)
+        self.tui.start_task(self.task_id, self.description, agent=self.agent)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is not None:
             self._success = False
-        self.tui.finish_task(self.task_id, success=self._success)
+        self.tui.finish_task(self.task_id, success=self._success, tokens=self.tokens, agent=self.agent)
         return False  # No suprimir excepciones
+
+    def set_tokens(self, tokens: int):
+        self.tokens = tokens
 
     def fail(self):
         """Marca la tarea como fallida (mostrará rojo en lugar de verde)."""

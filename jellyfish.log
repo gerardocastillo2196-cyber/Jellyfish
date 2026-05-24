@@ -1,0 +1,37 @@
+2026-05-23 16:34:52,101 [httpx] INFO: HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+2026-05-23 16:34:52,102 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 16:34:52,122 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 16:48:52,238 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 16:48:52,259 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 17:21:54,173 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 17:21:54,341 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 17:21:54,342 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 17:22:06,792 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 17:22:06,955 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 17:22:06,956 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 17:24:25,773 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 17:24:25,942 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 17:24:25,943 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 17:26:18,854 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 17:26:19,020 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 17:26:19,020 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 17:31:33,170 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 17:31:33,332 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 17:31:33,332 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 17:45:00,767 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de ollama
+2026-05-23 17:47:30,003 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 17:47:30,167 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 17:47:30,167 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 17:49:19,832 [jellyfish.llm] INFO: Respuesta: 2372 tokens (Input: 2364 | Output: 8)
+2026-05-23 17:55:55,495 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 17:55:55,664 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 17:55:55,664 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 17:58:30,881 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 17:58:31,049 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 17:58:31,050 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 17:59:00,619 [jellyfish.llm] INFO: Respuesta: 1471 tokens (Input: 1374 | Output: 97)
+2026-05-23 18:00:31,357 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de gemini
+2026-05-23 18:04:34,580 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 18:04:34,745 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 18:04:34,745 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 18:04:53,678 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de gemini

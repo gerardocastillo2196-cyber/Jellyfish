@@ -232,6 +232,7 @@ def handle_slash_command(cmd_input: str, state, rag, plugins, display_header_fun
         "/r": "/run",
         "/p": "/project",
         "/h": "/help",
+        "/m": "/model",
     }
     command = aliases.get(command, command)
 
@@ -328,6 +329,9 @@ def handle_slash_command(cmd_input: str, state, rag, plugins, display_header_fun
 
     elif command == "/config":
         _handle_config(arg, state, display_header_func)
+
+    elif command == "/model":
+        _handle_model_picker(state, display_header_func)
 
     elif command == "/ignore":
         _handle_ignore(arg, state)
@@ -434,6 +438,9 @@ Un sistema de 4 fases para consultas complejas: **Planificación → Búsqueda e
 ---
 
 ## ⚙️ 2. CONFIGURACIÓN DEL SISTEMA
+
+### `/model` — Selector Interactivo de Modelos
+*   `/model` (o `/m`): Abre un selector interactivo en TUI para elegir rápidamente el proveedor (Ollama, Gemini, Claude) y el modelo específico a utilizar.
 
 ### `/config` — Panel de Configuración Hot-Reload
 *   `/config` (o `/config menu`): Menú interactivo para ver/cambiar proveedor, modelo y API Keys.
@@ -1170,16 +1177,25 @@ def _handle_rag(arg: str, rag, display_header_func):
                     console.print(Panel(raw_context[:2000], title="RAG Preview (crudo)", border_style="cyan"))
 
     else:
-        console.print(
-            "[cyan]Uso:[/cyan]\n"
-            "  /rag status           — Ver estado del índice\n"
-            "  /rag clear            — Eliminar el índice completo\n"
-            "  /rag reindex <path>   — Reindexar una ruta\n"
-            "  /rag remove <path>    — Eliminar una ruta del índice\n"
-            "  /rag preview <query>  — Previsualizar fragmentos que se enviarían al LLM"
-        )
+        if not subcmd:
+            rag.enabled = not getattr(rag, "enabled", True)
+            estado = "activado" if rag.enabled else "desactivado"
+            console.print(f"[bold green]✓ Inyección de contexto RAG {estado} temporalmente.[/bold green]")
+        else:
+            console.print(
+                "[cyan]Uso:[/cyan]\n"
+                "  /rag status           — Ver estado del índice\n"
+                "  /rag clear            — Eliminar el índice completo\n"
+                "  /rag reindex <path>   — Reindexar una ruta\n"
+                "  /rag remove <path>    — Eliminar una ruta del índice\n"
+                "  /rag preview <query>  — Previsualizar fragmentos que se enviarían al LLM"
+            )
 
     input("\nPresiona Enter para continuar...")
+    os.system("cls" if os.name == "nt" else "clear")
+    from core.tui import tui_engine
+    if getattr(tui_engine, "_initialized", False):
+        tui_engine.print_welcome_logo()
     display_header_func()
 
 
@@ -1430,38 +1446,15 @@ def show_project_guide_if_needed(state) -> None:
     guide_text = (
         f"ℹ️  [bold yellow]ESTADO DEL PROYECTO:[/bold yellow] {project_status} · Metodología: [bold cyan]{methodology}[/bold cyan]\n"
         f"──────────────────────────────────────────────────────────────────────────────\n"
-        f"[bold cyan]👥 ORQUESTACIÓN DE AGENTES (Escribe su rol para activarlos):[/bold cyan]\n"
-        f"  • [bold green]@product_owner[/bold green]   - Recopila tus requerimientos y redacta las historias en el BACKLOG.md.\n"
-        f"  • [bold green]@scrum_master[/bold green]    - Toma el backlog, planifica sprints y supervisa el SPRINT_BOARD.md.\n"
-        f"  • [bold green]@arquitecto_software[/bold green] - Diseña diagramas, estructuras de archivos y flujos de datos.\n"
-        f"  • [bold green]@default[/bold green]         - Tu desarrollador principal para codificar, debugear y refactorizar.\n"
-        f"  [dim]Ejemplo: Escribe [bold]@product_owner[/bold] en la consola y presiona Enter para cambiar de agente.[/dim]\n\n"
-        f"[bold cyan]⚙️ ¿CÓMO HACER FUNCIONAR LA METODOLOGÍA?:[/bold cyan]\n"
-        f"  [bold magenta]🚀 MODO AUTOMÁTICO (RECOMENDADO):[/bold magenta]\n"
-        f"  Escribe [bold green]/auto <tu idea>[/bold green] y la agencia completa trabaja sola:\n"
-        f"  PO → Scrum Master → Arquitecto → Developer → QA\n"
-        f"  Solo necesitas aprobar el backlog. El resto es automático.\n\n"
-        f"  [bold cyan]🔧 MODO MANUAL (Paso a paso):[/bold cyan]\n"
-        f"  1. Activa al [bold green]@product_owner[/bold green] y cuéntale tus ideas para que redacte tu [bold]BACKLOG.md[/bold].\n"
-        f"  2. Pasa al [bold green]@scrum_master[/bold green] para que tome historias del backlog y planifique el [bold]SPRINT_BOARD.md[/bold].\n"
-        f"  3. Pasa al desarrollador ([bold green]@default[/bold green]) para que tome las tareas planificadas e inicie la codificación.\n\n"
-        f"[bold cyan]🔍 CÓMO USAR EL CONTEXTO Y RAG EN TU PROYECTO:[/bold cyan]\n"
-        f"  • [bold]Vincular archivos al contexto:[/bold] Usa [bold green]/add <ruta_archivo>[/bold green] para que el agente lea el código directamente.\n"
-        f"  • [bold]Indexar en RAG (Base de datos vectorial):[/bold] Usa [bold green]/rag index <ruta>[/bold green] para procesar directorios extensos.\n"
-        f"  • [bold]Activar/Desactivar RAG en el prompt:[/bold] Escribe [bold green]/rag[/bold green] para alternar entre RAG[ON] y RAG[OFF].\n\n"
-        f"[bold cyan]💡 PROMPT DE EJEMPLO PERFECTO PARA ARRANCAR:[/bold cyan]\n"
-        f"  [bold green]/auto Quiero una API REST con FastAPI para gestionar inventario con exportación a PDF[/bold green]\n\n"
-        f"[bold cyan]✍️ ¿DÓNDE INGRESAR TUS INSTRUCCIONES PARA CONSTRUIR EL PROYECTO?:[/bold cyan]\n"
-        f"  • Escribe todas tus ideas, requerimientos o comandos a ejecutar directamente en el prompt principal:\n"
-        f"    [bold green]@{state.active_agent}:{state.provider} > [/bold green][bold white]Aquí escribes tus instrucciones...[/bold white]\n"
-        f"  • Si necesitas vincular un archivo para que el agente lo lea, escribe: [bold green]/add <archivo>[/bold green]\n"
-        f"  • Si deseas correr un script o test local de tu proyecto, escribe: [bold green]/run <comando>[/bold green]\n"
-        f"  [dim]Jellyfish actualizará automáticamente los entregables del código y el daily log (DAILY.md).[/dim]\n"
+        f"[bold cyan]👥 AGENTES:[/bold cyan] [bold green]@product_owner[/bold green] | [bold green]@scrum_master[/bold green] | [bold green]@arquitecto_software[/bold green] | [bold green]@default[/bold green]\n"
+        f"  [dim]Ejemplo: Escribe [bold]@product_owner[/bold] para cambiar de agente.[/dim]\n"
+        f"[bold magenta]🚀 MODO AUTOMÁTICO (RECOMENDADO):[/bold magenta] Escribe [bold green]/auto <idea>[/bold green] (PO → SM → Arq → Dev → QA)\n"
+        f"  [bold cyan]🔧 MODO MANUAL:[/bold cyan] 1. [bold green]@product_owner[/bold green] (Backlog) -> 2. [bold green]@scrum_master[/bold green] (Sprints) -> 3. [bold green]@default[/bold green] (Codificar)\n"
+        f"[bold cyan]🔍 RAG Y CONTEXTO:[/bold cyan] [bold green]/add <archivo>[/bold green] (leer) · [bold green]/rag index <ruta>[/bold green] (indexar) · [bold green]/rag[/bold green] (ON/OFF)\n"
         f"──────────────────────────────────────────────────────────────────────────────\n"
-        f"👉 [bold yellow]¿Quieres ocultar esta guía?[/bold yellow] Escribe [bold red]/Goff[/bold red] en la consola para desactivarla.\n"
-        f"   (Puedes volver a activarla escribiendo [bold green]/Gon[/bold green])."
+        f"👉 [bold yellow]¿Quieres ocultar esta guía?[/bold yellow] Escribe [bold red]/Goff[/bold red] · Escribe [bold green]/help[/bold green] para ver el manual completo."
     )
-    console.print(Panel(guide_text, title="🪼 GUÍA DE ORQUESTACIÓN Y CONSTRUCCIÓN DE PROYECTOS", border_style="yellow"))
+    console.print(Panel(guide_text, title="🪼 GUÍA DE CONSTRUCCIÓN DE PROYECTOS", border_style="yellow"))
 
 
 def _handle_project(arg: str, state, rag, display_header_func) -> None:
@@ -1471,7 +1464,7 @@ def _handle_project(arg: str, state, rag, display_header_func) -> None:
         /project            — Menú interactivo (crear/ver/desvincular/eliminar).
         /project new <ruta> — Crear proyecto en la ruta especificada.
         /project info       — Mostrar proyecto activo.
-        /project unlink     — Desvincular proyecto activo.
+        /project unlink     — Desvincular proyecto activo.r
         /project delete     — Eliminar físicamente un proyecto del disco.
     """
     from datetime import datetime
@@ -1517,13 +1510,21 @@ def _handle_project(arg: str, state, rag, display_header_func) -> None:
             break
 
         if action == "Crear / Abrir Proyecto":
+            selected_dir = file_browser(".", header_func=display_header_func)
+            if not selected_dir:
+                break
+            
             session = PromptSession()
-            raw_path = session.prompt(
-                "Ruta del proyecto (absoluta o relativa): ",
-                default=os.path.expanduser("~/")
+            folder_name = session.prompt(
+                f"Nombre de la carpeta a crear/usar dentro de:\n{selected_dir}\n(vacío para usar la seleccionada directamente): "
             ).strip()
-            if raw_path:
-                _project_create(raw_path, state, rag, display_header_func)
+            
+            if folder_name:
+                project_path = os.path.join(selected_dir, folder_name)
+            else:
+                project_path = selected_dir
+                
+            _project_create(project_path, state, rag, display_header_func)
             break
 
         elif action == "Ver Proyecto Activo":
@@ -1734,10 +1735,124 @@ def _project_delete(state, display_header_func) -> None:
                 state.refresh_static_context()
                 console.print("[green]✓ Proyecto desvinculado del estado.[/green]")
             
-            # Borrado físico
-            shutil.rmtree(project_path)
-            console.print(f"[bold green]✓ Carpeta y proyecto eliminados con éxito del disco duro.[/bold green]")
+            # Borrado físico con manejador de errores de permisos y caídas
+            try:
+                shutil.rmtree(project_path)
+                console.print(f"[bold green]✓ Carpeta y proyecto eliminados con éxito del disco duro.[/bold green]")
+            except Exception as pe:
+                # Intentar limpiar usando chmod recursivo
+                def _on_error(func, path, exc_info):
+                    import stat
+                    try:
+                        os.chmod(path, stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC)
+                        func(path)
+                    except Exception:
+                        pass
+                try:
+                    shutil.rmtree(project_path, onerror=_on_error)
+                except Exception:
+                    pass
+                
+                # Si aún existe la carpeta, intentar con rm -rf
+                if os.path.exists(project_path):
+                    import subprocess
+                    try:
+                        subprocess.run(["rm", "-rf", project_path], capture_output=True, text=True)
+                    except Exception:
+                        pass
+                
+                # Verificar si aún existe la carpeta
+                if os.path.exists(project_path):
+                    console.print(f"[red]Error de permisos al eliminar algunos archivos: {pe}[/red]")
+                    console.print("[yellow]Se requiere intervención manual o permisos de superusuario (sudo) para eliminar por completo la carpeta.[/yellow]")
+                    console.print("[bold yellow]Ejecuta en tu terminal host:[/bold yellow]")
+                    console.print(f"   [bold cyan]sudo rm -rf {project_path}[/bold cyan]\n")
+                else:
+                    console.print(f"[bold green]✓ Carpeta y proyecto eliminados con éxito tras resolver permisos.[/bold green]")
         except Exception as e:
             console.print(f"[red]Error al eliminar físicamente el proyecto: {e}[/red]")
     else:
         console.print("[yellow]Operación cancelada. No se modificó ningún archivo.[/yellow]")
+
+
+def _handle_model_picker(state, display_header_func) -> None:
+    """Permite seleccionar de forma interactiva el proveedor y el modelo."""
+    import httpx
+    # 1. Seleccionar Proveedor
+    provider_options = ["Ollama (Local)", "Gemini (Google)", "Claude (Anthropic)"]
+    selected_prov = interactive_picker("SELECCIONAR PROVEEDOR", provider_options)
+    if not selected_prov:
+        return
+        
+    prov_map = {
+        "Ollama (Local)": "ollama",
+        "Gemini (Google)": "gemini",
+        "Claude (Anthropic)": "claude",
+    }
+    target_prov = prov_map[selected_prov]
+    
+    # 2. Obtener lista de modelos según el proveedor
+    models = []
+    if target_prov == "ollama":
+        from urllib.parse import urlparse
+        base_url = state.base_urls.get("ollama", "http://localhost:11434")
+        parsed = urlparse(base_url)
+        tags_url = f"{parsed.scheme}://{parsed.netloc}/api/tags" if parsed.netloc else "http://localhost:11434/api/tags"
+        try:
+            with httpx.Client(timeout=2.0) as client:
+                resp = client.get(tags_url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    models = [m["name"] for m in data.get("models", [])]
+        except Exception:
+            pass
+        if not models:
+            models = ["llama3", "mistral", "codellama", "qwen2.5-coder"]
+        
+        # Añadir opción para descargar nuevos modelos
+        models.insert(0, "[➕ Descargar nuevo modelo de Ollama]")
+    elif target_prov == "gemini":
+        models = [
+            "gemini-3.5-flash",
+            "gemini-3.1-pro-preview-0815",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+        ]
+    elif target_prov == "claude":
+        models = [
+            "claude-3-5-sonnet-20241022",
+            "claude-3-5-haiku-20241022",
+            "claude-3-opus-20240229",
+        ]
+        
+    # 3. Seleccionar Modelo
+    selected_model = interactive_picker(f"SELECCIONAR MODELO ({target_prov.upper()})", models)
+    if not selected_model:
+        return
+        
+    # 3.5. Si seleccionó descargar un nuevo modelo local
+    if selected_model == "[➕ Descargar nuevo modelo de Ollama]":
+        from prompt_toolkit import PromptSession
+        model_to_pull = PromptSession().prompt("Nombre del modelo a descargar (ej. llama3, qwen2.5-coder:7b): ").strip()
+        if not model_to_pull:
+            return
+        console.print(f"[bold cyan]📥 Descargando modelo '{model_to_pull}' mediante Ollama... (esto puede tardar varios minutos)[/bold cyan]")
+        import subprocess
+        try:
+            # Ejecutar de forma síncrona para que el usuario vea la barra de progreso nativa de Ollama
+            subprocess.run(["ollama", "pull", model_to_pull], check=True)
+            selected_model = model_to_pull
+            console.print(f"[bold green]✓ Modelo '{model_to_pull}' descargado exitosamente.[/bold green]")
+        except Exception as e:
+            console.print(f"[bold red]❌ Error al descargar el modelo: {e}[/bold red]")
+            input("\nPresiona Enter para volver...")
+            return
+
+    # 4. Guardar cambios
+    state.save_config(provider=target_prov, model=selected_model)
+    console.print(f"[green]✓ Proveedor cambiado a: {target_prov}[/green]")
+    console.print(f"[green]✓ Modelo cambiado a: {selected_model}[/green]")
+    
+    # Refrescar el header
+    display_header_func()
+    input("\nPresiona Enter para continuar...")
