@@ -15,6 +15,7 @@ import re
 import time
 import json
 import logging
+import sys
 from datetime import datetime
 
 from rich.console import Console
@@ -30,6 +31,34 @@ from core.tui import tui_engine, TaskProgress
 
 logger = logging.getLogger("jellyfish.project_orchestrator")
 console = Console()
+
+class SilentExecutionRedirect:
+    def __init__(self, state):
+        self.state = state
+        self.log_file = None
+        self.old_files = {}
+
+    def __enter__(self):
+        proj_path = getattr(self.state, "active_project", None)
+        log_path = os.path.join(proj_path, "jellyfish_debug.log") if proj_path else "jellyfish_debug.log"
+        self.log_file = open(log_path, "a", encoding="utf-8")
+        
+        from core.project_orchestrator import console as po_console
+        from core.terminal import console as term_console
+        from core.ui import console as ui_console
+        
+        self.consoles = [po_console, term_console, ui_console]
+        for c in self.consoles:
+            self.old_files[c] = c.file
+            c.file = self.log_file
+            
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for c in self.consoles:
+            c.file = self.old_files.get(c, sys.stdout)
+        if self.log_file:
+            self.log_file.close()
 
 # Agentes que son roles de gestión y NO deben asignarse a tareas de ejecución
 _MANAGEMENT_ROLES = {"product_owner", "scrum_master", "template", "researcher"}
@@ -61,14 +90,10 @@ def _scan_available_agents() -> list[dict]:
 def _parse_sprint_tasks(board_content: str) -> list[dict]:
     """Parsea las tareas TODO del SPRINT_BOARD.md.
 
-    Busca filas de tabla Markdown en la sección TODO con formato:
-    | ID | Tarea | Asignado | Estimación | Entregable |
-
     Retorna lista de dicts con keys: id, task, agent, estimate, output_file.
     """
     tasks = []
     in_todo = False
-    header_passed = False
 
     for line in board_content.split("\n"):
         stripped = line.strip()
@@ -76,7 +101,6 @@ def _parse_sprint_tasks(board_content: str) -> list[dict]:
         # Detectar inicio de sección TODO
         if "TODO" in stripped.upper() and ("##" in stripped or "POR HACER" in stripped.upper()):
             in_todo = True
-            header_passed = False
             continue
 
         # Detectar fin de sección TODO (otra sección ##)
@@ -86,39 +110,43 @@ def _parse_sprint_tasks(board_content: str) -> list[dict]:
         if not in_todo:
             continue
 
-        # Saltar líneas de separador de tabla (|---|---|...)
-        if stripped.startswith("|") and "---" in stripped:
-            header_passed = True
+        if not stripped.startswith("|"):
             continue
 
-        # Saltar encabezado de tabla
-        if stripped.startswith("|") and not header_passed:
-            header_passed = False
+        # Separar por |
+        cells = [c.strip() for c in stripped.split("|")]
+        # Quitar celdas vacías externas si existen (delimitadores de tabla | ... |)
+        if cells and cells[0] == "":
+            cells.pop(0)
+        if cells and cells[-1] == "":
+            cells.pop()
+
+        if not cells:
             continue
 
-        # Parsear filas de datos
-        if stripped.startswith("|") and header_passed:
-            cells = [c.strip() for c in stripped.split("|")]
-            # Filtrar celdas vacías del split
-            cells = [c for c in cells if c]
+        # Saltar separadores de tabla (ej: |---|---|...)
+        if all(all(char in ('-', ':', ' ') for char in cell) for cell in cells if cell):
+            continue
 
-            if len(cells) < 3:
-                continue
-            # Ignorar filas placeholder
-            if cells[0] == "—" or cells[1] == "—":
-                continue
+        # Saltar cabecera de la tabla
+        if cells[0].upper() in ("ID", "TASK ID", "TASK_ID", "CÓDIGO", "CODIGO") or cells[1].upper() in ("TAREA", "TASK", "DESCRIPCIÓN", "DESCRIPCION"):
+            continue
 
-            task_data = {
-                "id": cells[0] if len(cells) > 0 else "",
-                "task": cells[1] if len(cells) > 1 else "",
-                "agent": cells[2].lower().replace("@", "").strip() if len(cells) > 2 else "default",
-                "estimate": cells[3] if len(cells) > 3 else "",
-                "output_file": cells[4] if len(cells) > 4 else "",
-            }
+        # Ignorar filas placeholder
+        if cells[0] == "—" or cells[1] == "—" or not cells[0] or not cells[1]:
+            continue
 
-            # Solo agregar si tiene tarea real
-            if task_data["task"] and task_data["id"]:
-                tasks.append(task_data)
+        task_data = {
+            "id": cells[0],
+            "task": cells[1],
+            "agent": cells[2].lower().replace("@", "").strip() if len(cells) > 2 else "default",
+            "estimate": cells[3] if len(cells) > 3 else "",
+            "output_file": cells[4] if len(cells) > 4 else "",
+        }
+
+        # Solo agregar si tiene tarea real
+        if task_data["task"] and task_data["id"]:
+            tasks.append(task_data)
 
     return tasks
 
@@ -299,10 +327,16 @@ class ProjectOrchestrator:
 
         # Mostrar equipo seleccionado
         tasks = _parse_sprint_tasks(result)
+        if not tasks:
+            self.metrics.append({"fase": "📋 Scrum Master", "detalle": "ERROR — No se encontraron tareas", "tiempo": elapsed, "status": "❌"})
+            console.print("[red]❌ Error: El Scrum Master no pudo generar tareas válidas en SPRINT_BOARD.md.[/red]")
+            return False
+
         unique_agents = set(t["agent"] for t in tasks)
         console.print(f"[green]✓ SPRINT_BOARD.md[/green] [dim]({tokens:,} tokens · {elapsed:.1f}s)[/dim]")
         console.print(f"[dim]   Equipo seleccionado: {', '.join(f'@{a}' for a in sorted(unique_agents))}[/dim]")
         console.print(f"[dim]   Tareas planificadas: {len(tasks)}[/dim]")
+        return True
 
     # ─── FASE 3: Task Runner (Ejecución Dinámica) ──────────────────────
 
@@ -554,64 +588,70 @@ class ProjectOrchestrator:
             task_result = ""
             task_elapsed = 0.0
             
-            for attempt in range(1, max_attempts + 1):
-                attempt_t0 = time.perf_counter()
-                if attempt > 1:
-                    console.print(f"       [bold yellow]🔄 Reintento {attempt}/{max_attempts} de compilación y corrección...[/bold yellow]")
-                
-                progress_msg = f"@{agent_name}: {task_desc[:40]}... (Intento {attempt}/{max_attempts})"
-                with TaskProgress(tui_engine, f"auto_task_{i}_{attempt}", progress_msg):
+            short_desc = f"Tarea {task_id_str}: {task_desc[:50]}..."
+            with TaskProgress(tui_engine, f"auto_task_{i}", short_desc, agent=agent_name) as progress:
+                for attempt in range(1, max_attempts + 1):
+                    attempt_t0 = time.perf_counter()
+                    if attempt > 1:
+                        console.print(f"       [bold yellow]🔄 Reintento {attempt}/{max_attempts} de compilación y corrección...[/bold yellow]")
+                    
                     task_result = _call_llm_silent(
                         self.state, agent_messages,
                         provider=self.state.provider,
                         model=self.state.model
                     )
-                
-                attempt_elapsed = time.perf_counter() - attempt_t0
-                task_elapsed += attempt_elapsed
-                
-                if not task_result:
-                    console.print(f"[red]       ✗ Sin respuesta de @{agent_name}[/red]")
-                    break
                     
-                # Escribir el entregable principal
-                self._write_project_file(output_file, task_result)
-                
-                # Extraer y escribir archivos de código real
-                created_files = self._extract_and_write_files(task_result)
-                if created_files:
-                    console.print("       [bold green]⚒ Archivos reales creados/actualizados en el disco:[/bold green]")
-                    for f_path in created_files:
-                        console.print(f"         [green]- {f_path}[/green]")
-                
-                # Si no hay comando de compilación detectado, asumimos éxito inmediato
-                if not build_cmd:
-                    console.print("       [dim]ℹ No se detectó comando de compilación para este proyecto. Completando tarea.[/dim]")
-                    success_task = True
-                    break
+                    attempt_elapsed = time.perf_counter() - attempt_t0
+                    task_elapsed += attempt_elapsed
                     
-                # Intentar compilar el proyecto
-                returncode, build_output = self._run_build_command(build_cmd)
-                if returncode == 0:
-                    console.print("       [bold green]✓ ¡Compilación exitosa! Tarea validada con éxito.[/bold green]")
-                    success_task = True
-                    break
-                else:
-                    if attempt < max_attempts:
-                        error_lines = self._extract_relevant_errors(build_output)
-                        console.print(f"       [bold red]⚠ La compilación falló (código {returncode}). Preparando feedback para reintento...[/bold red]")
+                    if not task_result:
+                        console.print(f"[red]       ✗ Sin respuesta de @{agent_name}[/red]")
+                        progress.fail()
+                        break
                         
-                        agent_messages.append({"role": "assistant", "content": task_result})
+                    # Escribir el entregable principal
+                    self._write_project_file(output_file, task_result)
+                    
+                    # Extraer y escribir archivos de código real
+                    created_files = self._extract_and_write_files(task_result)
+                    if created_files:
+                        console.print("       [bold green]⚒ Archivos reales creados/actualizados en el disco:[/bold green]")
+                        for f_path in created_files:
+                            console.print(f"         [green]- {f_path}[/green]")
+                    
+                    # Si no hay comando de compilación detectado, asumimos éxito inmediato
+                    if not build_cmd:
+                        console.print("       [dim]ℹ No se detectó comando de compilación para este proyecto. Completando tarea.[/dim]")
+                        success_task = True
+                        break
                         
-                        feedback = (
-                            f"Tu código falló en la compilación con el siguiente error. Analiza las dependencias, corrígelo e itera:\n"
-                            f"```\n{error_lines}\n```\n"
-                            f"Corrige los archivos correspondientes y vuelve a generarlos utilizando las etiquetas <write_file> o [WRITE_FILE: ...]."
-                        )
-                        agent_messages.append({"role": "user", "content": feedback})
+                    # Intentar compilar el proyecto
+                    returncode, build_output = self._run_build_command(build_cmd)
+                    if returncode == 0:
+                        console.print("       [bold green]✓ ¡Compilación exitosa! Tarea validada con éxito.[/bold green]")
+                        success_task = True
+                        break
                     else:
-                        console.print(f"       [bold red]❌ Se alcanzó el límite de {max_attempts} intentos. La compilación sigue fallando.[/bold red]")
-                        success_task = False
+                        if attempt < max_attempts:
+                            error_lines = self._extract_relevant_errors(build_output)
+                            console.print(f"       [bold red]⚠ La compilación falló (código {returncode}). Preparando feedback para reintento...[/bold red]")
+                            
+                            agent_messages.append({"role": "assistant", "content": task_result})
+                            
+                            feedback = (
+                                f"Tu código falló en la compilación con el siguiente error. Analiza las dependencias, corrígelo e itera:\n"
+                                f"```\n{error_lines}\n```\n"
+                                f"Corrige los archivos correspondientes y vuelve a generarlos utilizando las etiquetas <write_file> o [WRITE_FILE: ...]."
+                            )
+                            agent_messages.append({"role": "user", "content": feedback})
+                        else:
+                            console.print(f"       [bold red]❌ Se alcanzó el límite de {max_attempts} intentos. La compilación sigue fallando.[/bold red]")
+                            success_task = False
+                            progress.fail()
+
+                if success_task and task_result:
+                    tokens = estimate_tokens(task_result)
+                    progress.set_tokens(tokens)
 
             if not task_result:
                 self.metrics.append({
@@ -717,30 +757,36 @@ class ProjectOrchestrator:
             self._print_summary_table(total_time)
             return "Pipeline detenido en fase de Scrum Master."
 
-        # Fase 3: Task Runner (Ejecución Dinámica)
-        self._run_task_runner(user_idea)
+        # Fase 3: Task Runner (Ejecución Dinámica) y Compilación automática final (Sprint 11)
+        self.state.silent_execution = True
+        try:
+            with SilentExecutionRedirect(self.state):
+                self._run_task_runner(user_idea)
 
-        # Compilación automática final del pipeline (Sprint 11)
-        build_cmd = self._detect_compile_command()
-        if build_cmd:
-            console.print("\n[bold yellow]🛠 Ejecutando compilación de validación final del proyecto...[/bold yellow]")
-            returncode, build_output = self._run_build_command(build_cmd)
-            if returncode == 0:
-                console.print("[bold green]✓ ¡Compilación final exitosa! El proyecto está listo.[/bold green]\n")
-                self.metrics.append({
-                    "fase": "🛠 Compilación Final",
-                    "detalle": f"Comando: {build_cmd}",
-                    "tiempo": 0.0,
-                    "status": "✅",
-                })
-            else:
-                console.print(f"[bold red]⚠ La compilación final falló con código {returncode}.[/bold red]\n")
-                self.metrics.append({
-                    "fase": "🛠 Compilación Final",
-                    "detalle": "Fallo de compilación",
-                    "tiempo": 0.0,
-                    "status": "❌",
-                })
+                build_cmd = self._detect_compile_command()
+                if build_cmd:
+                    console.print("\n🛠 Ejecutando compilación de validación final del proyecto...")
+                    returncode, build_output = self._run_build_command(build_cmd)
+                    
+                    from core.terminal import screen_console
+                    if returncode == 0:
+                        screen_console.print("[bold green]✓ ¡Compilación final exitosa! El proyecto está listo.[/bold green]\n")
+                        self.metrics.append({
+                            "fase": "🛠 Compilación Final",
+                            "detalle": f"Comando: {build_cmd}",
+                            "tiempo": 0.0,
+                            "status": "✅",
+                        })
+                    else:
+                        screen_console.print(f"[bold red]⚠ La compilación final falló con código {returncode}.[/bold red]\n")
+                        self.metrics.append({
+                            "fase": "🛠 Compilación Final",
+                            "detalle": "Fallo de compilación",
+                            "tiempo": 0.0,
+                            "status": "❌",
+                        })
+        finally:
+            self.state.silent_execution = False
 
         # Vincular archivos al contexto
         for fname in self.generated_files:

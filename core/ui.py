@@ -78,44 +78,121 @@ def display_header(active_agent="default", model_name="none", num_skills=0,
     term_width = min(_main_console.width, get_term_width())
     local_console = Console(file=buf, force_terminal=True, width=term_width)
 
+    from core.llm_engine import is_ollama_running, is_model_available_locally
+    ollama_ok = is_ollama_running()
+    model_status_icon = "🟢"
+    if provider == "ollama":
+        if not ollama_ok:
+            model_status_icon = "🔴"
+        elif not is_model_available_locally(model_name):
+            model_status_icon = "⚠️"
+    else:
+        key_env = "GEMINI_API_KEY" if provider == "gemini" else "ANTHROPIC_API_KEY" if provider == "claude" else ""
+        if key_env and not os.getenv(key_env):
+            model_status_icon = "🔑"
+
     # Arte ASCII
     jelly = Text()
-    jelly.append("▄███▄          ▄███████▄          ▄███▄\n", style="bold purple")
-    jelly.append("███████        ███████████        ███████\n", style="bold violet")
-    jelly.append("█▀█▀█▀█        ███▀███▀███        █▀█▀█▀█\n", style="bold purple")
-    jelly.append(" ▀ ▀ ▀          █  █  █  █         ▀ ▀ ▀\n", style="bold violet")
-    jelly.append("                ▀  ▀  ▀  ▀", style="bold purple")
+    jelly.append("   ▄███▄           ▄███████▄           ▄███▄\n", style="bold purple")
+    jelly.append("  ███████         ███████████         ███████\n", style="bold violet")
+    jelly.append("  █▀█▀█▀█         ███▀███▀███         █▀█▀█▀█\n", style="bold purple")
+    jelly.append("   █ █ █          █  █  █  █           █ █ █\n", style="bold violet")
+    jelly.append("   ▀ ▀ ▀          ▀  ▀  ▀  ▀           ▀ ▀ ▀", style="bold purple")
     local_console.print(jelly)
 
-    # Barra de estado responsive
-    status_line = Text(no_wrap=True)
-    is_narrow = term_width < 100
+    # Barra de estado responsive (una fila o dos filas)
+    if term_width >= 115:
+        status_line = Text(no_wrap=True)
+        status_line.append(" JELLYFISH ", style="bold white on #5e008b")
+        status_line.append(" AGENT ", style="bold #df00ff on #26004d")
+        status_line.append(f"{active_agent.upper()[:10]} ", style="bold white on #26004d")
+        
+        status_line.append("│", style="bold #5e008b on #26004d")
+        ctx_color = "#00ff00" if num_docs > 0 else "dim white"
+        status_line.append(f" CTX[{num_docs}] ", style=f"bold {ctx_color} on #26004d")
+        
+        status_line.append("│", style="bold #5e008b on #26004d")
+        rag_color = "#00ff00" if "OFF" not in rag_status else "dim white"
+        status_line.append(f" {rag_status} ", style=f"bold {rag_color} on #26004d")
 
-    status_line.append(" JELLYFISH ", style="bold white on #5e008b")
-    status_line.append(" AGENT ", style="bold #df00ff on #26004d")
-    status_line.append(f"{active_agent.upper()[:10]} ", style="bold white on #26004d")
-
-    status_line.append("│", style="bold #5e008b on #26004d")
-    ctx_color = "#00ff00" if num_docs > 0 else "dim white"
-    status_line.append(f" CTX[{num_docs}] ", style=f"bold {ctx_color} on #26004d")
-
-    status_line.append("│", style="bold #5e008b on #26004d")
-    rag_color = "#00ff00" if "OFF" not in rag_status else "dim white"
-    status_line.append(f" {rag_status} ", style=f"bold {rag_color} on #26004d")
-
-    if not is_narrow:
+        status_line.append("│", style="bold #5e008b on #26004d")
+        ollama_color = "#00ff00" if ollama_ok else "#ef4444"
+        status_line.append(" OLLAMA[ON] " if ollama_ok else " OLLAMA[OFF] ", style=f"bold {ollama_color} on #26004d")
+        
         status_line.append("│", style="bold #5e008b on #26004d")
         status_line.append(f" SKL[{num_skills}] ", style="bold cyan on #26004d")
+        
+        if project_name:
+            status_line.append("│", style="bold #5e008b on #26004d")
+            method_suffix = f" ({project_methodology.upper()})" if project_methodology else ""
+            proj_disp = project_name.split("/")[-1]
+            status_line.append(f" PROJ: {proj_disp[:15]}{method_suffix} ", style="bold #f59e0b on #26004d")
+            
+        status_line.append("│", style="bold #5e008b on #26004d")
+        status_line.append(f" TOK: {session_tokens:,} ", style="bold #38bdf8 on #26004d")
+
         status_line.append("│", style="bold #5e008b on #26004d")
         model_short = model_name[:20] if len(model_name) > 20 else model_name
-        status_line.append(f" {model_short} ", style="bold white on #26004d")
+        status_line.append(f" {model_short} ({model_status_icon}) [{provider.upper()}] ", style="bold white on #26004d")
 
-    status_line.append("│", style="bold #5e008b on #26004d")
-    provider_color = "#00bfff" if provider != "ollama" else "#00ff00"
-    provider_label = provider.upper()[:8]
-    status_line.append(f" {provider_label} ", style=f"bold {provider_color} on #26004d")
+        if llm_busy:
+            status_line.append(" ⟳", style="bold #f97316 on #26004d")
 
-    local_console.print(status_line)
+        len_line = len(status_line.plain)
+        if len_line < term_width:
+            status_line.append(" " * (term_width - len_line), style="on #26004d")
+        
+        local_console.print(status_line, overflow="ellipsis", no_wrap=True)
+    else:
+        # Two rows
+        row1 = Text(no_wrap=True)
+        row1.append(" JELLYFISH ", style="bold white on #5e008b")
+        row1.append(" AGENT ", style="bold #df00ff on #26004d")
+        row1.append(f"{active_agent.upper()[:10]} ", style="bold white on #26004d")
+        
+        row1.append("│", style="bold #5e008b on #26004d")
+        ctx_color = "#00ff00" if num_docs > 0 else "dim white"
+        row1.append(f" CTX[{num_docs}] ", style=f"bold {ctx_color} on #26004d")
+        
+        row1.append("│", style="bold #5e008b on #26004d")
+        rag_color = "#00ff00" if "OFF" not in rag_status else "dim white"
+        row1.append(f" {rag_status} ", style=f"bold {rag_color} on #26004d")
+
+        row1.append("│", style="bold #5e008b on #26004d")
+        ollama_color = "#00ff00" if ollama_ok else "#ef4444"
+        row1.append(" OLL[ON] " if ollama_ok else " OLL[OFF] ", style=f"bold {ollama_color} on #26004d")
+        
+        row1.append("│", style="bold #5e008b on #26004d")
+        row1.append(f" SKL[{num_skills}] ", style="bold cyan on #26004d")
+        
+        if project_name:
+            row1.append("│", style="bold #5e008b on #26004d")
+            method_suffix = f" ({project_methodology.upper()})" if project_methodology else ""
+            proj_disp = project_name.split("/")[-1]
+            row1.append(f" PROJ: {proj_disp[:15]}{method_suffix} ", style="bold #f59e0b on #26004d")
+
+        len_row1 = len(row1.plain)
+        if len_row1 < term_width:
+            row1.append(" " * (term_width - len_row1), style="on #26004d")
+
+        row2 = Text(no_wrap=True)
+        row2.append(" TOK: ", style="bold #38bdf8 on #26004d")
+        row2.append(f"{session_tokens:,} ", style="bold white on #26004d")
+        
+        row2.append("│", style="bold #5e008b on #26004d")
+        model_short = model_name[:40] if len(model_name) > 40 else model_name
+        row2.append(f" {model_short} ({model_status_icon}) [{provider.upper()}] ", style="bold white on #26004d")
+
+        if llm_busy:
+            row2.append(" ⟳", style="bold #f97316 on #26004d")
+
+        len_row2 = len(row2.plain)
+        if len_row2 < term_width:
+            row2.append(" " * (term_width - len_row2), style="on #26004d")
+
+        local_console.print(row1, overflow="ellipsis", no_wrap=True)
+        local_console.print(row2, overflow="ellipsis", no_wrap=True)
+
     local_console.print(Text("─" * term_width, style="dim #5e008b"))
 
     output = buf.getvalue()

@@ -196,8 +196,11 @@ class PluginManager:
 
             if not stdout:
                 if stderr:
-                    logger.error("Plugin sandbox stderr: %s", stderr[:500])
-                return f"⚠ Plugin '{plugin_name}' no produjo output. stderr: {stderr[:200]}"
+                    logger.error("Plugin sandbox stderr: %s", stderr)
+                    if "traceback" in stderr.lower():
+                        return f"⚠ Plugin '{plugin_name}' falló con un error interno en el proceso secundario (traceback ocultado)."
+                    return f"⚠ Plugin '{plugin_name}' no produjo output. stderr: {stderr[:200]}"
+                return f"⚠ Plugin '{plugin_name}' no produjo output."
 
             try:
                 data = json.loads(stdout)
@@ -310,10 +313,7 @@ class PluginManager:
             except Exception as e:
                 tb = traceback.format_exc()
                 logger.error("Error ejecutando plugin '%s': %s\n%s", plugin_name, e, tb)
-                return (
-                    f"Error ejecutando plugin '{plugin_name}': {e}\n"
-                    f"[dim]{tb[-500:]}[/dim]"
-                )
+                return f"Error ejecutando plugin '{plugin_name}': {e}"
 
         return f"Plugin '{plugin_name}' no pudo cargarse."
 

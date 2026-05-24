@@ -245,6 +245,7 @@ class CodeKnowledgeBase:
         self.indexed_file_count: int = 0
         self.indexed_chunk_count: int = 0
         self.indexed_dir: str = ""    # Directorio actualmente indexado
+        self.enabled: bool = True     # Permite apagar el RAG sin borrar la base de datos
 
         if self.ollama_connected:
             try:
@@ -387,7 +388,7 @@ class CodeKnowledgeBase:
                         })
 
                     files_processed += 1
-                    console.print(f"  [dim]✓ {rel_path} ({len(chunks)} chunks)[/dim]")
+                    logger.info("✓ %s (%d chunks)", rel_path, len(chunks))
 
                 except Exception as e:
                     logger.warning("Error indexando %s: %s", filename, e)
@@ -400,7 +401,7 @@ class CodeKnowledgeBase:
             batch_size = 40
             total_chunks = len(all_chunks)
 
-            console.print(f"[cyan]📦 Preparando {total_chunks} fragmentos para indexación...[/cyan]")
+            logger.info("📦 Preparando %d fragmentos para indexación...", total_chunks)
 
             self._close_db()
             self.vector_db = Chroma(
@@ -415,8 +416,9 @@ class CodeKnowledgeBase:
 
                 current_count = min(i + batch_size, total_chunks)
                 percent = int((current_count / total_chunks) * 100)
-                console.print(
-                    f"  [dim]⚡ Generando embeddings: {current_count}/{total_chunks} ({percent}%) ...[/dim]"
+                logger.info(
+                    "⚡ Generando embeddings: %d/%d (%d%%) ...",
+                    current_count, total_chunks, percent
                 )
 
             collection = self.vector_db._collection
@@ -551,14 +553,16 @@ class CodeKnowledgeBase:
 
     @property
     def is_active(self) -> bool:
-        """Indica si hay una base vectorial cargada."""
-        return self.vector_db is not None and self.indexed_chunk_count > 0
+        """Indica si hay una base vectorial cargada y el RAG está habilitado."""
+        return self.enabled and self.vector_db is not None and self.indexed_chunk_count > 0
 
     @property
     def status_text(self) -> str:
         """Texto de estado para la barra del header."""
         if not self.ollama_connected:
             return "RAG[ERR]"
+        if not self.enabled:
+            return "RAG[OFF]"
         if self.is_active:
             return f"RAG[{self.indexed_chunk_count}]"
         return "RAG[OFF]"
