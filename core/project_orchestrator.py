@@ -288,9 +288,9 @@ class ProjectOrchestrator:
         console.print(f"[green]✓ BACKLOG.md[/green] [dim]({tokens:,} tokens · {elapsed:.1f}s)[/dim]")
         self.metrics.append({"fase": "📝 Product Owner", "detalle": f"~{tokens:,} tokens → BACKLOG.md", "tiempo": elapsed, "status": "✅"})
 
-        # Checkpoint
-        preview = result[:2000] + ("\n..." if len(result) > 2000 else "")
-        console.print(Panel(Markdown(preview), title="[bold cyan]📋 Preview: BACKLOG.md[/bold cyan]", border_style="cyan", padding=(1, 2)))
+        # Checkpoint (Resumen mínimo sin preview largo)
+        num_lines = len(result.splitlines())
+        console.print(f"[bold cyan]📋 BACKLOG.md generado con éxito. ({num_lines} líneas · ~{tokens:,} tokens)[/bold cyan]")
 
         try:
             approved = Confirm.ask("\n[bold yellow]¿Aprobar backlog y continuar?[/bold yellow]", default=True)
@@ -576,7 +576,9 @@ class ProjectOrchestrator:
                 f"ID: {task_id_str}\n"
                 f"Descripción: {task_desc}\n"
                 f"Tu entregable: Genera el contenido COMPLETO del archivo {output_file}.\n"
-                f"Genera Markdown listo para guardar. Sé técnico, detallado y profesional.\n\n"
+                f"REGLA CRÍTICA DE RESPUESTA: NO des explicaciones verbales, saludos ni conclusiones. Sé extremadamente conciso y directo.\n"
+                f"REGLA CRÍTICA DE COMPLETITUD: NO trunques el código. Si el archivo es grande y necesitas más espacio, no te preocupes, el sistema te pedirá que continúes. "
+                f"Sin embargo, si has terminado de generar TODO el archivo y código correspondiente de forma exitosa, tu última línea debe ser exactamente la cadena de texto: [TAREA_COMPLETADA]\n\n"
                 f"[REGLA CRÍTICA DE SEPARACIÓN DE CÓDIGO Y DOCUMENTACIÓN]\n"
                 f"Si la tarea requiere crear o modificar archivos de código real, scripts, andamiajes o configuraciones en el disco del proyecto, "
                 f"debes especificar cada uno de ellos dentro de tu entregable utilizando etiquetas con la ruta del archivo. "
@@ -619,11 +621,11 @@ class ProjectOrchestrator:
 
             system = system + env_capabilities_prompt
 
-            # Lazo de compilación y depuración (Compile & Debug Loop) - Sprint 11
-            max_attempts = 3
+            # Lazo de compilación y depuración (Compile & Debug Loop) - Sprint 12
+            max_attempts = 5
             build_cmd = self._detect_compile_command()
             
-            # [MODIFICACIÓN] Definir la estructura base de los mensajes de forma inmutable para la tarea actual
+            # Definir la estructura base de los mensajes de forma inmutable para la tarea actual
             base_messages = [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user_prompt}
@@ -632,100 +634,122 @@ class ProjectOrchestrator:
             last_task_result = ""
             success_task = False
             task_elapsed = 0.0
+            task_result = None
             
             short_desc = f"Tarea {task_id_str}: {task_desc[:50]}..."
-            with TaskProgress(tui_engine, f"auto_task_{i}", short_desc, agent=agent_name) as progress:
-                for attempt in range(1, max_attempts + 1):
-                    attempt_t0 = time.perf_counter()
-                    if attempt > 1:
-                        console.print(f"       [bold yellow]🔄 Reintento {attempt}/{max_attempts} de compilación y corrección...[/bold yellow]")
-                    
-                    # [MODIFICACIÓN CORE] Clonar la lista base en una variable temporal para evitar contaminación de contexto
-                    current_messages = list(base_messages)
-                    if attempt > 1:
-                        current_messages.append({"role": "assistant", "content": last_task_result})
-                        current_messages.append({"role": "user", "content": feedback})
-                    
-                    task_result = _call_llm_silent(
-                        self.state, current_messages,
-                        provider=self.state.provider,
-                        model=self.state.model
-                    )
-                    
-                    attempt_elapsed = time.perf_counter() - attempt_t0
-                    task_elapsed += attempt_elapsed
-                    
-                    if not task_result:
-                        console.print(f"[red]       ✗ Sin respuesta de @{agent_name}[/red]")
-                        if attempt == max_attempts:
-                            progress.fail()
-                        continue
+            try:
+                with TaskProgress(tui_engine, f"auto_task_{i}", short_desc, agent=agent_name) as progress:
+                    for attempt in range(1, max_attempts + 1):
+                        attempt_t0 = time.perf_counter()
                         
-                    # Preservar el último resultado por si la compilación vuelve a fallar
-                    last_task_result = task_result
-                    
-                    # Guardar entregable en disco e interactuar con archivos reales
-                    self._write_project_file(output_file, task_result)
-                    created_files = self._extract_and_write_files(task_result)
-                    if created_files:
-                        console.print("       [bold green]⚒ Archivos reales creados/actualizados en el disco:[/bold green]")
-                        for f_path in created_files:
-                            console.print(f"         [green]- {f_path}[/green]")
-                            
-                    if not build_cmd:
-                        console.print("       [dim]ℹ No se detectó comando de compilación para este proyecto. Completando tarea.[/dim]")
-                        success_task = True
-                        break
+                        # Clonar la lista base en una variable temporal para evitar contaminación de contexto
+                        current_messages = list(base_messages)
+                        if attempt > 1:
+                            current_messages.append({"role": "assistant", "content": last_task_result})
+                            current_messages.append({"role": "user", "content": feedback})
                         
-                    returncode, build_output = self._run_build_command(build_cmd)
-                    if returncode == 0:
-                        console.print("       [bold green]✓ ¡Compilación exitosa! Tarea validada con éxito.[/bold green]")
-                        success_task = True
-                        break
-                    else:
-                        if attempt < max_attempts:
-                            error_lines = self._extract_relevant_errors(build_output)
-                            console.print(f"       [bold red]⚠ La compilación falló (código {returncode}). Preparando feedback limpio...[/bold red]")
-                            
-                            # Definir la retroalimentación limpia para la siguiente iteración aislada
-                            feedback = (
-                                f"Tu código falló en la compilación con el siguiente error. Analiza las dependencias, corrígelo e itera:\n"
-                                f"```\n{error_lines}\n```\n"
-                                f"Corrige los archivos correspondientes y vuelve a generarlos utilizando las etiquetas <write_file> o [WRITE_FILE: ...]."
+                        # Bucle de Continuación de Tarea (Auto-Continuation Loop)
+                        task_result = ""
+                        cont_messages = list(current_messages)
+                        max_continuations = 5
+                        
+                        for cont_idx in range(1, max_continuations + 1):
+                            chunk = _call_llm_silent(
+                                self.state, cont_messages,
+                                provider=self.state.provider,
+                                model=self.state.model
                             )
+                            
+                            if not chunk:
+                                if cont_idx == 1:
+                                    task_result = None
+                                break
+                                
+                            task_result += chunk
+                            
+                            # Si encontramos el marcador de completado, paramos el bucle
+                            if "[TAREA_COMPLETADA]" in chunk or "[TAREA_COMPLETADA]" in task_result:
+                                task_result = task_result.replace("[TAREA_COMPLETADA]", "").strip()
+                                break
+                            
+                            # Si no terminó, preparamos la continuación
+                            if cont_idx < max_continuations:
+                                cont_messages.append({"role": "assistant", "content": chunk})
+                                cont_messages.append({
+                                    "role": "user", 
+                                    "content": "Tu respuesta anterior se cortó debido al límite de caracteres. Por favor, continúa exactamente desde donde te quedaste. No repitas nada de tu respuesta anterior, simplemente continúa generando el archivo de forma íntegra hasta terminar."
+                                })
+                        
+                        attempt_elapsed = time.perf_counter() - attempt_t0
+                        task_elapsed += attempt_elapsed
+                        
+                        if not task_result:
+                            if attempt == max_attempts:
+                                progress.fail()
+                            continue
+                            
+                        # Preservar el último resultado por si la compilación vuelve a fallar
+                        last_task_result = task_result
+                        
+                        # Guardar entregable en disco e interactuar con archivos reales
+                        self._write_project_file(output_file, task_result)
+                        self._extract_and_write_files(task_result)
+                                
+                        if not build_cmd:
+                            success_task = True
+                            break
+                            
+                        returncode, build_output = self._run_build_command(build_cmd)
+                        if returncode == 0:
+                            success_task = True
+                            break
                         else:
-                            console.print(f"       [bold red]❌ Se alcanzó el límite de {max_attempts} intentos. La compilación sigue fallando.[/bold red]")
-                            success_task = False
-                            progress.fail()
-
-                if success_task and task_result:
-                    tokens = estimate_tokens(task_result)
-                    progress.set_tokens(tokens)
-
-            if not task_result:
+                            if attempt < max_attempts:
+                                error_lines = self._extract_relevant_errors(build_output)
+                                feedback = (
+                                    f"Tu código falló en la compilación con el siguiente error. Analiza las dependencias, corrígelo e itera:\n"
+                                    f"```\n{error_lines}\n```\n"
+                                    f"Corrige los archivos correspondientes y vuelve a generarlos utilizando las etiquetas <write_file> o [WRITE_FILE: ...]."
+                                )
+                            else:
+                                success_task = False
+                                progress.fail()
+    
+                    if success_task and task_result:
+                        tokens = estimate_tokens(task_result)
+                        progress.set_tokens(tokens)
+    
+                if not task_result:
+                    self.metrics.append({
+                        "fase": f"@{agent_name} ({task_id_str})",
+                        "detalle": f"FALLIDO — Sin respuesta",
+                        "tiempo": task_elapsed,
+                        "status": "❌",
+                    })
+                    continue
+    
+                tokens = estimate_tokens(task_result)
+                status_symbol = "✅" if success_task else "⚠"
+                status_text = "Completado con éxito" if success_task else "Completado con advertencias (fallo de compilación)"
+                
                 self.metrics.append({
                     "fase": f"@{agent_name} ({task_id_str})",
-                    "detalle": f"ERROR — {task_desc[:30]}",
+                    "detalle": f"~{tokens:,} tokens → {output_file}",
+                    "tiempo": task_elapsed,
+                    "status": status_symbol,
+                })
+    
+                # Actualizar DAILY.md con handoff
+                self._write_task_handoff_with_status(task_id_str, agent_name, task_desc, output_file, status_text)
+                
+            except Exception as ex:
+                logger.error(f"Error crítico en tarea {task_id_str}: {ex}", exc_info=True)
+                self.metrics.append({
+                    "fase": f"@{agent_name} ({task_id_str})",
+                    "detalle": f"FALLIDO — Error interno: {str(ex)[:40]}",
                     "tiempo": task_elapsed,
                     "status": "❌",
                 })
-                continue
-
-            tokens = estimate_tokens(task_result)
-            status_symbol = "✅" if success_task else "⚠"
-            status_text = "Completado con éxito" if success_task else "Completado con advertencias (fallo de compilación)"
-            
-            console.print(f"[green]       {status_symbol} {output_file}[/green] [dim]({tokens:,} tokens · {task_elapsed:.1f}s total)[/dim]")
-
-            self.metrics.append({
-                "fase": f"@{agent_name} ({task_id_str})",
-                "detalle": f"~{tokens:,} tokens → {output_file}",
-                "tiempo": task_elapsed,
-                "status": status_symbol,
-            })
-
-            # Actualizar DAILY.md con handoff
-            self._write_task_handoff_with_status(task_id_str, agent_name, task_desc, output_file, status_text)
 
         # Actualizar tablero: mover todo a DONE
         self._mark_all_done(tasks)
@@ -776,6 +800,18 @@ class ProjectOrchestrator:
     def run(self, user_idea: str) -> str:
         """Ejecuta el pipeline completo de desarrollo autónomo dinámico."""
         total_start = time.perf_counter()
+
+        # Sprint 12 — Preguntar permisos globales al inicio para evitar saturación
+        try:
+            global_approve = Confirm.ask(
+                "\n[bold yellow]⚡ ¿Deseas activar auto-aprobación GLOBAL para TODOS los comandos de esta ejecución? [y/n][/bold yellow]",
+                default=False
+            )
+            if global_approve:
+                self.state.enable_project_auto_approve()
+                console.print("[green]✓ Auto-aprobación global activada para este proceso.[/green]\n")
+        except (EOFError, KeyboardInterrupt):
+            pass
 
         # Header
         console.print()
@@ -876,18 +912,40 @@ class ProjectOrchestrator:
         console.print()
 
     def _generate_final_summary(self, user_idea: str, total_time: float) -> str:
-        """Genera resumen textual para el historial."""
-        completed = sum(1 for m in self.metrics if m["status"] == "✅")
-        summary = (
-            f"🪼 **Pipeline Autónomo Completado** ({total_time:.0f}s)\n\n"
-            f"**Proyecto:** {os.path.basename(self.project_path)}\n"
-            f"**Fases:** {completed}/{len(self.metrics)} completadas\n"
-            f"**Archivos generados:**\n"
+        """Genera resumen textual conciso de lo fallido y el estado actual."""
+        completed_tasks = [m for m in self.metrics if m["status"] == "✅"]
+        failed_tasks = [m for m in self.metrics if m["status"] in ("❌", "⚠")]
+        
+        status_project = "COMPLETADO CON ÉXITO"
+        if failed_tasks:
+            status_project = "INCOMPLETO / CON ADVERTENCIAS (Revisar logs)"
+
+        summary_lines = [
+            f"🪼 [bold purple]REPORTE FINAL DEL PROYECTO[/bold purple] ({total_time:.1f}s)",
+            f"  [bold]• Estado actual:[/bold] {status_project}",
+            f"  [bold]• Directorio:[/bold] {self.project_path}",
+            f"  [bold]• Tareas exitosas:[/bold] {len(completed_tasks)}/{len(self.metrics)}"
+        ]
+        
+        if failed_tasks:
+            summary_lines.append("  [bold red]• Tareas fallidas/omitidas:[/bold red]")
+            for f in failed_tasks:
+                summary_lines.append(f"    - {f['fase']}: {f['detalle']}")
+                
+        # Imprimir por pantalla
+        console.print()
+        console.print(Panel("\n".join(summary_lines), title="[bold cyan]📋 Reporte de Estado[/bold cyan]", border_style="cyan", expand=False))
+        console.print()
+
+        # Retornar versión markdown para el historial
+        md_summary = (
+            f"🪼 **Reporte Final del Proyecto** ({total_time:.1f}s)\n\n"
+            f"- **Estado:** {status_project}\n"
+            f"- **Tareas exitosas:** {len(completed_tasks)}/{len(self.metrics)}\n"
         )
-        for f in self.generated_files:
-            summary += f"  - ✅ `{f}`\n"
-        summary += (
-            f"\n📂 Todos los archivos en: `{self.project_path}`\n"
-            f"💡 Usa `/add <archivo>` para trabajar con un agente específico."
-        )
-        return summary
+        if failed_tasks:
+            md_summary += "- **Tareas fallidas/omitidas:**\n"
+            for f in failed_tasks:
+                md_summary += f"  - `{f['fase']}`: {f['detalle']}\n"
+        md_summary += f"- **Directorio:** `{self.project_path}`"
+        return md_summary

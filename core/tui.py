@@ -307,7 +307,6 @@ class TUIEngine:
 
         buf = StringIO()
         local_console = Console(file=buf, force_terminal=True, width=term_width)
-
         if status == "running":
             if blink_on:
                 indicator = Text()
@@ -329,7 +328,6 @@ class TUIEngine:
             tokens_final = task.get("tokens", None)
             agent_final = task.get("agent", agent_val)
             
-            # Formato requerido: ✓ COMPLETADO @agente: [Descripción corta de la tarea] ([X] tokens · [Y]s)
             if agent_final:
                 indicator.append(" ✓ COMPLETADO ", style="bold white on green")
                 indicator.append(f" @{agent_final}: {desc} ", style="bold green")
@@ -341,18 +339,18 @@ class TUIEngine:
                 indicator.append(" ✓ COMPLETADO ", style="bold white on green")
                 indicator.append(f" {desc} ", style="bold green")
                 indicator.append(f" [{elapsed_final:.1f}s] ", style="dim green")
-        else:  # error
+        else:  # error / failed
             indicator = Text()
             elapsed_final = task.get("elapsed", elapsed)
             agent_final = task.get("agent", agent_val)
             if agent_final:
-                indicator.append(" ✗ ERROR ", style="bold white on red")
-                indicator.append(f" @{agent_final}: {desc} ", style="bold red")
-                indicator.append(f" [{elapsed_final:.1f}s] ", style="dim red")
+                indicator.append(" ⚠ SALTADO ", style="bold black on yellow")
+                indicator.append(f" @{agent_final}: {desc} ", style="bold yellow")
+                indicator.append(f" [{elapsed_final:.1f}s] ", style="dim yellow")
             else:
-                indicator.append(" ✗ ERROR ", style="bold white on red")
-                indicator.append(f" {desc} ", style="bold red")
-                indicator.append(f" [{elapsed_final:.1f}s] ", style="dim red")
+                indicator.append(" ⚠ SALTADO ", style="bold black on yellow")
+                indicator.append(f" {desc} ", style="bold yellow")
+                indicator.append(f" [{elapsed_final:.1f}s] ", style="dim yellow")
 
         local_console.print(indicator)
         output = buf.getvalue()
