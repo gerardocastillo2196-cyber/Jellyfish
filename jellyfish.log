@@ -35,3 +35,99 @@
 2026-05-23 18:04:34,745 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
 2026-05-23 18:04:34,745 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
 2026-05-23 18:04:53,678 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de gemini
+2026-05-23 20:02:46,326 [jellyfish.llm] INFO: Ollama no responde. Intentando iniciar servicio 'ollama serve'...
+2026-05-23 20:02:51,888 [jellyfish.llm] INFO: Ollama iniciado exitosamente en el intento 2
+2026-05-23 20:02:52,249 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:02:52,249 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:05:56,317 [jellyfish.rag] INFO: ✓ SCRUM_METHODOLOGY.md (2 chunks)
+2026-05-23 20:05:56,318 [jellyfish.rag] INFO: ✓ SPRINT_BOARD.md (1 chunks)
+2026-05-23 20:05:56,318 [jellyfish.rag] INFO: ✓ DAILY.md (1 chunks)
+2026-05-23 20:05:56,319 [jellyfish.rag] INFO: ✓ BACKLOG.md (1 chunks)
+2026-05-23 20:05:56,320 [jellyfish.rag] INFO: 📦 Preparando 5 fragmentos para indexación...
+2026-05-23 20:05:58,105 [jellyfish.rag] INFO: ⚡ Generando embeddings: 5/5 (100%) ...
+2026-05-23 20:10:51,130 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:10:51,150 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:12:26,648 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:12:26,668 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:13:37,335 [jellyfish.rag] INFO: ✓ SCRUM_METHODOLOGY.md (2 chunks)
+2026-05-23 20:13:37,336 [jellyfish.rag] INFO: ✓ SPRINT_BOARD.md (1 chunks)
+2026-05-23 20:13:37,336 [jellyfish.rag] INFO: ✓ DAILY.md (1 chunks)
+2026-05-23 20:13:37,337 [jellyfish.rag] INFO: ✓ BACKLOG.md (1 chunks)
+2026-05-23 20:13:37,337 [jellyfish.rag] INFO: 📦 Preparando 5 fragmentos para indexación...
+2026-05-23 20:13:38,668 [jellyfish.rag] INFO: ⚡ Generando embeddings: 5/5 (100%) ...
+2026-05-23 20:15:54,313 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:15:54,333 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:16:25,032 [jellyfish.rag] INFO: ✓ SCRUM_METHODOLOGY.md (2 chunks)
+2026-05-23 20:16:25,033 [jellyfish.rag] INFO: ✓ SPRINT_BOARD.md (1 chunks)
+2026-05-23 20:16:25,034 [jellyfish.rag] INFO: ✓ DAILY.md (1 chunks)
+2026-05-23 20:16:25,035 [jellyfish.rag] INFO: ✓ BACKLOG.md (1 chunks)
+2026-05-23 20:16:25,035 [jellyfish.rag] INFO: 📦 Preparando 5 fragmentos para indexación...
+2026-05-23 20:16:25,761 [jellyfish.rag] INFO: ⚡ Generando embeddings: 5/5 (100%) ...
+2026-05-23 20:17:53,845 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:17:54,011 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:17:54,011 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:20:02,674 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:20:02,887 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:20:02,888 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:21:11,773 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:21:11,940 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:21:11,941 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:21:58,019 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:21:58,185 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:21:58,186 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:25:19,372 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:25:19,533 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:25:19,533 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:25:56,324 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:25:56,490 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:25:56,490 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:30:03,398 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:30:03,562 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:30:03,563 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:30:21,577 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:30:21,741 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:30:21,741 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:31:16,614 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:31:16,778 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:31:16,778 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:31:29,405 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:31:29,566 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:31:29,566 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:32:16,871 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:32:17,035 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:32:17,035 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:32:46,437 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:32:46,599 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:32:46,599 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:47:47,091 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 20:47:47,252 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-23 20:47:47,252 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 20:51:36,613 [jellyfish.rag] INFO: ✓ SCRUM_METHODOLOGY.md (2 chunks)
+2026-05-23 20:51:36,614 [jellyfish.rag] INFO: ✓ SPRINT_BOARD.md (1 chunks)
+2026-05-23 20:51:36,614 [jellyfish.rag] INFO: ✓ DAILY.md (1 chunks)
+2026-05-23 20:51:36,615 [jellyfish.rag] INFO: ✓ BACKLOG.md (1 chunks)
+2026-05-23 20:51:36,615 [jellyfish.rag] INFO: 📦 Preparando 5 fragmentos para indexación...
+2026-05-23 20:51:37,700 [jellyfish.rag] INFO: ⚡ Generando embeddings: 5/5 (100%) ...
+2026-05-23 20:55:22,536 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de gemini
+2026-05-23 20:55:22,536 [jellyfish.agency_orchestrator] ERROR: Error al clasificar agencia: 'NoneType' object has no attribute 'strip'
+2026-05-23 20:55:25,315 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de gemini
+2026-05-23 20:55:25,315 [jellyfish.project_orchestrator] ERROR: ⚠️ El modelo gemini-1.5-pro (gemini) retornó un output vacío.
+2026-05-23 20:55:46,741 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de gemini
+2026-05-23 20:55:46,742 [jellyfish.project_orchestrator] ERROR: ⚠️ El modelo gemini-1.5-pro (gemini) retornó un output vacío.
+2026-05-23 20:56:27,946 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de gemini
+2026-05-23 20:56:27,947 [jellyfish.agency_orchestrator] ERROR: Error al clasificar agencia: 'NoneType' object has no attribute 'strip'
+2026-05-23 20:56:29,289 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de gemini
+2026-05-23 20:56:29,289 [jellyfish.project_orchestrator] ERROR: ⚠️ El modelo gemini-1.5-pro (gemini) retornó un output vacío.
+2026-05-23 20:56:40,838 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de gemini
+2026-05-23 20:56:40,838 [jellyfish.project_orchestrator] ERROR: ⚠️ El modelo gemini-1.5-pro (gemini) retornó un output vacío.
+2026-05-23 21:00:01,465 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-23 21:00:01,484 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): hello
+2026-05-23 21:00:48,185 [jellyfish.rag] INFO: ✓ SCRUM_METHODOLOGY.md (2 chunks)
+2026-05-23 21:00:48,186 [jellyfish.rag] INFO: ✓ SPRINT_BOARD.md (1 chunks)
+2026-05-23 21:00:48,186 [jellyfish.rag] INFO: ✓ DAILY.md (1 chunks)
+2026-05-23 21:00:48,186 [jellyfish.rag] INFO: ✓ BACKLOG.md (1 chunks)
+2026-05-23 21:00:48,186 [jellyfish.rag] INFO: 📦 Preparando 5 fragmentos para indexación...
+2026-05-23 21:00:49,548 [jellyfish.rag] INFO: ⚡ Generando embeddings: 5/5 (100%) ...
+2026-05-23 21:29:06,192 [jellyfish.llm] INFO: Respuesta: 28092 tokens (Input: 27393 | Output: 699)
+2026-05-23 21:30:34,503 [jellyfish.llm] INFO: Respuesta: 29370 tokens (Input: 27476 | Output: 1894)
+2026-05-23 21:32:26,342 [jellyfish.llm] INFO: Respuesta: 27641 tokens (Input: 27257 | Output: 384)

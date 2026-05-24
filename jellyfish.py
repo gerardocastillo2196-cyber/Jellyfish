@@ -63,6 +63,8 @@ try:
         if "Completion" in content_name or "Menu" in content_name:
             kwargs["bottom"] = 1
             kwargs["top"] = None
+            # [MODIFICACIÓN] Evitar superposición destructiva sobre el prompt interactivo del usuario
+            kwargs["hide_when_covering_content"] = True
         _orig_float_init(self, content, *args, **kwargs)
     pt_containers.Float.__init__ = _patched_float_init
 except Exception:
@@ -86,6 +88,7 @@ class JellyfishCompleter(Completer):
         "/config": "Configurar proveedor, modelo o API keys",
         "/ignore": "Gestionar exclusiones (.jellyfishignore)",
         "/project": "Gestión de proyectos con metodología Scrum",
+        "/agency": "Gestión y cambio de agencias de Jellyfish OS v6",
         "/clear": "Limpiar historial de chat",
         "/research": "Ejecutar agente investigador multi-pasos",
         "/auto": "Ejecutar agencia autónoma de desarrollo completa",
@@ -144,17 +147,38 @@ class JellyfishCompleter(Completer):
                 if opt.startswith(sub):
                     yield Completion(f"/project {opt}", start_position=-len(text))
 
-        # Autocompletado de agentes @ — Sprint 3.5: descripción dinámica desde .md
+        # Autocompletado de subcomandos /agency
+        elif text.startswith('/agency '):
+            sub = text[8:]
+            if sub.startswith('switch '):
+                target = sub[7:]
+                for agency in state.agency_catalog.keys():
+                    if agency.startswith(target):
+                        yield Completion(f"/agency switch {agency}", start_position=-len(text))
+            else:
+                for opt in ["switch"]:
+                    if opt.startswith(sub):
+                        yield Completion(f"/agency {opt}", start_position=-len(text))
+
+        # Autocompletado de agentes @ — Sprint 3.5: descripción dinámica desde .md, filtrado por agencia_activa
         elif text.startswith('@'):
             query = text[1:].lower()
             if "exit".startswith(query):
                 yield Completion("@exit", start_position=-len(text), display_meta="Volver a default")
             agents_dir = os.path.join(AGENCY_DIR, "agents")
             if os.path.exists(agents_dir):
+                active_agency = getattr(state, "active_agency", "default")
+                allowed_agents = state.agency_catalog.get(active_agency, [])
+                if not allowed_agents:
+                    allowed_agents = state.agency_catalog.get("default", [])
+                    
                 for f in sorted(os.listdir(agents_dir)):
                     if f.endswith(".md") and not f.startswith("template"):
                         name = f[:-3]
                         if name.lower().startswith(query):
+                            if name.lower() not in allowed_agents:
+                                continue
+                            
                             # Leer la primera línea no vacía del archivo como descripción
                             desc = "Agente"
                             try:
@@ -250,6 +274,7 @@ def refresh_header(force=True):
         token_budget=state.token_budget_info(),
         llm_busy=_state_mod._llm_busy,
         session_tokens=getattr(state, "session_tokens", 0),
+        active_agency=getattr(state, "active_agency", "default"),
     )
 
 
@@ -364,11 +389,16 @@ def main():
                             state.history.append({"role": "assistant", "content": final_report})
                         else:
                             console.print("[yellow]Uso: /research <consulta_compleja>[/yellow]")
+                        refresh_header(force=True)
                         continue
 
                     handle_slash_command(
                         user_input, state, rag, plugins, refresh_header
                     )
+                    
+                    cmd_base = user_input.split(" ", 1)[0].lower()
+                    if cmd_base in ("/auto", "/build"):
+                        refresh_header(force=True)
                     continue
 
                 # --- RAG: Siempre buscar contexto relevante ---
