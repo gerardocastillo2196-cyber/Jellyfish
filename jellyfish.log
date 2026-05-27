@@ -667,3 +667,346 @@ fi (Patrón: \b(chmod|chown)\b.*(-R|--recursive).*(?:/(?:$|\s)|/(etc|var|usr|bin
 2026-05-27 07:15:57,713 [jellyfish.llm] INFO: Respuesta: 6715 tokens (Input: 5936 | Output: 779)
 2026-05-27 07:23:18,208 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
 2026-05-27 07:23:27,801 [jellyfish.llm] INFO: Respuesta: 7501 tokens (Input: 6867 | Output: 634)
+2026-05-27 07:52:51,563 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 07:52:51,575 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-27 07:52:51,736 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 07:52:51,737 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 07:52:51,737 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 07:52:51,737 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 07:52:51,737 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 07:52:51,737 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 07:52:51,737 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 07:52:51,738 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 07:52:51,738 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 09:33:17,864 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 09:33:17,876 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-27 09:33:18,039 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 09:33:18,039 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 09:33:18,039 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 09:33:18,040 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 09:33:18,040 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 09:33:18,040 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 09:33:18,040 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 09:33:18,040 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 09:33:18,040 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 09:33:57,768 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt'
+2026-05-27 09:33:57,768 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/package.json: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/package.json'
+2026-05-27 09:33:57,769 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/Pipfile: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/Pipfile'
+2026-05-27 09:33:57,769 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml'
+2026-05-27 09:33:57,769 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/go.mod: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/go.mod'
+2026-05-27 09:38:12,887 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/agents/`arquitecto_software`.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/agents/`arquitecto_software`.md'
+2026-05-27 09:38:12,945 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 09:38:28,886 [jellyfish.project_orchestrator] ERROR: Error escribiendo /home/gerardo/Documentos/gerardo/Scripts/app/src/database/schema.sql: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/src/database/schema.sql'
+2026-05-27 09:39:17,663 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 09:39:37,360 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 09:39:42,438 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:20:03,167 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:20:03,179 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-27 12:20:03,199 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 12:20:03,199 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 12:20:03,200 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 12:20:03,200 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 12:20:03,200 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 12:20:03,200 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 12:20:03,200 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 12:20:03,200 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 12:31:42,225 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:32:19,270 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:32:20,727 [jellyfish.rag] INFO: ✓ SCRUM_METHODOLOGY.md (2 chunks)
+2026-05-27 12:32:20,728 [jellyfish.rag] INFO: ✓ SPRINT_BOARD.md (1 chunks)
+2026-05-27 12:32:20,729 [jellyfish.rag] INFO: ✓ DAILY.md (1 chunks)
+2026-05-27 12:32:20,729 [jellyfish.rag] INFO: ✓ BACKLOG.md (1 chunks)
+2026-05-27 12:32:20,729 [jellyfish.rag] INFO: 📦 Preparando 5 fragmentos para indexación...
+2026-05-27 12:32:21,911 [jellyfish.rag] INFO: ⚡ Generando embeddings: 5/5 (100%) ...
+2026-05-27 12:34:39,528 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md'
+2026-05-27 12:34:39,528 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt'
+2026-05-27 12:34:39,528 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/package.json: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/package.json'
+2026-05-27 12:34:39,528 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/Pipfile: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/Pipfile'
+2026-05-27 12:34:39,528 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml'
+2026-05-27 12:34:39,528 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/go.mod: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/go.mod'
+2026-05-27 12:34:44,886 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:35:17,040 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:35:24,610 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:35:28,249 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:35:44,473 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:36:51,141 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md'
+2026-05-27 12:36:51,141 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt'
+2026-05-27 12:36:51,141 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/package.json: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/package.json'
+2026-05-27 12:36:51,141 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/Pipfile: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/Pipfile'
+2026-05-27 12:36:51,141 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml'
+2026-05-27 12:36:51,141 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/go.mod: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/go.mod'
+2026-05-27 12:36:51,143 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:38:04,242 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:38:22,907 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:38:22,920 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-27 12:38:22,940 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 12:38:22,940 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 12:38:22,940 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 12:38:22,940 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 12:38:22,940 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 12:38:22,940 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 12:38:22,941 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 12:38:22,941 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 12:38:38,181 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:38:42,354 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:38:46,387 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:38:49,034 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:38:52,226 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:39:16,217 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:39:17,554 [jellyfish.rag] INFO: ✓ SCRUM_METHODOLOGY.md (2 chunks)
+2026-05-27 12:39:17,554 [jellyfish.rag] INFO: ✓ SPRINT_BOARD.md (1 chunks)
+2026-05-27 12:39:17,554 [jellyfish.rag] INFO: ✓ DAILY.md (1 chunks)
+2026-05-27 12:39:17,554 [jellyfish.rag] INFO: ✓ BACKLOG.md (1 chunks)
+2026-05-27 12:39:17,554 [jellyfish.rag] INFO: 📦 Preparando 5 fragmentos para indexación...
+2026-05-27 12:39:18,824 [jellyfish.rag] INFO: ⚡ Generando embeddings: 5/5 (100%) ...
+2026-05-27 12:39:24,386 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:39:49,226 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:40:00,434 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:41:59,275 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:42:23,848 [jellyfish] ERROR: Error en main loop: cannot access local variable 'Confirm' where it is not associated with a value
+Traceback (most recent call last):
+  File "/home/gerardo/MisModelosIA/agencia/jellyfish.py", line 399, in main
+    handle_slash_command(
+    ~~~~~~~~~~~~~~~~~~~~^
+        user_input, state, rag, plugins, refresh_header
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/gerardo/MisModelosIA/agencia/core/command_dispatcher.py", line 48, in handle_slash_command
+    handle_orchestration_command(command, arg, state, rag, display_header_func)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gerardo/MisModelosIA/agencia/core/commands/orchestration.py", line 8, in handle_orchestration_command
+    _handle_auto(arg, state, display_header_func)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gerardo/MisModelosIA/agencia/core/commands/orchestration.py", line 50, in _handle_auto
+    final_report = orchestrator.route_and_execute(idea)
+  File "/home/gerardo/MisModelosIA/agencia/core/agency_orchestrator.py", line 78, in route_and_execute
+    return orchestrator.run(user_prompt)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/home/gerardo/MisModelosIA/agencia/core/project_orchestrator.py", line 879, in run
+    global_approve = Confirm.ask(
+                     ^^^^^^^
+UnboundLocalError: cannot access local variable 'Confirm' where it is not associated with a value
+2026-05-27 12:43:45,648 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:49:38,675 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:49:38,687 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-27 12:49:38,846 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 12:49:38,847 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 12:49:38,847 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 12:49:38,847 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 12:49:38,847 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 12:49:38,847 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 12:49:38,847 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 12:49:38,848 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 12:49:38,848 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 12:50:33,373 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:50:38,952 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:50:47,361 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:50:51,867 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:51:10,768 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:51:12,513 [jellyfish.rag] INFO: ✓ SCRUM_METHODOLOGY.md (2 chunks)
+2026-05-27 12:51:12,514 [jellyfish.rag] INFO: ✓ SPRINT_BOARD.md (1 chunks)
+2026-05-27 12:51:12,515 [jellyfish.rag] INFO: ✓ DAILY.md (1 chunks)
+2026-05-27 12:51:12,516 [jellyfish.rag] INFO: ✓ BACKLOG.md (1 chunks)
+2026-05-27 12:51:12,516 [jellyfish.rag] INFO: 📦 Preparando 5 fragmentos para indexación...
+2026-05-27 12:51:13,699 [jellyfish.rag] INFO: ⚡ Generando embeddings: 5/5 (100%) ...
+2026-05-27 12:51:20,490 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:53:31,176 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md'
+2026-05-27 12:53:31,176 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt'
+2026-05-27 12:53:31,176 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/package.json: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/package.json'
+2026-05-27 12:53:31,176 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/Pipfile: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/Pipfile'
+2026-05-27 12:53:31,176 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml'
+2026-05-27 12:53:31,176 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/go.mod: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/go.mod'
+2026-05-27 12:54:22,682 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:59:39,927 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 12:59:53,308 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md'
+2026-05-27 12:59:53,308 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt'
+2026-05-27 12:59:53,308 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/package.json: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/package.json'
+2026-05-27 12:59:53,309 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/Pipfile: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/Pipfile'
+2026-05-27 12:59:53,309 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml'
+2026-05-27 12:59:53,309 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/go.mod: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/go.mod'
+2026-05-27 13:00:08,620 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 13:13:03,186 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 13:13:07,046 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 13:13:18,341 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 13:13:20,615 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 13:13:25,567 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 13:13:29,598 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 13:13:59,431 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 13:14:04,157 [jellyfish.rag] INFO: ✓ SCRUM_METHODOLOGY.md (2 chunks)
+2026-05-27 13:14:04,158 [jellyfish.rag] INFO: ✓ SPRINT_BOARD.md (1 chunks)
+2026-05-27 13:14:04,159 [jellyfish.rag] INFO: ✓ DAILY.md (1 chunks)
+2026-05-27 13:14:04,159 [jellyfish.rag] INFO: ✓ BACKLOG.md (1 chunks)
+2026-05-27 13:14:04,160 [jellyfish.rag] INFO: 📦 Preparando 5 fragmentos para indexación...
+2026-05-27 13:14:04,789 [jellyfish.rag] INFO: ⚡ Generando embeddings: 5/5 (100%) ...
+2026-05-27 13:14:26,629 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md'
+2026-05-27 13:14:26,630 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt'
+2026-05-27 13:14:26,630 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/package.json: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/package.json'
+2026-05-27 13:14:26,630 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/Pipfile: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/Pipfile'
+2026-05-27 13:14:26,630 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml'
+2026-05-27 13:14:26,630 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/go.mod: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/go.mod'
+2026-05-27 13:16:24,029 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/agents/`arquitecto_software`.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/agents/`arquitecto_software`.md'
+2026-05-27 13:16:24,030 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 13:16:24,030 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 13:16:24,030 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 13:16:24,030 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 13:16:24,085 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 13:16:49,759 [jellyfish.project_orchestrator] ERROR: Error escribiendo /home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`'
+2026-05-27 13:16:49,763 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`'
+2026-05-27 13:17:17,535 [jellyfish.project_orchestrator] ERROR: Error escribiendo /home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`'
+2026-05-27 13:17:17,545 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`'
+2026-05-27 13:17:45,439 [jellyfish.project_orchestrator] ERROR: Error escribiendo /home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`'
+2026-05-27 13:17:45,448 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`'
+2026-05-27 13:18:16,799 [jellyfish.project_orchestrator] ERROR: Error escribiendo /home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`'
+2026-05-27 13:18:16,802 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`'
+2026-05-27 13:18:48,928 [jellyfish.project_orchestrator] ERROR: Error escribiendo /home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`'
+2026-05-27 13:18:48,938 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/`docs/architecture/SYNC_SPEC.md`'
+2026-05-27 14:20:07,561 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/agents/`ui_designer`.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/agents/`ui_designer`.md'
+2026-05-27 14:20:07,562 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:20:07,563 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:20:07,563 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:20:07,564 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:20:07,627 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:20:16,382 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 14:20:19,748 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 14:20:32,387 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 14:20:35,732 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 14:21:22,609 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 14:21:22,621 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-27 14:21:22,641 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 14:21:22,641 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 14:21:22,641 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 14:21:22,641 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 14:21:22,642 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 14:21:22,642 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 14:21:22,642 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 14:21:22,642 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 14:21:36,555 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 14:22:01,286 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 14:22:07,221 [jellyfish.rag] INFO: ✓ SCRUM_METHODOLOGY.md (2 chunks)
+2026-05-27 14:22:07,221 [jellyfish.rag] INFO: ✓ SPRINT_BOARD.md (1 chunks)
+2026-05-27 14:22:07,222 [jellyfish.rag] INFO: ✓ DAILY.md (1 chunks)
+2026-05-27 14:22:07,223 [jellyfish.rag] INFO: ✓ BACKLOG.md (1 chunks)
+2026-05-27 14:22:07,223 [jellyfish.rag] INFO: 📦 Preparando 5 fragmentos para indexación...
+2026-05-27 14:22:07,922 [jellyfish.rag] INFO: ⚡ Generando embeddings: 5/5 (100%) ...
+2026-05-27 14:22:13,373 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 14:23:45,845 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md'
+2026-05-27 14:23:45,845 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt'
+2026-05-27 14:23:45,846 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/package.json: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/package.json'
+2026-05-27 14:23:45,846 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/Pipfile: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/Pipfile'
+2026-05-27 14:23:45,846 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml'
+2026-05-27 14:23:45,846 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/go.mod: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/go.mod'
+2026-05-27 14:29:01,137 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 14:29:19,320 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 14:29:33,472 [jellyfish.llm] INFO: Respuesta: 9172 tokens (Input: 7792 | Output: 1380)
+2026-05-27 14:30:30,902 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 14:30:45,303 [jellyfish.llm] INFO: Respuesta: 9920 tokens (Input: 9120 | Output: 800)
+2026-05-27 14:31:00,044 [jellyfish.llm] INFO: Respuesta: 12140 tokens (Input: 11749 | Output: 391)
+2026-05-27 14:31:09,974 [jellyfish.llm] INFO: Respuesta: 12537 tokens (Input: 12236 | Output: 301)
+2026-05-27 14:44:18,238 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 14:44:18,250 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-27 14:44:18,411 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:44:18,412 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 14:44:18,412 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-27 14:44:18,412 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 14:44:18,412 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-27 14:44:18,412 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 14:44:18,412 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-27 14:44:18,412 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 14:44:18,412 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-27 14:45:25,890 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md'
+2026-05-27 14:45:25,890 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt'
+2026-05-27 14:45:25,891 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/package.json: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/package.json'
+2026-05-27 14:45:25,891 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/Pipfile: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/Pipfile'
+2026-05-27 14:45:25,891 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml'
+2026-05-27 14:45:25,892 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/go.mod: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/go.mod'
+2026-05-27 14:46:34,998 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:46:34,999 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:46:34,999 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:46:35,000 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:46:35,068 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:47:01,766 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:47:01,766 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:47:01,766 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:47:01,767 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:47:01,829 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:47:12,921 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:47:12,922 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:47:12,922 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:47:12,922 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:47:12,982 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:47:32,226 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:47:32,227 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:47:32,227 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:47:32,227 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:47:32,306 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:47:57,506 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:47:57,506 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:47:57,506 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:47:57,506 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:47:57,555 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:48:21,678 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:48:21,678 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:48:21,679 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:48:21,679 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:48:21,738 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:49:34,344 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:49:34,344 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:49:34,344 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:49:34,344 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:49:34,394 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:49:57,000 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:49:57,001 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:49:57,001 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:49:57,001 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:49:57,049 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:50:23,673 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:50:23,674 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:50:23,674 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:50:23,674 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:50:23,734 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:51:00,439 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:51:00,440 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:51:00,440 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:51:00,440 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:51:00,482 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:51:17,993 [jellyfish.orchestration.task_runner] ERROR: Error crítico en tarea T-010: cannot access local variable 'feedback' where it is not associated with a value
+Traceback (most recent call last):
+  File "/home/gerardo/MisModelosIA/agencia/core/orchestration/task_runner.py", line 173, in run
+    current_messages.append({"role": "user", "content": feedback})
+                                                        ^^^^^^^^
+UnboundLocalError: cannot access local variable 'feedback' where it is not associated with a value
+2026-05-27 14:51:17,999 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:51:17,999 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:51:17,999 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:51:17,999 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:51:18,047 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:51:50,932 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:51:50,932 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:51:50,932 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:51:50,932 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:51:50,976 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:53:09,706 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:53:09,707 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:53:09,707 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:53:09,707 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:53:09,750 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:53:43,983 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DESIGN_TOKENS.md'
+2026-05-27 14:53:43,983 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DATA_SCHEMA.md'
+2026-05-27 14:53:43,983 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/COMPONENT_INDEX.md'
+2026-05-27 14:53:43,983 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/DEPENDENCY_MANIFEST.md'
+2026-05-27 14:53:44,026 [jellyfish.rag] INFO: RAG cargado: 5 chunks en la base vectorial.
+2026-05-27 14:53:58,719 [jellyfish.orchestration.task_runner] ERROR: Error crítico en tarea T-014: cannot access local variable 'feedback' where it is not associated with a value
+Traceback (most recent call last):
+  File "/home/gerardo/MisModelosIA/agencia/core/orchestration/task_runner.py", line 173, in run
+    current_messages.append({"role": "user", "content": feedback})
+                                                        ^^^^^^^^
+UnboundLocalError: cannot access local variable 'feedback' where it is not associated with a value
+2026-05-27 14:53:58,726 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-27 14:53:58,728 [jellyfish.project_manager] WARNING: Límite de contexto alcanzado (100000 chars), omitiendo archivos restantes.
+2026-05-27 14:55:18,457 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/ARCHITECTURE.md'
+2026-05-27 14:55:18,458 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/requirements.txt'
+2026-05-27 14:55:18,458 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/package.json: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/package.json'
+2026-05-27 14:55:18,458 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/Pipfile: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/Pipfile'
+2026-05-27 14:55:18,458 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/pyproject.toml'
+2026-05-27 14:55:18,458 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/app/go.mod: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/app/go.mod'

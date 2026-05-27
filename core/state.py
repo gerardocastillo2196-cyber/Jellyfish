@@ -105,17 +105,27 @@ class JellyfishState:
         self.load_agent("default")
 
     def _load_project_files_on_boot(self) -> None:
-        """Carga automáticamente los archivos de metodología del proyecto activo al iniciar."""
+        """Carga automáticamente los archivos de inteligencia técnica del proyecto activo al iniciar."""
         if not self.active_project or not os.path.isdir(self.active_project):
             return
-            
+
+        # Documentos de inteligencia técnica (alto valor para el LLM)
+        intelligence_files = [
+            "DESIGN_TOKENS.md",       # Patrones de arquitectura
+            "DATA_SCHEMA.md",         # Modelos de datos
+            "SECURITY.md",            # Guardrails de seguridad
+            "COMPONENT_INDEX.md",     # Componentes reutilizables
+            "DEPENDENCY_MANIFEST.md", # Librerías disponibles
+            "BUSINESS_CONTEXT.md",    # Contexto de negocio
+        ]
+        # Mínimo Scrum operativo (sin burocracia)
         methodology = getattr(self, "project_methodology", "scrum").lower()
         if methodology == "cascada":
-            methodology_files = ["WATERFALL_METHODOLOGY.md", "REQUIREMENTS.md", "DESIGN.md", "GANTT.md", "TESTS_LOG.md"]
+            intelligence_files.extend(["REQUIREMENTS.md", "DESIGN.md", "GANTT.md"])
         else:
-            methodology_files = ["SCRUM_METHODOLOGY.md", "BACKLOG.md", "SPRINT_BOARD.md", "DAILY.md"]
-            
-        for f in methodology_files:
+            intelligence_files.extend(["SPRINT_BOARD.md", "DAILY.md"])
+
+        for f in intelligence_files:
             fp = os.path.join(self.active_project, f)
             if os.path.isfile(fp):
                 self.context_files.add(fp)
@@ -320,10 +330,16 @@ class JellyfishState:
 
         if self.active_project:
             methodology = getattr(self, "project_methodology", "scrum").lower()
+            # Documentos de inteligencia técnica + mínimo Scrum
+            _intelligence_files = [
+                "DESIGN_TOKENS.md", "DATA_SCHEMA.md", "SECURITY.md",
+                "COMPONENT_INDEX.md", "DEPENDENCY_MANIFEST.md",
+                "PLAYBOOK.md", "BUSINESS_CONTEXT.md", "PROJECT_TREE.md",
+            ]
             if methodology == "cascada":
-                _tracking_files = ["REQUIREMENTS.md", "DESIGN.md", "GANTT.md", "TESTS_LOG.md"]
+                _tracking_files = _intelligence_files + ["REQUIREMENTS.md", "DESIGN.md", "GANTT.md"]
             else:
-                _tracking_files = ["BACKLOG.md", "DEV_BOARD.md", "SPRINT_BOARD.md", "DAILY.md"]
+                _tracking_files = _intelligence_files + ["SPRINT_BOARD.md", "DAILY.md"]
             
             project_state_parts = []
             for tracking_file in _tracking_files:
@@ -345,14 +361,15 @@ class JellyfishState:
                 self.static_history.append({
                     "role": "system",
                     "content": (
-                        "[ESTADO REAL DEL PROYECTO — NO ALUCINAR RESULTADOS]\n"
+                        "[INTELIGENCIA DEL PROYECTO — CONTEXTO TÉCNICO REAL]\n"
                         f"PROYECTO ACTIVO: '{project_name}' (ruta: {self.active_project})\n"
                         "REGLAS DE INTERPRETACIÓN OBLIGATORIAS:\n"
-                        "1. ERES EL PORTAVOZ DE ESTOS ARCHIVOS. No asumas ni inventes que el proyecto 'va por buen camino' o que 'se completaron todas las tareas' si no está explícitamente escrito en los documentos.\n"
-                        "2. EL DEV_BOARD.md o SPRINT_BOARD.md es la FUENTE EXACTA del estado actual. Si el usuario pregunta '¿cómo va el proyecto?', lee la lista de tareas completadas (✅), las fallidas (❌ o 'FALLIDO') y las pendientes (TODO) de estos documentos y ofrécele un resumen exacto.\n"
-                        "3. Si detectas tareas FALLIDAS en el tablero o en los archivos, DEBES informarlo de inmediato y sugerir revisar los logs de recuperación correspondientes (RECOVERY_*.md).\n"
-                        "4. Al citar estos archivos como fuentes, DEBES usar el atributo `absolute_path` proporcionado en cada `<internal_doc>`. No inventes rutas relativas.\n"
-                        "5. Sintetiza la información en lenguaje natural y ejecutivo. NO muestres tablas Markdown ni contenido literal a menos que el usuario lo pida explícitamente.\n\n"
+                        "1. DESIGN_TOKENS.md, DATA_SCHEMA.md y SECURITY.md son las fuentes primarias de verdad técnica. Úsalos para nombrar variables, elegir patrones y respetar guardrails.\n"
+                        "2. COMPONENT_INDEX.md lista los componentes existentes. ANTES de crear uno nuevo, verifica si ya existe.\n"
+                        "3. DEPENDENCY_MANIFEST.md lista las librerías permitidas. NO inventes imports de librerías no listadas.\n"
+                        "4. El SPRINT_BOARD.md es la FUENTE EXACTA del estado de las tareas. Si el usuario pregunta '¿cómo va el proyecto?', lee las tareas completadas (✅), fallidas (❌) y pendientes (TODO).\n"
+                        "5. Al citar archivos como fuentes, DEBES usar el atributo `absolute_path` proporcionado en cada `<internal_doc>`. No inventes rutas.\n"
+                        "6. Sintetiza la información en lenguaje natural y ejecutivo. NO muestres tablas ni contenido literal a menos que el usuario lo pida.\n\n"
                         f'<project_state project="{_xml_attr(project_name)}" '
                         f'path="{_xml_attr(self.active_project)}" '
                         f'methodology="{_xml_attr(methodology)}">\n'
