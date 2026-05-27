@@ -60,18 +60,14 @@ class TUIEngine:
         c = Console(file=buf, force_terminal=True, width=min(120, self._term_width))
         
         jelly = Text()
-        jelly.append("\n", style="")
-        jelly.append("        ▄███████▄\n", style="bold purple")
-        jelly.append("       ███████████\n", style="bold violet")
-        jelly.append("       ███▀███▀███\n", style="bold purple")
-        jelly.append("       █  █  █  █\n", style="bold violet")
-        jelly.append("       ▀  ▀  ▀  ▀\n", style="bold purple")
-        c.print(jelly)
+        jelly.append("  ▄█████▄       ▄█████▄\n", style="bold purple")
+        jelly.append("  ██▀█▀██       ██▀█▀██\n", style="bold violet")
+        jelly.append("  ▀ ▀ ▀ ▀       ▀ ▀ ▀ ▀", style="bold purple")
+        c.print(jelly, justify="center")
         
-        c.print(Text("   🪼  JELLYFISH OS v5.1 — Habilitado Gemini 3.1 Pro", style="bold #06b6d4"))
-        c.print(Text("   ──────────────────────────────────────────────────────────", style="dim #4b5563"))
-        c.print(Text("   Escribe /help para ver los comandos disponibles.", style="dim white"))
-        c.print(Text("\n", style=""))
+        c.print(Text("JELLYFISH OS v7.0 — Habilitado", style="bold #06b6d4"), justify="center")
+        term_w = min(120, self._term_width)
+        c.print(Text("─" * term_w, style="dim #4b5563"))
         
         sys.stdout.write(buf.getvalue())
         sys.stdout.flush()
@@ -121,6 +117,7 @@ class TUIEngine:
         NO usa posicionamiento absoluto de cursor ni scroll regions.
         Se reimprime antes de cada prompt llamando a refresh_header().
         """
+        from rich.table import Table
         with self._lock:
             self._term_width = get_term_width()
             term_width = min(120, self._term_width)
@@ -130,67 +127,76 @@ class TUIEngine:
 
             from core.llm_engine import is_ollama_running, is_model_available_locally
             ollama_ok = is_ollama_running()
-            model_status_icon = "🟢"
+            model_status_text = "OK"
             if provider == "ollama":
                 if not ollama_ok:
-                    model_status_icon = "🔴"
+                    model_status_text = "ERR"
                 elif not is_model_available_locally(model_name):
-                    model_status_icon = "⚠️"
+                    model_status_text = "WARN"
             else:
                 import os
                 key_env = "GEMINI_API_KEY" if provider == "gemini" else "ANTHROPIC_API_KEY" if provider == "claude" else ""
                 if key_env and not os.getenv(key_env):
-                    model_status_icon = "🔑"
+                    model_status_text = "NO_KEY"
 
-            # ─── MODO SIMPLE Y ESTABLE (Diseño Minimalista) ───
-            ctx_color = "green" if num_docs > 0 else "dim"
-            rag_color = "green" if "OFF" not in rag_status else "dim"
-            ollama_color = "green" if ollama_ok else "red"
-            
             proj_disp = ""
             if project_name:
                 method_suffix = f" ({project_methodology.upper()})" if project_methodology else ""
                 proj_name = project_name.split("/")[-1]
-                proj_disp = f" • [yellow]PROJ:[/yellow] {proj_name[:15]}{method_suffix}"
+                proj_disp = f"[dim]PROJ:[/dim] [white]{proj_name[:15]}{method_suffix}[/white]"
 
             spinner_disp = ""
             if llm_busy:
                 self._spinner_frame = (self._spinner_frame + 1) % len(self._SPINNER_CHARS)
                 spinner_char = self._SPINNER_CHARS[self._spinner_frame]
-                spinner_disp = f" [bold yellow]{spinner_char}[/bold yellow]"
+                spinner_disp = f" [white]{spinner_char}[/white]"
 
             budget_disp = ""
             if token_budget:
                 used = token_budget.get("used_tokens", 0)
                 total = token_budget.get("total_tokens", 8192)
                 pct = token_budget.get("percent", 0)
-                budget_disp = f" • [blue]BUDGET:[/blue] {used:,}/{total:,} ({pct}%)"
+                budget_disp = f"[dim]BUD:[/dim] [white]{used:,}/{total:,} ({pct}%)[/white]"
 
-            row1 = (
-                f"[bold purple]🪼 JELLYFISH[/bold purple] • "
-                f"[yellow]AGENCY:[/yellow] 💻 {active_agency.upper()} • "
-                f"[cyan]AGENT:[/cyan] @{active_agent.upper()[:10]} • "
-                f"[{ctx_color}]CTX[{num_docs}][/{ctx_color}] • "
-                f"[{rag_color}]{rag_status}[/{rag_color}] • "
-                f"[{ollama_color}]OLLAMA[{'ON' if ollama_ok else 'OFF'}][/{ollama_color}] • "
-                f"[cyan]SKL[{num_skills}][/cyan]"
-                f"{proj_disp}"
+            model_type = "LOCAL" if provider == "ollama" else "EXTERNO"
+
+            # Interfaz agrupada ultra-compacta ajustada a la izquierda (3 columnas con poco padding)
+            rag_clean = rag_status.replace("RAG", "").replace("[", "").replace("]", "")
+            
+            table = Table(box=None, show_header=False, padding=(0, 2))
+            table.add_column("Col1")
+            table.add_column("Col2")
+            table.add_column("Col3")
+            
+            tok_row = f"[dim]TOK:[/dim] [white]{session_tokens:,}[/white]"
+            if budget_disp:
+                tok_row += f"  {budget_disp}"
+            tok_row += spinner_disp
+            
+            table.add_row(
+                f"[dim]AGC:[/dim] [white]{active_agency[:8].upper()}[/white]",
+                f"[dim]CTX:[/dim] [white]{num_docs}[/white]",
+                f"[dim]OLL:[/dim] [white]{'ON' if ollama_ok else 'OFF'}[/white]"
+            )
+            table.add_row(
+                f"[dim]AGT:[/dim] [white]@{active_agent[:8].upper()}[/white]",
+                f"[dim]RAG:[/dim] [white]{rag_clean}[/white]",
+                tok_row
             )
             
-            model_short = model_name[:40] if len(model_name) > 40 else model_name
-            row2 = (
-                f"[blue]TOK:[/blue] {session_tokens:,} (session){budget_disp} • "
-                f"[white]{model_short} ({model_status_icon}) \\[{provider.upper()}][/white]"
-                f"{spinner_disp}"
+            r3_col3 = proj_disp if proj_disp else ""
+            table.add_row(
+                f"[dim]MOD:[/dim] [white]{model_type} [{model_status_text}][/white]",
+                f"[dim]SKL:[/dim] [white]{num_skills}[/white]",
+                r3_col3
             )
+                
+            local_console.print(table)
 
-            local_console.print(row1)
-            local_console.print(row2)
-            local_console.print(Text("─" * term_width, style="dim purple"))
+            local_console.print(Text("─" * term_width, style="dim white"))
 
             header_output = buf.getvalue()
 
-            # Imprimir directamente como texto normal de una sola línea
             sys.stdout.write(header_output)
             sys.stdout.flush()
 

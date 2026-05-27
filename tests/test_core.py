@@ -451,7 +451,8 @@ class TestDynamicScrum:
         # Run _run_scrum_master and verify it returns True
         result = orchestrator._run_scrum_master("Test user idea")
         assert result is True
-        assert os.path.exists(os.path.join(str(project_dir), "SPRINT_BOARD.md"))
+        # El pipeline /auto escribe en DEV_BOARD.md para proteger el SPRINT_BOARD.md manual
+        assert os.path.exists(os.path.join(str(project_dir), "DEV_BOARD.md"))
 
     def test_estimate_tokens(self):
         from core.state import estimate_tokens
@@ -561,5 +562,177 @@ Todo listo.
         # Ping a un puerto no en uso para verificar que retorna False y maneja el error sin crashear
         res = ensure_ollama_running("http://localhost:59999")
         assert res is False
+
+
+# ---------------------------------------------------------------------------
+# 9. Pruebas Jellyfish OS v7: DoR, Auto-Healing, Lazy Loading y Sandbox Strict Validation
+# ---------------------------------------------------------------------------
+
+class TestJellyfishV7Features:
+    def test_classify_build_error(self):
+        from core.project_orchestrator import ProjectOrchestrator
+        from core.state import JellyfishState
+        state = JellyfishState()
+        orchestrator = ProjectOrchestrator(state)
+        
+        err1 = orchestrator._classify_build_error("ModuleNotFoundError: No module named 'rich'")
+        assert "DEPENDENCIAS" in err1
+
+        err2 = orchestrator._classify_build_error("PermissionError: [Errno 13] Permission denied")
+        assert "ENTORNO/PERMISOS" in err2
+
+        err3 = orchestrator._classify_build_error("SyntaxError: invalid syntax")
+        assert "SINTAXIS" in err3
+
+        err4 = orchestrator._classify_build_error("unrecognized error code 123")
+        assert "GENERAL" in err4
+
+    def test_is_safe_healing_command(self):
+        from core.project_orchestrator import ProjectOrchestrator
+        from core.state import JellyfishState
+        state = JellyfishState()
+        orchestrator = ProjectOrchestrator(state)
+
+        assert orchestrator._is_safe_healing_command("rm -rf .pytest_cache") is True
+        assert orchestrator._is_safe_healing_command("pip install somepackage") is True
+        assert orchestrator._is_safe_healing_command("rm -rf /") is False
+        assert orchestrator._is_safe_healing_command("uninstall something") is False
+
+    def test_plugin_schema_strict_validation(self, tmp_path):
+        from core.plugin_manager import PluginManager
+        from core.state import JellyfishState
+        from unittest.mock import patch, MagicMock
+
+        plugins_dir = tmp_path / "plugins"
+        plugins_dir.mkdir()
+        (plugins_dir / "dummy_plugin.py").write_text("def execute(args): return 'ok'")
+
+        state = JellyfishState()
+        pm = PluginManager(str(plugins_dir))
+
+        # Mock subprocess.run
+        import subprocess
+        mock_run = MagicMock()
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"ok": true, "result": "Plugin Output"}',
+            stderr=''
+        )
+
+        with patch("subprocess.run", return_value=mock_run.return_value):
+            res = pm.run_plugin("dummy_plugin", "{}")
+            assert "Plugin Output" in res
+
+        # Retorno no-objeto
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='["not", "a", "dict"]',
+            stderr=''
+        )
+        with patch("subprocess.run", return_value=mock_run.return_value):
+            res = pm.run_plugin("dummy_plugin", "{}")
+            assert "no retornó un objeto JSON válido" in res
+
+        # Retorno sin campo 'ok'
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"result": "missing ok"}',
+            stderr=''
+        )
+        with patch("subprocess.run", return_value=mock_run.return_value):
+            res = pm.run_plugin("dummy_plugin", "{}")
+            assert "no retornó el campo de estado 'ok'" in res
+
+    def test_lazy_loading_skills(self, tmp_path):
+        from core.state import JellyfishState
+        import shutil
+
+        # Crear skills ficticios
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        (skills_dir / "template.md").write_text("template")
+        (skills_dir / "git_helper.md").write_text("git helper behavior")
+        (skills_dir / "docker_helper.md").write_text("docker helper behavior")
+        (skills_dir / "k8s_helper.md").write_text("k8s helper behavior")
+        (skills_dir / "aws_helper.md").write_text("aws helper behavior")
+
+        state = JellyfishState()
+        state.active_skills = [
+            str(skills_dir / "template.md"),
+            str(skills_dir / "git_helper.md"),
+            str(skills_dir / "docker_helper.md"),
+            str(skills_dir / "k8s_helper.md"),
+            str(skills_dir / "aws_helper.md"),
+        ]
+
+        # Simular historial
+        state.history = [{"role": "user", "content": "Necesito ayuda con git_helper"}]
+        state.refresh_static_context()
+
+        # Debe cargar git_helper pero NO docker_helper (Lazy Loading!)
+        static_contents = [msg["content"] for msg in state.static_history]
+        joined = "\n".join(static_contents)
+
+        assert "git helper behavior" in joined
+        assert "docker helper behavior" not in joined
+
+    def test_reset_circuit_breaker_method(self, tmp_path):
+        from core.project_orchestrator import ProjectOrchestrator
+        from core.state import JellyfishState
+        
+        project_dir = tmp_path / "reset_cb_proj"
+        project_dir.mkdir()
+        
+        state = JellyfishState()
+        state.active_project = str(project_dir)
+        
+        orchestrator = ProjectOrchestrator(state)
+        
+        cb_path = project_dir / ".jellyfish_circuit_breaker"
+        exit_code_path = project_dir / ".jellyfish_last_exit_code"
+        
+        cb_path.write_text("5")
+        exit_code_path.write_text("1")
+        
+        assert orchestrator._get_circuit_breaker_count() == 5
+        assert orchestrator._get_last_exit_code() == 1
+        
+        orchestrator._reset_circuit_breaker()
+        
+        assert orchestrator._get_circuit_breaker_count() == 0
+        assert orchestrator._get_last_exit_code() == 0
+        assert not cb_path.exists()
+        assert not exit_code_path.exists()
+
+    def test_build_failure_captured_errors(self, tmp_path):
+        from core.project_orchestrator import ProjectOrchestrator
+        from core.state import JellyfishState
+        from unittest.mock import patch
+        
+        project_dir = tmp_path / "build_fail_proj"
+        project_dir.mkdir()
+        
+        state = JellyfishState()
+        state.active_project = str(project_dir)
+        
+        orchestrator = ProjectOrchestrator(state)
+        
+        # Mock run_terminal_command to simulate build failure
+        with patch("core.terminal.run_terminal_command") as mock_run:
+            def side_effect(cmd, state, **kwargs):
+                if 'return_code_dict' in kwargs:
+                    kwargs['return_code_dict']['returncode'] = 1
+                return "make failed: compilation error"
+            mock_run.side_effect = side_effect
+            
+            orchestrator._run_build_command("make")
+            
+            assert hasattr(state, "captured_errors")
+            assert len(state.captured_errors) > 0
+            assert "Fallo de compilación" in state.captured_errors[-1]
+            assert "make failed" in state.captured_errors[-1]
 
 

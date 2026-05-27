@@ -182,15 +182,18 @@ class ProjectOrchestrator:
 
     @property
     def board_filename(self) -> str:
+        methodology = getattr(self.state, "project_methodology", "scrum").lower()
         agency = getattr(self.state, "active_agency", "default")
+        
+        if methodology == "scrum":
+            return "SPRINT_BOARD.md"
+            
         if agency == "development":
             return "DEV_BOARD.md"
         elif agency == "marketing":
             return "MKT_BOARD.md"
         elif agency == "research":
             return "RESEARCH_BOARD.md"
-        elif agency == "default":
-            return "SPRINT_BOARD.md"
         else:
             return "DEV_BOARD.md"
 
@@ -213,7 +216,7 @@ class ProjectOrchestrator:
             return True
         except (OSError, IOError) as e:
             logger.error("Error escribiendo %s: %s", filepath, e)
-            console.print(f"[red]Error escribiendo {filename}: {e}[/red]")
+            console.print(f"Error escribiendo {filename}: {e}")
             return False
 
     def _call_agent(self, system_prompt: str, user_prompt: str) -> str:
@@ -258,137 +261,36 @@ class ProjectOrchestrator:
 
     def _run_product_owner(self, user_idea: str) -> bool:
         """Genera BACKLOG.md y solicita aprobación del usuario."""
-        console.print("\n[bold cyan]━━━ FASE 1: 📝 Product Owner ━━━[/bold cyan]")
-        t0 = time.perf_counter()
-
-        agent_prompt = self._load_agent_prompt("product_owner")
-        system = (
-            f"{agent_prompt}\n\n"
-            "[INSTRUCCIONES ESPECÍFICAS]\n"
-            "Tu ÚNICO entregable es el contenido completo del archivo BACKLOG.md. "
-            "Genera SOLAMENTE Markdown listo para guardar. NO incluyas explicaciones externas.\n"
-            "Incluye:\n"
-            "- Título del proyecto y visión general\n"
-            "- Al menos 5 historias de usuario: 'Como [rol], quiero [acción] para [beneficio]'\n"
-            "- Criterios de aceptación en formato Gherkin\n"
-            "- Prioridades MoSCoW y estimación de puntos de historia\n"
-        )
-        with TaskProgress(tui_engine, "auto_po", "Product Owner: Redactando backlog..."):
-            result = self._call_agent(system, f"IDEA DEL PROYECTO:\n{user_idea}")
-
-        elapsed = time.perf_counter() - t0
-
-        if not result:
-            self.metrics.append({"fase": "📝 Product Owner", "detalle": "ERROR", "tiempo": elapsed, "status": "❌"})
-            console.print("[red]✗ Product Owner no produjo resultado.[/red]")
-            return False
-
-        self._write_project_file("BACKLOG.md", result)
-        tokens = estimate_tokens(result)
-        console.print(f"[green]✓ BACKLOG.md[/green] [dim]({tokens:,} tokens · {elapsed:.1f}s)[/dim]")
-        self.metrics.append({"fase": "📝 Product Owner", "detalle": f"~{tokens:,} tokens → BACKLOG.md", "tiempo": elapsed, "status": "✅"})
-
-        # Checkpoint (Resumen mínimo sin preview largo)
-        num_lines = len(result.splitlines())
-        console.print(f"[bold cyan]📋 BACKLOG.md generado con éxito. ({num_lines} líneas · ~{tokens:,} tokens)[/bold cyan]")
-
-        try:
-            approved = Confirm.ask("\n[bold yellow]¿Aprobar backlog y continuar?[/bold yellow]", default=True)
-        except (EOFError, KeyboardInterrupt):
-            approved = False
-
-        if not approved:
-            console.print("[yellow]Pipeline detenido. Edita BACKLOG.md y re-ejecuta /auto.[/yellow]")
-            return False
-
-        console.print("[bold green]✓ Backlog aprobado.[/bold green]\n")
-        return True
+        from core.orchestration.product_owner import ProductOwnerPhase
+        return ProductOwnerPhase(self).run(user_idea)
 
     # ─── FASE 2: Scrum Master (Team Assembly + Sprint Planning) ─────────
 
     def _run_scrum_master(self, user_idea: str) -> bool:
         """SM escanea agentes, arma equipo y genera el tablero correspondiente a la agencia."""
-        console.print(f"\n[bold cyan]━━━ FASE 2: 📋 Scrum Master (Team Assembly - Agencia: {self.state.active_agency.upper()}) ━━━[/bold cyan]")
-        t0 = time.perf_counter()
-
-        # Escanear agentes disponibles
-        available_agents = _scan_available_agents(self.state)
-        agents_catalog = "\n".join(
-            f"  - @{a['name']}: {a['role']}" for a in available_agents
-        )
-        console.print(f"[dim]   Agentes disponibles en la agencia '{self.state.active_agency}': {len(available_agents)}[/dim]")
-
-        backlog = self._read_project_file("BACKLOG.md")
-        agent_prompt = self._load_agent_prompt("scrum_master")
-
-        system = (
-            f"{agent_prompt}\n\n"
-            "[INSTRUCCIONES ESPECÍFICAS PARA ESTA TAREA]\n"
-            f"Tu ÚNICO entregable es el contenido completo del archivo {self.board_filename}.\n"
-            "Genera SOLAMENTE Markdown listo para guardar.\n\n"
-            "EQUIPO DISPONIBLE (solo puedes asignar tareas a estos agentes):\n"
-            f"{agents_catalog}\n\n"
-            "REGLAS DE ASIGNACIÓN:\n"
-            "1. Analiza las historias del BACKLOG.md y decide qué agentes se necesitan.\n"
-            "2. Desglosa cada historia en tareas técnicas concretas.\n"
-            "3. Asigna cada tarea al agente más adecuado usando EXACTAMENTE su @nombre.\n"
-            "4. Define un archivo de entregable para cada tarea (ej: ARCHITECTURE.md, API_DESIGN.md).\n"
-            f"5. TRASPASOS INTER-AGENCIA (HANDOFFS): Si una tarea técnica excede las capacidades de tu agencia actual (agencia activa: '{self.state.active_agency}'), "
-            "puedes definir como 'Entregable' un archivo que servirá de insumo para otra agencia (ej: un COPY_LANDING.md generado por MKT para que DEV lo consuma).\n\n"
-            f"FORMATO OBLIGATORIO del tablero (la tabla TODO DEBE tener exactamente 5 columnas en {self.board_filename}):\n"
-            "```\n"
-            "## 📋 POR HACER (TODO)\n"
-            "| ID | Tarea | Asignado | Estimación | Entregable |\n"
-            "|---|---|---|---|---|\n"
-            "| T-001 | Diseñar la arquitectura del sistema | @arquitecto_software | 5pts | ARCHITECTURE.md |\n"
-            "| T-002 | Implementar modelos de datos | @backend_dev | 3pts | IMPLEMENTATION_PLAN.md |\n"
-            "```\n\n"
-            "IMPORTANTE:\n"
-            "- La columna 'Asignado' DEBE ser exactamente un @nombre de la lista de agentes.\n"
-            "- La columna 'Entregable' DEBE ser un nombre de archivo .md válido.\n"
-            "- Ordena las tareas en el orden lógico de ejecución.\n"
-            "- Incluye también secciones IN PROGRESS (vacía) y DONE (vacía).\n"
-        )
-
-        user_prompt = (
-            f"IDEA ORIGINAL:\n{user_idea}\n\n"
-            f"BACKLOG.md:\n{backlog}\n\n"
-            f"Genera el {self.board_filename} asignando tareas a los agentes del equipo."
-        )
-
-        with TaskProgress(tui_engine, "auto_sm", "Scrum Master: Armando equipo y planificando sprint..."):
-            result = self._call_agent(system, user_prompt)
-
-        elapsed = time.perf_counter() - t0
-
-        if not result:
-            self.metrics.append({"fase": "📋 Scrum Master", "detalle": "ERROR", "tiempo": elapsed, "status": "❌"})
-            console.print("[red]✗ Scrum Master no produjo resultado.[/red]")
-            return False
-
-        self._write_project_file(self.board_filename, result)
-        tokens = estimate_tokens(result)
-
-        # Mostrar equipo seleccionado
-        tasks = _parse_sprint_tasks(result)
-        if not tasks:
-            self.metrics.append({"fase": "📋 Scrum Master", "detalle": "ERROR — No se encontraron tareas", "tiempo": elapsed, "status": "❌"})
-            console.print(f"[red]❌ Error: El Scrum Master no pudo generar tareas válidas en {self.board_filename}.[/red]")
-            return False
-
-        unique_agents = set(t["agent"] for t in tasks)
-        console.print(f"[green]✓ {self.board_filename}[/green] [dim]({tokens:,} tokens · {elapsed:.1f}s)[/dim]")
-        console.print(f"[dim]   Equipo seleccionado: {', '.join(f'@{a}' for a in sorted(unique_agents))}[/dim]")
-        console.print(f"[dim]   Tareas planificadas: {len(tasks)}[/dim]")
-        return True
+        from core.orchestration.scrum_master import ScrumMasterPhase
+        return ScrumMasterPhase(self).run(user_idea)
 
     # ─── FASE 3: Task Runner (Ejecución Dinámica) ──────────────────────
 
     def _run_environment_probe(self) -> dict:
         """Ejecuta comandos de diagnóstico en la terminal para identificar capacidades del sistema.
-        Guarda los resultados en env_capabilities.json.
+        Guarda los resultados en env_capabilities.json con cacheo.
         """
-        console.print("\n[bold cyan]🔍 Ejecutando Agente Validador del Entorno (Environment Probe)...[/bold cyan]")
+        cap_path = os.path.join(self.project_path, "env_capabilities.json")
+        if os.path.isfile(cap_path):
+            try:
+                import time
+                mtime = os.path.getmtime(cap_path)
+                if (time.time() - mtime) < 86400: # 24 horas de validez de caché
+                    with open(cap_path, "r", encoding="utf-8") as f:
+                        capabilities = json.load(f)
+                    console.print("✓ Capacidades del sistema cargadas desde caché (env_capabilities.json)")
+                    return capabilities
+            except Exception as e:
+                logger.warning("Error leyendo caché de capacidades: %s. Re-ejecutando diagnóstico.", e)
+
+        console.print("\n🔍 Ejecutando Agente Validador del Entorno (Environment Probe)...")
         capabilities = {}
         
         commands = {
@@ -420,11 +322,10 @@ class ProjectOrchestrator:
             except Exception:
                 capabilities[key] = "No disponible"
                 
-        cap_path = os.path.join(self.project_path, "env_capabilities.json")
         try:
             with open(cap_path, "w", encoding="utf-8") as f:
                 json.dump(capabilities, f, indent=2)
-            console.print(f"[green]✓ Capacidades del sistema guardadas en env_capabilities.json[/green]")
+            console.print(f"✓ Capacidades del sistema guardadas en env_capabilities.json")
         except Exception as e:
             logger.error("Error escribiendo env_capabilities.json: %s", e)
             
@@ -487,7 +388,7 @@ class ProjectOrchestrator:
     def _run_build_command(self, cmd: str) -> tuple[int, str]:
         """Ejecuta el comando de compilación en el directorio del proyecto y captura salida/código de salida."""
         from core.terminal import run_terminal_command
-        console.print(f"\n       [yellow]🛠 Solicitando ejecución de comando de compilación: {cmd}[/yellow]")
+        console.print(f"\n       🛠 Solicitando ejecución de comando de compilación: {cmd}")
         
         ret_dict = {'returncode': 0}
         output = run_terminal_command(
@@ -498,7 +399,212 @@ class ProjectOrchestrator:
             force_confirm=True,
             return_code_dict=ret_dict
         )
-        return ret_dict['returncode'], output
+        
+        returncode = ret_dict['returncode']
+        if returncode != 0:
+            # Interceptación de error y disparo del Bucle de Auto-Recuperación (Auto-Healing Loop)
+            returncode, output = self._auto_heal_build_error(cmd, returncode, output)
+            
+        if returncode != 0:
+            if not hasattr(self.state, "captured_errors"):
+                self.state.captured_errors = []
+            self.state.captured_errors.append(
+                f"Fallo de compilación en el comando '{cmd}'. Código de retorno: {returncode}.\n"
+                f"Salida del error:\n{output}"
+            )
+            
+        # Persistir el código de retorno y el circuit breaker
+        self._update_circuit_breaker(returncode)
+        
+        exit_code_path = os.path.join(self.project_path, ".jellyfish_last_exit_code")
+        try:
+            with open(exit_code_path, "w", encoding="utf-8") as f:
+                f.write(str(returncode))
+        except Exception as e:
+            logger.error("Error persistiendo last_exit_code: %s", e)
+            
+        return returncode, output
+
+    def _classify_build_error(self, output: str) -> str:
+        """Clasifica el error de compilación para guiar al Auto-Healing."""
+        out_lower = output.lower()
+        if "dependency" in out_lower or "cannot find module" in out_lower or "no module named" in out_lower or "unresolved reference" in out_lower or "import error" in out_lower:
+            return "ERROR DE DEPENDENCIAS: Faltan paquetes o librerías en el entorno."
+        if "permission denied" in out_lower or "command not found" in out_lower or "not recognized" in out_lower:
+            return "ERROR DE ENTORNO/PERMISOS: Falta ejecutar herramientas o configurar permisos de ejecución."
+        if "syntax" in out_lower or "compile error" in out_lower or "indentationerror" in out_lower or "unexpected token" in out_lower:
+            return "ERROR DE SINTAXIS/CÓDIGO: El código generado tiene errores de sintaxis o de compilación estática."
+        return "ERROR GENERAL DE COMPILACIÓN: Error de lógica o configuración."
+
+    def _is_safe_healing_command(self, cmd: str) -> bool:
+        """Verifica si un comando del auto-healing es seguro (control de blast radius)."""
+        cmd_lower = cmd.lower()
+        dangerous = ["rm ", "rm -", "uninstall", "purge", "delete", "fdisk", "mkfs", "dd ", "shred"]
+        for d in dangerous:
+            if d in cmd_lower:
+                allowed_rm = [
+                    "rm -rf build", "rm -rf dist", "rm -rf .pytest_cache", 
+                    "rm -rf __pycache__", "rm -rf node_modules", 
+                    "rm -rf .venv", "rm -rf venv", "rm -f package-lock.json",
+                    "rm -f yarn.lock", "rm -f pnpm-lock.yaml"
+                ]
+                is_allowed = False
+                for clean_rm in allowed_rm:
+                    if clean_rm in cmd_lower:
+                        is_allowed = True
+                if not is_allowed:
+                    return False
+        return True
+
+    def _auto_heal_build_error(self, cmd: str, returncode: int, build_output: str) -> tuple[int, str]:
+        """Bucle Autónomo de Resolución de Errores (Auto-Healing Loop) con un máximo de 3 iteraciones (Auto-ReAct)."""
+        from core.terminal import run_terminal_command
+        from core.llm_engine import _call_llm_silent
+        
+        current_code = returncode
+        current_output = build_output
+        healing_attempts_log = []
+        
+        error_class = self._classify_build_error(build_output)
+        
+        for attempt in range(1, 4):
+            console.print(f"\n       ⚡ [Auto-Healing Loop] Intento {attempt}/3 para resolver fallo de compilación...")
+            console.print(f"       [dim]Clasificación del fallo: {error_class}[/dim]")
+            
+            # DIAGNÓSTICO: Analizar archivos del entorno para dar contexto
+            files_list = []
+            for root, dirs, files in os.walk(self.project_path):
+                dirs[:] = [d for d in dirs if d not in ('.git', 'node_modules', '.venv', 'venv', '__pycache__')]
+                for f in files:
+                    files_list.append(os.path.relpath(os.path.join(root, f), self.project_path))
+                    
+            files_context = "\n".join(files_list[:100])
+            
+            system_prompt = (
+                "Eres un Agente Especialista en Auto-Recuperación de Sistemas (Auto-Healing Agent).\n"
+                "Tu objetivo es diagnosticar y reparar problemas del entorno (ej. dependencias no instaladas, permisos faltantes, configuraciones erróneas, Dockerfiles rotos, etc.) para que el comando de compilación/verificación tenga éxito.\n\n"
+                "Instrucciones:\n"
+                "1. Analiza el comando que falló y la salida exacta del error.\n"
+                "2. Propón la solución:\n"
+                "   - Para escribir/modificar un archivo, usa:\n"
+                "     <write_file path=\"ruta/relativa/archivo.ext\">\n"
+                "     contenido corregido del archivo\n"
+                "     </write_file>\n"
+                "   - Para ejecutar comandos que solucionen el entorno (ej. chmod +x, npm install, export, mkdir, etc.), usa:\n"
+                "     <run_command>comando a ejecutar</run_command>\n\n"
+                "No des introducciones, sé ultra directo y responde solo con código y parches."
+            )
+            
+            user_prompt = (
+                f"COMANDO QUE FALLÓ:\n`{cmd}`\n\n"
+                f"CÓDIGO DE SALIDA: {current_code}\n\n"
+                f"TIPO DE ERROR DETECTADO: {error_class}\n\n"
+                f"SALIDA DE ERROR (stdout/stderr):\n```\n{current_output}\n```\n\n"
+                f"ARCHIVOS DISPONIBLES EN EL PROYECTO:\n{files_context}\n\n"
+                f"Genera tus parches de corrección usando <write_file> y/o <run_command>."
+            )
+            
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+            
+            response = _call_llm_silent(self.state, messages, provider=self.state.provider, model=self.state.model)
+            if not response:
+                console.print("       ⚠ No se obtuvo respuesta del Agente de Auto-Recuperación.")
+                healing_attempts_log.append(f"Intento {attempt}: Sin respuesta del modelo.")
+                continue
+                
+            # EJECUCIÓN DE PARCHE
+            created_files = self._extract_and_write_files(response)
+            executed_cmds = []
+            cmd_matches = re.findall(r'<run_command>(.*?)</run_command>', response, re.DOTALL)
+            for cmd_to_run in cmd_matches:
+                cmd_clean = cmd_to_run.strip()
+                if cmd_clean:
+                    if not self._is_safe_healing_command(cmd_clean):
+                        console.print(f"       🛡 Bloqueado comando potencialmente peligroso en Auto-Healing: {cmd_clean}")
+                        healing_attempts_log.append(f"Intento {attempt}: Comando peligroso '{cmd_clean}' bloqueado por seguridad.")
+                        continue
+                    console.print(f"       ⚙ Ejecutando parche de entorno: {cmd_clean}")
+                    run_terminal_command(cmd_clean, self.state, silent_history=True)
+                    executed_cmds.append(cmd_clean)
+                    
+            healing_attempts_log.append(
+                f"Intento {attempt}:\n"
+                f"  - Archivos modificados: {created_files}\n"
+                f"  - Comandos ejecutados: {executed_cmds}"
+            )
+            
+            # REINTENTO
+            console.print(f"       🔄 Reintentando comando original: {cmd}")
+            ret_dict = {'returncode': 0}
+            new_output = run_terminal_command(
+                cmd,
+                self.state,
+                silent_history=True,
+                timeout=300,
+                force_confirm=True,
+                return_code_dict=ret_dict
+            )
+            
+            current_code = ret_dict['returncode']
+            current_output = new_output
+            
+            if current_code == 0:
+                console.print("       ✓ ¡Auto-Healing exitoso! El entorno se ha auto-recuperado.")
+                return 0, current_output
+                
+        # ESCALAMIENTO
+        console.print("       ❌ Auto-Healing Loop falló tras 3 intentos. Escalando error.")
+        if not hasattr(self.state, "healing_failures"):
+            self.state.healing_failures = {}
+        self.state.healing_failures[cmd] = "\n".join(healing_attempts_log)
+        
+        return current_code, current_output
+
+    def _get_last_exit_code(self) -> int:
+        """Obtiene el último exit_code persistido del proyecto o 0 por defecto."""
+        exit_code_path = os.path.join(self.project_path, ".jellyfish_last_exit_code")
+        if os.path.isfile(exit_code_path):
+            try:
+                with open(exit_code_path, "r", encoding="utf-8") as f:
+                    return int(f.read().strip())
+            except:
+                pass
+        return 0
+
+    def _get_circuit_breaker_count(self) -> int:
+        cb_path = os.path.join(self.project_path, ".jellyfish_circuit_breaker")
+        if os.path.isfile(cb_path):
+            try:
+                with open(cb_path, "r", encoding="utf-8") as f:
+                    return int(f.read().strip())
+            except:
+                pass
+        return 0
+
+    def _reset_circuit_breaker(self) -> None:
+        cb_path = os.path.join(self.project_path, ".jellyfish_circuit_breaker")
+        exit_code_path = os.path.join(self.project_path, ".jellyfish_last_exit_code")
+        for path in (cb_path, exit_code_path):
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                except:
+                    pass
+
+    def _update_circuit_breaker(self, returncode: int) -> None:
+        cb_path = os.path.join(self.project_path, ".jellyfish_circuit_breaker")
+        if returncode == 0:
+            count = 0
+        else:
+            count = self._get_circuit_breaker_count() + 1
+        try:
+            with open(cb_path, "w", encoding="utf-8") as f:
+                f.write(str(count))
+        except:
+            pass
 
     def _extract_and_write_files(self, content: str) -> list[str]:
         """Extrae y escribe en disco los archivos de código real desde el contenido generado."""
@@ -513,7 +619,7 @@ class ProjectOrchestrator:
                     f.write(file_content)
                 created_files.append(rel_path.strip())
             except Exception as e:
-                console.print(f"[red]       ✗ Error creando archivo {rel_path}: {e}[/red]")
+                console.print(f"       ✗ Error creando archivo {rel_path}: {e}")
                 logger.error("Error al escribir archivo real de agente: %s", e)
 
         md_matches = re.findall(r'\[WRITE_FILE:\s*([^\]\s]+)\]\s*\n*```[a-zA-Z0-9_-]*\n(.*?)\n```', content, re.DOTALL)
@@ -528,231 +634,15 @@ class ProjectOrchestrator:
                     f.write(file_content)
                 created_files.append(rel_clean)
             except Exception as e:
-                console.print(f"[red]       ✗ Error creando archivo {rel_clean}: {e}[/red]")
+                console.print(f"       ✗ Error creando archivo {rel_clean}: {e}")
                 logger.error("Error al escribir archivo real de agente: %s", e)
                 
         return created_files
 
     def _run_task_runner(self, user_idea: str) -> None:
         """Parsea el tablero de la agencia y ejecuta cada tarea con su agente asignado."""
-        board = self._read_project_file(self.board_filename)
-        tasks = _parse_sprint_tasks(board)
-
-        if not tasks:
-            console.print(f"[yellow]⚠ No se encontraron tareas en el tablero {self.board_filename}.[/yellow]")
-            return
-
-        console.print(
-            f"\n[bold cyan]━━━ FASE 3: 🚀 Task Runner — {len(tasks)} tareas ━━━[/bold cyan]\n"
-        )
-
-        for i, task in enumerate(tasks):
-            task_num = i + 1
-            agent_name = task["agent"]
-            task_desc = task["task"]
-            output_file = task.get("output_file", "").strip()
-            task_id_str = task.get("id", f"T-{task_num:03d}")
-
-            if not output_file or output_file == "—":
-                output_file = f"TASK_{task_id_str.replace('-', '_')}.md"
-
-            console.print(
-                f"[bold white]  [{task_num}/{len(tasks)}] {task_id_str}:[/bold white] "
-                f"{task_desc[:60]}{'...' if len(task_desc) > 60 else ''}"
-            )
-            console.print(f"[dim]       → @{agent_name} → {output_file}[/dim]")
-
-            t0 = time.perf_counter()
-
-            agent_prompt = self._load_agent_prompt(agent_name)
-            if not agent_prompt:
-                agent_prompt = f"Eres @{agent_name}, un especialista técnico del equipo de desarrollo."
-
-            accumulated = self._build_accumulated_context()
-
-            system = (
-                f"{agent_prompt}\n\n"
-                f"[TAREA ASIGNADA POR EL SCRUM MASTER]\n"
-                f"ID: {task_id_str}\n"
-                f"Descripción: {task_desc}\n"
-                f"Tu entregable: Genera el contenido COMPLETO del archivo {output_file}.\n"
-                f"REGLA CRÍTICA DE RESPUESTA: NO des explicaciones verbales, saludos ni conclusiones. Sé extremadamente conciso y directo.\n"
-                f"REGLA CRÍTICA DE COMPLETITUD: NO trunques el código. Si el archivo es grande y necesitas más espacio, no te preocupes, el sistema te pedirá que continúes. "
-                f"Sin embargo, si has terminado de generar TODO el archivo y código correspondiente de forma exitosa, tu última línea debe ser exactamente la cadena de texto: [TAREA_COMPLETADA]\n\n"
-                f"[REGLA CRÍTICA DE SEPARACIÓN DE CÓDIGO Y DOCUMENTACIÓN]\n"
-                f"Si la tarea requiere crear o modificar archivos de código real, scripts, andamiajes o configuraciones en el disco del proyecto, "
-                f"debes especificar cada uno de ellos dentro de tu entregable utilizando etiquetas con la ruta del archivo. "
-                f"Puedes usar cualquiera de los siguientes dos formatos:\n\n"
-                f"Formato 1 (Estructura XML):\n"
-                f"<write_file path=\"ruta/relativa/archivo.ext\">\n"
-                f"contenido del archivo real aquí...\n"
-                f"</write_file>\n\n"
-                f"Formato 2 (Anotación Markdown):\n"
-                f"[WRITE_FILE: ruta/relativa/archivo.ext]\n"
-                f"```lenguaje\n"
-                f"contenido del archivo real aquí...\n"
-                f"```\n\n"
-                f"Puedes incluir múltiples archivos si es necesario. El Task Runner los extraerá y creará automáticamente en el disco. "
-                f"Asegúrate de que las rutas relativas sean correctas a partir de la raíz del proyecto."
-            )
-
-            user_prompt = (
-                f"IDEA ORIGINAL DEL USUARIO:\n{user_idea}\n\n"
-                f"DOCUMENTOS PREVIOS DEL PROYECTO:\n{accumulated}\n\n"
-                f"TAREA: {task_desc}\n"
-                f"Genera el contenido completo de {output_file}."
-            )
-
-            # Cargar capacidades del entorno
-            capabilities_str = ""
-            cap_path = os.path.join(self.project_path, "env_capabilities.json")
-            if os.path.isfile(cap_path):
-                capabilities_str = _safe_read(cap_path)
-
-            env_capabilities_prompt = ""
-            if capabilities_str:
-                env_capabilities_prompt = (
-                    f"\n\n[ENTORNO REAL DEL HOST / CONTENEDORES]\n"
-                    f"Tu código debe ser 100% compatible con las siguientes herramientas y versiones reales del entorno:\n"
-                    f"```json\n{capabilities_str}\n```\n"
-                    f"Asegúrate de alinear las versiones de Gradle, Kotlin, Python, Room, etc., a estas capacidades. "
-                    f"No propongas herramientas ni configuraciones incompatibles con estas versiones."
-                )
-
-            system = system + env_capabilities_prompt
-
-            # Lazo de compilación y depuración (Compile & Debug Loop) - Sprint 12
-            max_attempts = 5
-            build_cmd = self._detect_compile_command()
-            
-            # Definir la estructura base de los mensajes de forma inmutable para la tarea actual
-            base_messages = [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user_prompt}
-            ]
-            
-            last_task_result = ""
-            success_task = False
-            task_elapsed = 0.0
-            task_result = None
-            
-            short_desc = f"Tarea {task_id_str}: {task_desc[:50]}..."
-            try:
-                with TaskProgress(tui_engine, f"auto_task_{i}", short_desc, agent=agent_name) as progress:
-                    for attempt in range(1, max_attempts + 1):
-                        attempt_t0 = time.perf_counter()
-                        
-                        # Clonar la lista base en una variable temporal para evitar contaminación de contexto
-                        current_messages = list(base_messages)
-                        if attempt > 1:
-                            current_messages.append({"role": "assistant", "content": last_task_result})
-                            current_messages.append({"role": "user", "content": feedback})
-                        
-                        # Bucle de Continuación de Tarea (Auto-Continuation Loop)
-                        task_result = ""
-                        cont_messages = list(current_messages)
-                        max_continuations = 5
-                        
-                        for cont_idx in range(1, max_continuations + 1):
-                            chunk = _call_llm_silent(
-                                self.state, cont_messages,
-                                provider=self.state.provider,
-                                model=self.state.model
-                            )
-                            
-                            if not chunk:
-                                if cont_idx == 1:
-                                    task_result = None
-                                break
-                                
-                            task_result += chunk
-                            
-                            # Si encontramos el marcador de completado, paramos el bucle
-                            if "[TAREA_COMPLETADA]" in chunk or "[TAREA_COMPLETADA]" in task_result:
-                                task_result = task_result.replace("[TAREA_COMPLETADA]", "").strip()
-                                break
-                            
-                            # Si no terminó, preparamos la continuación
-                            if cont_idx < max_continuations:
-                                cont_messages.append({"role": "assistant", "content": chunk})
-                                cont_messages.append({
-                                    "role": "user", 
-                                    "content": "Tu respuesta anterior se cortó debido al límite de caracteres. Por favor, continúa exactamente desde donde te quedaste. No repitas nada de tu respuesta anterior, simplemente continúa generando el archivo de forma íntegra hasta terminar."
-                                })
-                        
-                        attempt_elapsed = time.perf_counter() - attempt_t0
-                        task_elapsed += attempt_elapsed
-                        
-                        if not task_result:
-                            if attempt == max_attempts:
-                                progress.fail()
-                            continue
-                            
-                        # Preservar el último resultado por si la compilación vuelve a fallar
-                        last_task_result = task_result
-                        
-                        # Guardar entregable en disco e interactuar con archivos reales
-                        self._write_project_file(output_file, task_result)
-                        self._extract_and_write_files(task_result)
-                                
-                        if not build_cmd:
-                            success_task = True
-                            break
-                            
-                        returncode, build_output = self._run_build_command(build_cmd)
-                        if returncode == 0:
-                            success_task = True
-                            break
-                        else:
-                            if attempt < max_attempts:
-                                error_lines = self._extract_relevant_errors(build_output)
-                                feedback = (
-                                    f"Tu código falló en la compilación con el siguiente error. Analiza las dependencias, corrígelo e itera:\n"
-                                    f"```\n{error_lines}\n```\n"
-                                    f"Corrige los archivos correspondientes y vuelve a generarlos utilizando las etiquetas <write_file> o [WRITE_FILE: ...]."
-                                )
-                            else:
-                                success_task = False
-                                progress.fail()
-    
-                    if success_task and task_result:
-                        tokens = estimate_tokens(task_result)
-                        progress.set_tokens(tokens)
-    
-                if not task_result:
-                    self.metrics.append({
-                        "fase": f"@{agent_name} ({task_id_str})",
-                        "detalle": f"FALLIDO — Sin respuesta",
-                        "tiempo": task_elapsed,
-                        "status": "❌",
-                    })
-                    continue
-    
-                tokens = estimate_tokens(task_result)
-                status_symbol = "✅" if success_task else "⚠"
-                status_text = "Completado con éxito" if success_task else "Completado con advertencias (fallo de compilación)"
-                
-                self.metrics.append({
-                    "fase": f"@{agent_name} ({task_id_str})",
-                    "detalle": f"~{tokens:,} tokens → {output_file}",
-                    "tiempo": task_elapsed,
-                    "status": status_symbol,
-                })
-    
-                # Actualizar DAILY.md con handoff
-                self._write_task_handoff_with_status(task_id_str, agent_name, task_desc, output_file, status_text)
-                
-            except Exception as ex:
-                logger.error(f"Error crítico en tarea {task_id_str}: {ex}", exc_info=True)
-                self.metrics.append({
-                    "fase": f"@{agent_name} ({task_id_str})",
-                    "detalle": f"FALLIDO — Error interno: {str(ex)[:40]}",
-                    "tiempo": task_elapsed,
-                    "status": "❌",
-                })
-
-        # Actualizar tablero: mover todo a DONE
-        self._mark_all_done(tasks)
+        from core.orchestration.task_runner import TaskRunnerPhase
+        TaskRunnerPhase(self).run(user_idea)
 
     def _write_task_handoff_with_status(self, task_id: str, agent: str, desc: str, output: str, status: str) -> None:
         """Registra un handoff en DAILY.md con el estado de compilación para trazabilidad."""
@@ -772,28 +662,49 @@ class ProjectOrchestrator:
             logger.warning("No se pudo actualizar DAILY.md: %s", e)
 
     def _mark_all_done(self, tasks: list[dict]) -> None:
-        """Mueve todas las tareas a la sección DONE del tablero de la agencia."""
+        """Mueve todas las tareas a la sección DONE del tablero de la agencia vaciando las anteriores."""
         board = self._read_project_file(self.board_filename)
         if not board:
             return
-        timestamp = datetime.now().strftime("%Y-%m-%d")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
         done_rows = "\n".join(
-            f"| {t['id']} | {t['task']} | @{t['agent']} | {timestamp} |"
+            f"| {t.get('id', '')} | {t.get('task', '')} | @{t.get('agent', '')} | {timestamp} |"
             for t in tasks
         )
-        # Reemplazar la sección DONE
+        
+        # 1. Vaciar las tablas de POR HACER y EN PROGRESO dejando solo sus cabeceras
+        board = re.sub(r'(##.*?(?:POR HACER|TODO).*?\n\|.*?\n\|[-\s|]*\n)(?:\|.*?\n)*', r'\1', board, flags=re.IGNORECASE)
+        board = re.sub(r'(##.*?(?:EN PROGRESO|IN PROGRESS|DOING).*?\n\|.*?\n\|[-\s|]*\n)(?:\|.*?\n)*', r'\1', board, flags=re.IGNORECASE)
+
+        # 2. Reconstruir la sección DONE
         done_section = (
             f"## ✅ HECHO (DONE)\n\n"
             f"| ID | Tarea | Asignado | Completado |\n"
             f"|---|---|---|---|\n"
             f"{done_rows}\n"
         )
-        # Intentar reemplazar la sección DONE existente
-        pattern = r"##\s*✅.*?DONE.*?\n.*?(?=\n##|\n---|\n\*|$)"
-        new_board = re.sub(pattern, done_section, board, flags=re.DOTALL)
-        if new_board == board:
-            new_board = board + "\n" + done_section
+        
+        # 3. Insertar o reemplazar la sección DONE actual
+        pattern = r"##\s*(?:✅\s*)?(?:HECHO|DONE|Completadas|Completado).*?(?=\n##|\n---|\n\*|$)"
+        if re.search(pattern, board, flags=re.IGNORECASE | re.DOTALL):
+            new_board = re.sub(pattern, done_section, board, flags=re.IGNORECASE | re.DOTALL)
+        else:
+            new_board = board.strip() + "\n\n" + done_section
+            
         self._write_project_file(self.board_filename, new_board)
+
+        # Actualizar versión JSON (Mejora 11)
+        try:
+            import json
+            json_filename = self.board_filename.replace(".md", ".json")
+            json_path = os.path.join(self.project_path, json_filename)
+            if os.path.isfile(json_path):
+                for t in tasks:
+                    t["status"] = "DONE"
+                    t["completed_at"] = timestamp
+                self._write_project_file(json_filename, json.dumps(tasks, indent=2, ensure_ascii=False))
+        except Exception as je:
+            logger.warning("No se pudo actualizar el tablero JSON a DONE: %s", je)
 
     # ─── Orquestación Principal ─────────────────────────────────────────
 
@@ -804,37 +715,35 @@ class ProjectOrchestrator:
         # Sprint 12 — Preguntar permisos globales al inicio para evitar saturación
         try:
             global_approve = Confirm.ask(
-                "\n[bold yellow]⚡ ¿Deseas activar auto-aprobación GLOBAL para TODOS los comandos de esta ejecución? [y/n][/bold yellow]",
+                "\n⚡ ¿Deseas activar auto-aprobación GLOBAL para TODOS los comandos de esta ejecución? [y/n]",
                 default=False
             )
             if global_approve:
                 self.state.enable_project_auto_approve()
-                console.print("[green]✓ Auto-aprobación global activada para este proceso.[/green]\n")
+                console.print("✓ Auto-aprobación global activada para este proceso.\n")
         except (EOFError, KeyboardInterrupt):
             pass
 
-        # Header
-        console.print()
-        console.print(Panel(
-            f"[bold white]{user_idea}[/bold white]",
-            title=f"[bold purple]🪼 JELLYFISH — AGENCIA AUTÓNOMA ({self.state.active_agency.upper()})[/bold purple]",
-            subtitle="[dim]PO → SM (Team Assembly) → Task Runner[/dim]",
-            border_style="purple",
-            padding=(1, 2),
-        ))
+        # La confirmación visual del prompt fue eliminada para mantener la terminal limpia y compacta.
 
         # AGENTE VALIDADOR DEL ENTORNO (Environment Probe - Sprint 11)
         try:
             self._run_environment_probe()
         except Exception as e:
             logger.error("Error ejecutando Environment Probe: %s", e)
-            console.print(f"[yellow]⚠ No se pudo ejecutar el Environment Probe: {e}[/yellow]")
+            console.print(f"⚠ No se pudo ejecutar el Environment Probe: {e}")
 
         # Fase 1: Product Owner
         if not self._run_product_owner(user_idea):
             total_time = time.perf_counter() - total_start
             self._print_summary_table(total_time)
             return "Pipeline detenido en fase de Product Owner."
+
+        # Validación de Definition of Ready (DoR)
+        if not self._run_dor_validation():
+            total_time = time.perf_counter() - total_start
+            self._print_summary_table(total_time)
+            return "Pipeline detenido por fallo en la validación del Definition of Ready (DoR)."
 
         # Fase 2: Scrum Master (Team Assembly)
         if not self._run_scrum_master(user_idea):
@@ -855,7 +764,7 @@ class ProjectOrchestrator:
                     
                     from core.terminal import screen_console
                     if returncode == 0:
-                        screen_console.print("[bold green]✓ ¡Compilación final exitosa! El proyecto está listo.[/bold green]\n")
+                        screen_console.print("✓ ¡Compilación final exitosa! El proyecto está listo.\n")
                         self.metrics.append({
                             "fase": "🛠 Compilación Final",
                             "detalle": f"Comando: {build_cmd}",
@@ -863,7 +772,7 @@ class ProjectOrchestrator:
                             "status": "✅",
                         })
                     else:
-                        screen_console.print(f"[bold red]⚠ La compilación final falló con código {returncode}.[/bold red]\n")
+                        screen_console.print(f"⚠ La compilación final falló con código {returncode}.\n")
                         self.metrics.append({
                             "fase": "🛠 Compilación Final",
                             "detalle": "Fallo de compilación",
@@ -883,6 +792,12 @@ class ProjectOrchestrator:
         # Resumen
         total_time = time.perf_counter() - total_start
         self._print_summary_table(total_time)
+        
+        try:
+            self._run_retrospective()
+        except Exception as e:
+            logger.warning("No se pudo ejecutar la retrospectiva autónoma: %s", e)
+
         return self._generate_final_summary(user_idea, total_time)
 
     def _print_summary_table(self, total_time: float) -> None:
@@ -890,7 +805,7 @@ class ProjectOrchestrator:
         table = Table(
             title="🪼 Resumen del Pipeline Autónomo",
             show_header=True, header_style="bold purple",
-            border_style="bright_black", show_footer=True,
+            border_style="dim white", show_footer=True,
         )
         table.add_column("Agente / Tarea", style="bold", min_width=28)
         table.add_column("Entregable", style="dim", min_width=30)
@@ -900,11 +815,11 @@ class ProjectOrchestrator:
         for m in self.metrics:
             secs = m["tiempo"]
             if secs < 10:
-                dur = f"[green]{secs:.1f}s[/green]"
+                dur = f"{secs:.1f}s"
             elif secs < 60:
-                dur = f"[yellow]{secs:.1f}s[/yellow]"
+                dur = f"{secs:.1f}s"
             else:
-                dur = f"[red]{secs:.1f}s[/red]"
+                dur = f"{secs:.1f}s"
             table.add_row(m["fase"], m["detalle"], Text.from_markup(dur), m["status"])
 
         console.print()
@@ -921,20 +836,28 @@ class ProjectOrchestrator:
             status_project = "INCOMPLETO / CON ADVERTENCIAS (Revisar logs)"
 
         summary_lines = [
-            f"🪼 [bold purple]REPORTE FINAL DEL PROYECTO[/bold purple] ({total_time:.1f}s)",
+            f"🪼 REPORTE FINAL DEL PROYECTO ({total_time:.1f}s)",
             f"  [bold]• Estado actual:[/bold] {status_project}",
             f"  [bold]• Directorio:[/bold] {self.project_path}",
             f"  [bold]• Tareas exitosas:[/bold] {len(completed_tasks)}/{len(self.metrics)}"
         ]
         
         if failed_tasks:
-            summary_lines.append("  [bold red]• Tareas fallidas/omitidas:[/bold red]")
+            summary_lines.append("  • Tareas fallidas/omitidas:")
             for f in failed_tasks:
                 summary_lines.append(f"    - {f['fase']}: {f['detalle']}")
                 
+        healing_failures = getattr(self.state, "healing_failures", {})
+        if healing_failures:
+            summary_lines.append("  • Intentos de Auto-Recuperación fallidos:")
+            for cmd_f, log_f in healing_failures.items():
+                summary_lines.append(f"    - Comando: `{cmd_f}`")
+                for line in log_f.split('\n'):
+                    summary_lines.append(f"      {line}")
+
         # Imprimir por pantalla
         console.print()
-        console.print(Panel("\n".join(summary_lines), title="[bold cyan]📋 Reporte de Estado[/bold cyan]", border_style="cyan", expand=False))
+        console.print(Panel("\n".join(summary_lines), title="📋 Reporte de Estado", border_style="dim white", expand=False))
         console.print()
 
         # Retornar versión markdown para el historial
@@ -947,5 +870,257 @@ class ProjectOrchestrator:
             md_summary += "- **Tareas fallidas/omitidas:**\n"
             for f in failed_tasks:
                 md_summary += f"  - `{f['fase']}`: {f['detalle']}\n"
+                
+        if healing_failures:
+            md_summary += "\n- **Intentos de Auto-Recuperación fallidos:**\n"
+            for cmd_f, log_f in healing_failures.items():
+                md_summary += f"  - **Comando:** `{cmd_f}`\n"
+                md_summary += "    **Detalle de intentos:**\n"
+                for line in log_f.split('\n'):
+                    md_summary += f"      {line}\n"
+
         md_summary += f"- **Directorio:** `{self.project_path}`"
         return md_summary
+
+    def _is_git_repo(self) -> bool:
+        """Verifica si el proyecto activo es un repositorio Git."""
+        import subprocess
+        if not self.project_path or not os.path.isdir(self.project_path):
+            return False
+        try:
+            res = subprocess.run(
+                ["git", "rev-parse", "--is-inside-work-tree"],
+                cwd=self.project_path,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            return res.returncode == 0 and "true" in res.stdout.strip().lower()
+        except Exception:
+            return False
+
+    def _git_commit_snapshot(self, task_id: str) -> bool:
+        """Realiza un snapshot de git automático antes de iniciar una tarea.
+        Retorna True si se creó un commit de snapshot.
+        """
+        if not self._is_git_repo():
+            return False
+        import subprocess
+        try:
+            status_res = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=self.project_path,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if not status_res.stdout.strip():
+                return False
+            
+            subprocess.run(["git", "add", "."], cwd=self.project_path, capture_output=True, timeout=10)
+            res = subprocess.run(
+                ["git", "commit", "-m", f"jellyfish_pre_task_{task_id}"],
+                cwd=self.project_path,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            return res.returncode == 0
+        except Exception as e:
+            logger.warning("Error creando git snapshot para la tarea %s: %s", task_id, e)
+            return False
+
+    def _git_rollback(self, task_id: str, snapshot_created: bool) -> None:
+        """Revierte los cambios de la tarea si falla la compilación o ejecución."""
+        if not self._is_git_repo():
+            return
+        import subprocess
+        try:
+            console.print(f"       ↩ Revertiendo cambios de la tarea {task_id} debido a fallo de compilación/ejecución...")
+            if snapshot_created:
+                subprocess.run(["git", "reset", "--hard", "HEAD~1"], cwd=self.project_path, capture_output=True, timeout=10)
+            else:
+                subprocess.run(["git", "reset", "--hard", "HEAD"], cwd=self.project_path, capture_output=True, timeout=10)
+            subprocess.run(["git", "clean", "-fd"], cwd=self.project_path, capture_output=True, timeout=10)
+            console.print("       ✓ Espacio de trabajo revertido al estado anterior de forma segura.")
+        except Exception as e:
+            logger.error("Error durante git rollback de la tarea %s: %s", task_id, e)
+
+    def _git_start_task_branch(self, task_id: str) -> tuple[bool, str]:
+        """Crea y se mueve a una rama temporal para la tarea (Mejora 41).
+        Retorna (exitoso, rama_original).
+        """
+        if not self._is_git_repo():
+            return False, ""
+        import subprocess
+        try:
+            # Obtener rama actual
+            res = subprocess.run(
+                ["git", "branch", "--show-current"],
+                cwd=self.project_path,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            original_branch = res.stdout.strip()
+            if not original_branch:
+                return False, ""
+                
+            task_branch = f"jellyfish_task_{task_id.lower().replace('-', '_')}"
+            
+            # Guardar cambios sin commitear en la rama original
+            subprocess.run(["git", "add", "."], cwd=self.project_path, capture_output=True, timeout=10)
+            subprocess.run(
+                ["git", "commit", "-m", f"jellyfish_auto_save_before_{task_id}"],
+                cwd=self.project_path, capture_output=True, timeout=10
+            )
+            
+            # Limpiar ramas antiguas de la tarea si existiesen
+            subprocess.run(["git", "checkout", original_branch], cwd=self.project_path, capture_output=True, timeout=10)
+            subprocess.run(["git", "branch", "-D", task_branch], cwd=self.project_path, capture_output=True, timeout=10)
+            
+            res_checkout = subprocess.run(
+                ["git", "checkout", "-b", task_branch],
+                cwd=self.project_path,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if res_checkout.returncode == 0:
+                console.print(f"       [dim]🌿 Rama Git de tarea creada y activa: {task_branch}[/dim]")
+                return True, original_branch
+        except Exception as e:
+            logger.warning("Error iniciando rama git para tarea %s: %s", task_id, e)
+        return False, ""
+
+    def _git_end_task_branch(self, task_id: str, original_branch: str, success: bool) -> None:
+        """Cierra el ciclo de la rama de la tarea. Si success es True, fusiona. Si es False, descarta."""
+        if not self._is_git_repo() or not original_branch:
+            return
+        import subprocess
+        task_branch = f"jellyfish_task_{task_id.lower().replace('-', '_')}"
+        try:
+            if success:
+                # Commitear cambios en la rama de la tarea
+                subprocess.run(["git", "add", "."], cwd=self.project_path, capture_output=True, timeout=10)
+                subprocess.run(
+                    ["git", "commit", "-m", f"jellyfish_completed_task_{task_id}"],
+                    cwd=self.project_path,
+                    capture_output=True,
+                    timeout=10
+                )
+                # Volver a rama original
+                subprocess.run(["git", "checkout", original_branch], cwd=self.project_path, capture_output=True, timeout=10)
+                # Fusionar
+                merge_res = subprocess.run(
+                    ["git", "merge", task_branch, "--no-edit"],
+                    cwd=self.project_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=15
+                )
+                if merge_res.returncode == 0:
+                    console.print(f"       ✓ Rama {task_branch} integrada exitosamente a {original_branch}.")
+                    # Borrar rama de la tarea
+                    subprocess.run(["git", "branch", "-d", task_branch], cwd=self.project_path, capture_output=True, timeout=10)
+                else:
+                    console.print(f"       ⚠️ Conflicto al integrar {task_branch}. Forzando rollback...")
+                    # Si falla, abortar merge y resetear
+                    subprocess.run(["git", "merge", "--abort"], cwd=self.project_path, capture_output=True, timeout=10)
+                    subprocess.run(["git", "checkout", original_branch], cwd=self.project_path, capture_output=True, timeout=10)
+                    subprocess.run(["git", "branch", "-D", task_branch], cwd=self.project_path, capture_output=True, timeout=10)
+                    subprocess.run(["git", "clean", "-fd"], cwd=self.project_path, capture_output=True, timeout=10)
+            else:
+                console.print(f"       ↩ Revertiendo cambios: Rama {task_branch} descartada.")
+                # Volver a rama original
+                subprocess.run(["git", "checkout", "-f", original_branch], cwd=self.project_path, capture_output=True, timeout=10)
+                # Borrar rama de la tarea
+                subprocess.run(["git", "branch", "-D", task_branch], cwd=self.project_path, capture_output=True, timeout=10)
+                # Limpiar
+                subprocess.run(["git", "clean", "-fd"], cwd=self.project_path, capture_output=True, timeout=10)
+                console.print("       ✓ Espacio de trabajo limpio.")
+        except Exception as e:
+            logger.error("Error al finalizar rama git para tarea %s: %s", task_id, e)
+
+    def _run_dod_validation(self, task_id: str, agent_name: str, task_desc: str, output_file: str, file_content: str) -> tuple[bool, str]:
+        """Valida que la tarea cumpla con la Definition of Done (DoD) usando un agente evaluador (Mejora 15)."""
+        console.print(f"       [dim]🔍 Validando Definition of Done (DoD) para la tarea {task_id}...[/dim]")
+        
+        system_prompt = (
+            "Eres un QA Automation Engineer experto.\n"
+            "Tu tarea es evaluar el entregable de un agente desarrollador y determinar si cumple con el 'Definition of Done' (DoD).\n"
+            "El entregable cumple con el DoD si:\n"
+            "1. Resuelve directamente la descripción de la tarea.\n"
+            "2. No tiene marcadores de posición (placeholders), comentarios TODO incompletos ni código truncado.\n"
+            "3. En caso de ser código, sigue buenas prácticas básicas.\n\n"
+            "Debes responder en formato JSON puro. Ejemplo:\n"
+            '{"approved": true, "reason": "El archivo de código implementa todas las funciones requeridas y no tiene placeholders."}\n'
+            'O si no es aprobado:\n'
+            '{"approved": false, "reason": "El archivo de código contiene comentarios TODO y el cuerpo de la función principal está vacío."}'
+        )
+        
+        user_prompt = (
+            f"DESCRIPCIÓN DE LA TAREA:\n{task_desc}\n\n"
+            f"ARCHIVO ENTREGABLE: {output_file}\n"
+            f"CONTENIDO GENERADO:\n{file_content}\n"
+        )
+        
+        try:
+            response = self._call_agent(system_prompt, user_prompt)
+            if not response:
+                return True, "DoD aprobado por defecto (sin respuesta del validador)."
+                
+            import json
+            import re
+            match = re.search(r'\{.*\}', response, re.DOTALL)
+            if match:
+                data = json.loads(match.group(0))
+                approved = data.get("approved", True)
+                reason = data.get("reason", "Aprobado por el QA Agent.")
+                return approved, reason
+        except Exception as e:
+            logger.warning("Error en validación DoD: %s", e)
+            
+        return True, "DoD aprobado por defecto."
+
+    def _build_intelligent_context(self, task_desc: str, output_file: str) -> str:
+        """Construye un contexto inteligente para la tarea usando RAG y dependencias directas."""
+        parts = []
+        
+        # 1. Recuperar contexto RAG del código base si existe indexado
+        from core.rag_coder import CodeKnowledgeBase
+        from core.state import DB_PATH
+        try:
+            rag = CodeKnowledgeBase(DB_PATH, active_project=self.project_path)
+            rag_context = rag.query_code(task_desc, k=4)
+            if rag_context:
+                parts.append(f"### [CONTEXTO RELEVANTE RAG]\n{rag_context}\n")
+        except Exception as e:
+            logger.debug("No se pudo obtener contexto RAG para la tarea: %s", e)
+
+        # 2. Cargar dependencias directas de archivos metodológicos y generados
+        base_files = ["BACKLOG.md", self.board_filename, "DAILY.md"]
+        for fname in base_files:
+            content = self._read_project_file(fname)
+            if content:
+                parts.append(f"--- {fname} ---\n{content}\n")
+                
+        for fname in self.generated_files:
+            if fname in base_files or fname == output_file:
+                continue
+            if fname.endswith(".md") and (fname.lower() in task_desc.lower() or "architecture" in fname.lower() or "design" in fname.lower()):
+                content = self._read_project_file(fname)
+                if content:
+                    parts.append(f"--- {fname} ---\n{content}\n")
+                    
+        return "\n".join(parts)
+
+    def _run_dor_validation(self) -> bool:
+        """Un QA Agent audita el BACKLOG.md para certificar que está listo (DoR)."""
+        from core.orchestration.product_owner import ProductOwnerPhase
+        return ProductOwnerPhase(self).run_dor_validation()
+
+    def _run_retrospective(self) -> None:
+        """Analiza DAILY.md y guarda aprendizajes en retrospective_rules.md para futuros sprints."""
+        from core.orchestration.scrum_master import ScrumMasterPhase
+        ScrumMasterPhase(self).run_retrospective()

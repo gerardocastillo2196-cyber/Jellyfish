@@ -421,16 +421,23 @@ def main():
                 continue
 
             except EOFError:
-                console.print("\n[bold purple]🪼 Jellyfish desconectado.[/bold purple]")
                 break
 
             except Exception as e:
+                import traceback
+                error_trace = traceback.format_exc()
+                if not hasattr(state, "captured_errors"):
+                    state.captured_errors = []
+                state.captured_errors.append(error_trace)
                 console.print(f"[red]Error inesperado: {e}[/red]")
                 logging.getLogger("jellyfish").error("Error en main loop: %s", e, exc_info=True)
 
     finally:
         # Restaurar la terminal al salir
         tui_engine.restore_terminal()
+        from core.ui import handle_exit_flow
+        handle_exit_flow(state)
+        console.print("[bold purple]🪼 Jellyfish desconectado. Hasta pronto.[/bold purple]")
 
 
 if __name__ == "__main__":

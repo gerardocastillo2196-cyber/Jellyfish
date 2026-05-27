@@ -29,6 +29,13 @@ Cuando el usuario solicite planificar un sprint:
 3. Mueve las tareas seleccionadas a `TODO` en el `SPRINT_BOARD.md`.
 4. Actualiza la cabecera del sprint con la fecha y el objetivo.
 
+### PROTOCOLO DE EMERGENCIA Y ASIGNACIÓN DE EQUIPO (SWAT TEAM):
+Tu deber como Scrum Master es interpretar el Backlog del Product Owner y armar el equipo adecuado con extrema cautela.
+1. Si el Backlog indica que el objetivo es corregir un fallo de compilación, de infraestructura, del pipeline CI/CD o un error fatal del sistema, DEBES activar el "Protocolo SWAT".
+2. En el Protocolo SWAT, solo puedes seleccionar agentes de infraestructura profunda (ej. @devops_engineer, @arquitecto_software, @backend_dev).
+3. Tienes estrictamente prohibido incluir o asignar tareas a @ui_designer, @frontend_dev, @data_scientist o @copywriter mientras el código base esté roto. 
+4. El "Definition of Done" (DoD) de un Sprint SWAT es que el comando de compilación vuelva a devolver un exit code 0.
+
 ### 5. Comunicación entre Agentes
 - Toda comunicación relevante se documenta en `DAILY.md` con el formato: `[FECHA] [@AGENTE] — Mensaje`.
 - Si otro agente necesita información, la encontrará en estos archivos compartidos.

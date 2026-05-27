@@ -11,7 +11,7 @@ from rich.text import Text
 from rich.syntax import Syntax
 from prompt_toolkit.styles import Style
 
-from core.state import get_term_width
+from core.state import get_term_width, get_term_height, AGENCY_DIR
 
 logger = logging.getLogger("jellyfish.ui")
 
@@ -83,16 +83,16 @@ def display_header(active_agent="default", model_name="none", num_skills=0,
 
     from core.llm_engine import is_ollama_running, is_model_available_locally
     ollama_ok = is_ollama_running()
-    model_status_icon = "🟢"
+    model_status_text = "OK"
     if provider == "ollama":
         if not ollama_ok:
-            model_status_icon = "🔴"
+            model_status_text = "ERR"
         elif not is_model_available_locally(model_name):
-            model_status_icon = "⚠️"
+            model_status_text = "WARN"
     else:
         key_env = "GEMINI_API_KEY" if provider == "gemini" else "ANTHROPIC_API_KEY" if provider == "claude" else ""
         if key_env and not os.getenv(key_env):
-            model_status_icon = "🔑"
+            model_status_text = "NO_KEY"
 
     jelly = Text()
     jelly.append("\n", style="")
@@ -103,7 +103,6 @@ def display_header(active_agent="default", model_name="none", num_skills=0,
     jelly.append("       ▀  ▀  ▀  ▀\n", style="bold purple")
     local_console.print(jelly)
 
-    # ─── MODO SIMPLE Y ESTABLE (Diseño Minimalista) ───
     ctx_color = "green" if num_docs > 0 else "dim"
     rag_color = "green" if "OFF" not in rag_status else "dim"
     ollama_color = "green" if ollama_ok else "red"
@@ -112,39 +111,38 @@ def display_header(active_agent="default", model_name="none", num_skills=0,
     if project_name:
         method_suffix = f" ({project_methodology.upper()})" if project_methodology else ""
         proj_name = project_name.split("/")[-1]
-        proj_disp = f" • [yellow]PROJ:[/yellow] {proj_name[:15]}{method_suffix}"
+        proj_disp = f"PROJ: {proj_name[:15]}{method_suffix}"
 
     spinner_disp = ""
     if llm_busy:
-        spinner_disp = " [bold yellow]⟳[/bold yellow]"
+        spinner_disp = " ⟳"
 
     budget_disp = ""
     if token_budget:
         used = token_budget.get("used_tokens", 0)
         total = token_budget.get("total_tokens", 8192)
         pct = token_budget.get("percent", 0)
-        budget_disp = f" • [blue]BUDGET:[/blue] {used:,}/{total:,} ({pct}%)"
+        budget_disp = f"BUDGET: {used:,}/{total:,} ({pct}%)"
 
-    row1 = (
-        f"[bold purple]🪼 JELLYFISH[/bold purple] • "
-        f"[yellow]AGENCY:[/yellow] 💻 {active_agency.upper()} • "
-        f"[cyan]AGENT:[/cyan] @{active_agent.upper()[:10]} • "
-        f"[{ctx_color}]CTX[{num_docs}][/{ctx_color}] • "
-        f"[{rag_color}]{rag_status}[/{rag_color}] • "
-        f"[{ollama_color}]OLLAMA[{'ON' if ollama_ok else 'OFF'}][/{ollama_color}] • "
-        f"[cyan]SKL[{num_skills}][/cyan]"
-        f"{proj_disp}"
-    )
+    model_short = model_name[:30] if len(model_name) > 30 else model_name
+
+    from rich.table import Table
+    table = Table(box=None, show_header=False, padding=(0, 2), expand=True)
+    table.add_column("Col1", ratio=1)
+    table.add_column("Col2", ratio=1)
     
-    model_short = model_name[:40] if len(model_name) > 40 else model_name
-    row2 = (
-        f"[blue]TOK:[/blue] {session_tokens:,} (session){budget_disp} • "
-        f"[white]{model_short} ({model_status_icon}) \\[{provider.upper()}][/white]"
-        f"{spinner_disp}"
-    )
+    c1_r1 = f"JELLYFISH | AGENCY: {active_agency.upper()} | AGENT: @{active_agent.upper()[:10]}"
+    c2_r1 = f"[white]MOD:[/white] {model_short} [{model_status_text}] \\[{provider.upper()}]"
+    
+    c1_r2 = f"[{ctx_color}]CTX:{num_docs}[/{ctx_color}] | [{rag_color}]{rag_status}[/{rag_color}] | SKL:{num_skills} | [{ollama_color}]OLLAMA:{'ON' if ollama_ok else 'OFF'}[/{ollama_color}]"
+    c2_r2 = f"TOK: {session_tokens:,} {budget_disp}{spinner_disp}"
 
-    local_console.print(row1)
-    local_console.print(row2)
+    table.add_row(c1_r1, c2_r1)
+    table.add_row(c1_r2, c2_r2)
+    if proj_disp:
+        table.add_row(proj_disp, "")
+
+    local_console.print(table)
     local_console.print(Text("─" * term_width, style="dim purple"))
 
     output = buf.getvalue()
@@ -172,7 +170,7 @@ def osc8_link(url: str, text: str) -> str:
     return f"\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\"
 
 
-def print_panel(content, title=None, border_style="#af00ff", is_markdown=False):
+def print_panel(content, title=None, border_style="dim white", is_markdown=False):
     """Imprime un panel con ancho controlado."""
     renderable = Markdown(content) if is_markdown else content
     term_width = get_term_width()
@@ -212,7 +210,7 @@ def print_code(code: str, filename: str = "", language: str = "python"):
     panel_width = min(100, term_width - 4)
     panel = Panel(
         syntax, title=filename or "Código",
-        border_style="cyan", expand=False, width=panel_width
+        border_style="dim white", expand=False, width=panel_width
     )
     _main_console.print(panel)
 
@@ -223,6 +221,8 @@ def interactive_picker(title: str, options: list, add_back: bool = True,
 
     Sprint 7.0 — Adaptado para funcionar dentro de la scroll region del TUI.
     El header NO se redibuja desde aquí; se mantiene fijo por el motor TUI.
+    Sprint 9.0 — Paginación y cálculo dinámico de altura para evitar re-impresión
+    acumulativa en terminales pequeñas.
 
     Args:
         title: Título del menú.
@@ -234,7 +234,7 @@ def interactive_picker(title: str, options: list, add_back: bool = True,
         La opción seleccionada, o None si se seleccionó 'VOLVER'.
     """
     if not options:
-        console.print("[yellow]⚠ No hay opciones disponibles.[/yellow]")
+        console.print("⚠ No hay opciones disponibles.")
         return None
 
     if add_back:
@@ -244,35 +244,73 @@ def interactive_picker(title: str, options: list, add_back: bool = True,
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
 
-    # El número total de líneas que ocupará el menú (título + opciones)
-    num_lines = len(options) + 1
-    first_iter = True
+    last_num_lines = 0
 
     try:
         tty.setraw(fd)
         while True:
-            # Si no es la primera iteración, subir y borrar las líneas impresas anteriormente
-            if not first_iter:
-                sys.stdout.write("\r\x1b[2K" + "\x1b[A\x1b[2K" * num_lines)
-                sys.stdout.flush()
+            # Obtener dimensiones de terminal actuales
+            term_width = get_term_width()
+            term_height = get_term_height()
+
+            # Altura máxima del viewport de opciones (dejando margen para el título, indicadores y prompt)
+            max_display = max(3, min(15, term_height - 6))
+
+            # Calcular viewport
+            if len(options) <= max_display:
+                start_index = 0
+                end_index = len(options)
             else:
-                first_iter = False
+                half = max_display // 2
+                start_index = current_index - half
+                if start_index < 0:
+                    start_index = 0
+                if start_index + max_display > len(options):
+                    start_index = len(options) - max_display
+                end_index = start_index + max_display
+
+            # Si no es la primera iteración, subir y borrar las líneas impresas anteriormente
+            if last_num_lines > 0:
+                sys.stdout.write("\r\x1b[2K" + "\x1b[A\x1b[2K" * last_num_lines)
+                sys.stdout.flush()
 
             # Construir el menú
             buf = StringIO()
-            term_width = get_term_width()
             local_console = Console(file=buf, force_terminal=True, width=term_width)
             
-            local_console.print(Text(f" {title.upper()} ", style="bold white on #5e008b"))
-            for i, opt in enumerate(options):
+            # Título
+            title_text = f" {title.upper()} "
+            if len(title_text) > term_width:
+                title_text = title_text[:term_width - 3] + "..."
+            local_console.print(Text(title_text, style="bold white on #5e008b"))
+
+            # Indicador superior si hay elementos ocultos arriba
+            if start_index > 0:
+                local_console.print(Text(f"   ▲ ... ({start_index} más arriba)", style="dim cyan"))
+            
+            # Elementos del viewport
+            for i in range(start_index, end_index):
+                opt = options[i]
+                max_opt_len = term_width - 8
+                opt_text = opt
+                if len(opt_text) > max_opt_len:
+                    opt_text = opt_text[:max_opt_len - 3] + "..."
+                    
                 if i == current_index:
-                    local_console.print(Text(f" > {opt}", style="bold #df00ff"))
+                    local_console.print(Text(f" > {opt_text}", style="bold #df00ff"))
                 else:
-                    local_console.print(Text(f"   {opt}", style="dim white"))
+                    local_console.print(Text(f"   {opt_text}", style="dim white"))
+
+            # Indicador inferior si hay elementos ocultos abajo
+            if end_index < len(options):
+                local_console.print(Text(f"   ▼ ... ({len(options) - end_index} más abajo)", style="dim cyan"))
 
             menu_output = buf.getvalue().replace("\n", "\x1b[K\r\n")
             sys.stdout.write(menu_output)
             sys.stdout.flush()
+
+            # Guardar el número de líneas impresas en esta iteración para el borrado posterior
+            last_num_lines = buf.getvalue().count("\n")
 
             char = sys.stdin.read(1)
             if char == '\x1b':
@@ -289,8 +327,8 @@ def interactive_picker(title: str, options: list, add_back: bool = True,
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         # Limpiar el menú por completo de la pantalla al terminar
-        if not first_iter:
-            sys.stdout.write("\r\x1b[2K" + "\x1b[A\x1b[2K" * num_lines)
+        if last_num_lines > 0:
+            sys.stdout.write("\r\x1b[2K" + "\x1b[A\x1b[2K" * last_num_lines)
             sys.stdout.flush()
 
     selected = options[current_index]
@@ -346,3 +384,115 @@ def file_browser(start_path: str = ".", header_func=None) -> str | None:
         except Exception as e:
             logger.warning("Error en file browser: %s", e)
             return None
+
+
+def handle_exit_flow(state) -> None:
+    """Interacción de salida para analizar y reportar errores recolectados en la sesión.
+
+    Sprint 9.0 — Captura, diagnóstico interactivo vía LLM y exportación a Markdown.
+    """
+    errors = getattr(state, "captured_errors", [])
+    if not errors:
+        return
+
+    # Restaurar por si acaso el cursor y estilo
+    sys.stdout.write("\n")
+    sys.stdout.flush()
+
+    console.print(Panel(
+        f"Se detectaron {len(errors)} errores durante esta sesión de Jellyfish.\n"
+        "Puedes generar un diagnóstico inteligente utilizando el modelo activo antes de salir.",
+        title="⚠️ DIAGNÓSTICO DE ERRORES",
+        border_style="dim white"
+    ))
+
+    try:
+        resp = input("¿Deseas analizar los errores con el modelo de IA antes de salir? (S/n): ").strip().lower()
+    except (KeyboardInterrupt, EOFError):
+        console.print("\n[dim]Saltando diagnóstico de errores.[/dim]")
+        return
+
+    if resp not in ("", "s", "si", "yes", "y"):
+        return
+
+    console.print("🤖 Analizando trazas de error con el LLM en segundo plano...")
+
+    # Construir listado de trazas para el prompt
+    error_list_str = ""
+    for idx, err in enumerate(errors, 1):
+        error_list_str += f"### ERROR #{idx}\n```python\n{err}\n```\n\n"
+
+    system_prompt = (
+        "Eres el Agente de Diagnóstico Técnico de Jellyfish OS.\n"
+        "Tu misión es analizar la lista de errores proporcionados y generar un reporte técnico conciso.\n"
+        "Debes estructurar tu respuesta en tres secciones principales:\n"
+        "1. Breve descripción de los hallazgos y causa raíz de cada error.\n"
+        "2. Propuesta paso a paso para solucionarlos (incluye fragmentos de código correctos si aplica).\n"
+        "Por favor responde en español, de forma clara, directa y estructurada usando formato Markdown."
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"Aquí están las trazas de los errores capturados:\n\n{error_list_str}"}
+    ]
+
+    from core.llm_engine import _call_llm_silent
+    # Activar un visualizador de progreso simple para que el usuario sepa que está trabajando
+    from core.tui import TaskProgress, tui_engine
+    
+    analysis = None
+    try:
+        with TaskProgress(tui_engine, "error_diagnose", "Generando diagnóstico de errores..."):
+            analysis = _call_llm_silent(state, messages)
+    except Exception as le:
+        logger.error("Error al invocar LLM para diagnóstico: %s", le)
+
+    if not analysis:
+        console.print("⚠ El modelo no pudo generar el diagnóstico o no está respondiendo.")
+        return
+
+    # Mostrar hallazgos en pantalla
+    console.print(Panel(
+        Markdown(analysis),
+        title="📝 DIAGNÓSTICO DE LA IA",
+        border_style="dim white",
+        expand=False
+    ))
+
+    # Preguntar si desea guardar el reporte
+    try:
+        save_resp = input("¿Deseas guardar este reporte en un archivo Markdown (.md)? (S/n): ").strip().lower()
+    except (KeyboardInterrupt, EOFError):
+        console.print("\n[dim]Reporte no guardado.[/dim]")
+        return
+
+    if save_resp in ("", "s", "si", "yes", "y"):
+        import time
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        filename = f"jellyfish_error_report_{timestamp}.md"
+        
+        # Determinar directorio destino (siempre en la raíz de Jellyfish)
+        dest_dir = AGENCY_DIR
+        filepath = os.path.join(dest_dir, filename)
+
+        # Construir reporte completo
+        report_content = (
+            f"# Reporte de Diagnóstico de Errores — Jellyfish OS\n"
+            f"**Fecha y Hora:** {time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"**Proveedor de IA:** {state.provider.upper()}\n"
+            f"**Modelo de IA:** {state.model}\n\n"
+            f"## Resumen del Diagnóstico y Soluciones\n"
+            f"{analysis}\n\n"
+            f"## Trazas Originales de los Errores\n"
+            f"{error_list_str}"
+        )
+
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(report_content)
+            
+            link_text = osc8_link(f"file://{filepath}", filename)
+            console.print(f"✓ Reporte guardado con éxito en: [bold]{link_text}[/bold]\n")
+        except OSError as e:
+            console.print(f"Error al escribir el archivo de reporte: {e}\n")
+

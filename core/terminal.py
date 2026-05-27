@@ -29,7 +29,7 @@ _DESTRUCTIVE_PATTERNS: list[re.Pattern] = [
     re.compile(r">\s*/dev/sda", re.IGNORECASE),
     re.compile(r"\bformat\b.*[cCdDeE]:\\\\", re.IGNORECASE),
     # 3. Alteraciones críticas de usuarios o del sistema (chmod/chown masivos en raíz)
-    re.compile(r"\b(chmod|chown)\b.*(-R|--recursive).*(?:/(?:$|\s)|/(etc|var|usr|bin|sbin|lib|sys|proc|dev|boot|root|home|opt|srv)\b)", re.IGNORECASE),
+    re.compile(r"\b(chmod|chown)\b.*(-R|--recursive).*(?:/(?:$|\s)|/(etc|var|usr|bin|sbin|lib|sys|proc|dev|boot|root|opt|srv)\b|/home(?:/?(?:\s|$)))", re.IGNORECASE),
     re.compile(r"\bchmod\s+(-[a-zA-Z]*R[a-zA-Z]*|--recursive)\s+[0-7]*7[0-7]*\s+/", re.IGNORECASE),
     # 4. Comandos de red o ejecución remota sospechosos
     re.compile(r"\b(curl|wget)\b.*\s*\|\s*(sh|bash|zsh|dash|ash)\b", re.IGNORECASE),
@@ -190,7 +190,7 @@ def run_terminal_command(
         )
         if syntax_check.returncode != 0:
             error_msg = f"❌ Error de sintaxis (Dry Run AST): {syntax_check.stderr.strip()}"
-            console.print(f"[bold red]{error_msg}[/bold red]\n")
+            console.print(f"{error_msg}\n")
             if return_code_dict is not None:
                 return_code_dict['returncode'] = -1
             return error_msg
@@ -205,7 +205,7 @@ def run_terminal_command(
             f"   Patrón de lista negra: {matched_pattern}\n"
             f"   Comando: {actual_command[:150]}"
         )
-        console.print(f"\n[bold red]{'━'*80}\n{msg}\n{'━'*80}[/bold red]\n")
+        console.print(f"\n{'━'*80}\n{msg}\n{'━'*80}\n")
         logger.error("COMANDO DESTRUCTIVO BLOQUEADO: %s (Patrón: %s)", actual_command, matched_pattern)
         if return_code_dict is not None:
             return_code_dict['returncode'] = -1
@@ -214,7 +214,7 @@ def run_terminal_command(
     # Prevenir prompts repetidos para comandos denegados o fallidos en este turno
     if actual_command in getattr(state, "denied_commands", set()):
         msg = f"✗ Comando denegado automáticamente porque ya fue rechazado o falló previamente en este turno."
-        console.print(f"[red]{msg}[/red]\n")
+        console.print(f"{msg}\n")
         if return_code_dict is not None:
             return_code_dict['returncode'] = -1
         return msg
@@ -249,9 +249,9 @@ def run_terminal_command(
             else "[bold white][y][/bold white] Permitir una vez  ·  [bold white][n][/bold white] Denegar  ·  [bold white][a][/bold white] Permitir siempre para este proyecto"
         )
         title_text = (
-            "[bold red]⚡ SOLICITUD ESTRICTA DE RED (BLOQUEADA)[/bold red]"
+            "⚡ SOLICITUD ESTRICTA DE RED (BLOQUEADA)"
             if is_network
-            else "[bold yellow]⚡ SOLICITUD DE EJECUCIÓN DE COMANDO[/bold yellow]"
+            else "⚡ SOLICITUD DE EJECUCIÓN DE COMANDO"
         )
 
         syntax = Syntax(actual_command, "bash", theme="monokai", word_wrap=True)
@@ -259,7 +259,7 @@ def run_terminal_command(
             syntax,
             title=title_text,
             subtitle=subtitle_text,
-            border_style="red" if is_network else "yellow",
+            border_style="dim white" if is_network else "yellow",
             expand=True,
             padding=(1, 2)
         )
@@ -277,25 +277,25 @@ def run_terminal_command(
         except TimeoutError:
             if is_network:
                 decision = 'n'
-                screen_console.print("\n[red]✗ Tiempo de espera agotado (60s). Comando de RED denegado por seguridad.[/red]")
+                screen_console.print("\n✗ Tiempo de espera agotado (60s). Comando de RED denegado por seguridad.")
             else:
                 decision = 'y'
-                screen_console.print("\n[green]✓ Tiempo de espera agotado (60s). Comando aceptado automáticamente.[/green]")
+                screen_console.print("\n✓ Tiempo de espera agotado (60s). Comando aceptado automáticamente.")
         except (KeyboardInterrupt, EOFError):
             decision = 'n'
-            screen_console.print("\n[red]✗ Comando denegado por interrupción.[/red]")
+            screen_console.print("\n✗ Comando denegado por interrupción.")
 
         if decision == 'n':
             if not hasattr(state, "denied_commands"):
                 state.denied_commands = set()
             state.denied_commands.add(actual_command)
-            screen_console.print("[red]✗ Ejecución denegada por el usuario.[/red]\n")
+            screen_console.print("✗ Ejecución denegada por el usuario.\n")
             if return_code_dict is not None:
                 return_code_dict['returncode'] = -1
             return "Ejecución denegada por el usuario."
         elif decision == 'a':
             state.enable_project_auto_approve()
-            screen_console.print("[green]✓ Auto-aprobación activada para este proyecto en adelante.[/green]\n")
+            screen_console.print("✓ Auto-aprobación activada para este proyecto en adelante.\n")
 
     try:
         # Sprint 8.4 — Ejecutar comandos en la carpeta del proyecto activo si está configurado
@@ -338,8 +338,13 @@ def run_terminal_command(
         debug_log_path = os.path.join(exec_cwd, "jellyfish_debug.log") if exec_cwd else "jellyfish_debug.log"
 
         if not is_silent:
-            console.print(f"\n╭─[bold yellow] Salida de Terminal [/bold yellow]{'─'*60}╮")
+            console.print(f"\n╭─ Salida de Terminal {'─'*60}╮")
         
+        # Inyectar DOCKER_CONFIG en /tmp si bwrap está activo para evitar fallos de lectura/escritura en ~/.docker
+        env = os.environ.copy()
+        if has_bwrap:
+            env["DOCKER_CONFIG"] = "/tmp/.docker"
+
         process = subprocess.Popen(
             popen_command,
             shell=use_shell,
@@ -349,6 +354,7 @@ def run_terminal_command(
             bufsize=1,
             preexec_fn=os.setpgrp,
             cwd=exec_cwd,
+            env=env,
         )
         
         captured_lines = []
@@ -393,9 +399,9 @@ def run_terminal_command(
                 res = f"✓ Comando ejecutado sin salida (exit code: {process.returncode})"
                 console.print(f"[dim]{res}[/dim]")
             elif process.returncode != 0:
-                console.print(f"[red]✗ Comando finalizó con código {process.returncode}[/red]")
+                console.print(f"✗ Comando finalizó con código {process.returncode}")
             else:
-                console.print("[green]✓ Comando ejecutado exitosamente[/green]")
+                console.print("✓ Comando ejecutado exitosamente")
 
         if not silent_history:
             # Historial recibe versión compacta head+tail de 3000 chars
@@ -419,7 +425,7 @@ def run_terminal_command(
             except Exception:
                 pass
         msg = f"⏰ Timeout: el comando excedió los {actual_timeout} segundos."
-        screen_console.print(f"[bold red]{msg}[/bold red]")
+        screen_console.print(f"{msg}")
         logger.warning("Timeout ejecutando: %s", actual_command[:100])
         
         # Registrar como denegado/fallido para prevenir loops infinitos de reintento en este turno
