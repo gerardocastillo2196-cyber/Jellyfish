@@ -1,1 +1,1 @@
-[{"id": "T-001", "task": "Crear el archivo de pruebas", "output_file": "test_output.py", "agent": "backend_dev", "status": "TODO"}]
+[{"id": "T-001", "task": "Crear el archivo de pruebas 1", "output_file": "test_output1.py", "agent": "backend_dev", "status": "TODO", "state": "TODO"}, {"id": "T-002", "task": "Crear el archivo de pruebas 2", "output_file": "test_output2.py", "agent": "backend_dev", "status": "TODO", "state": "TODO"}]
