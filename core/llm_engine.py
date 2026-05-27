@@ -34,6 +34,27 @@ _BASH_REGEX = re.compile(
 _http_client: httpx.Client | None = None
 _http_client_lock = threading.Lock()
 
+def _get_sync_client() -> httpx.Client:
+    global _http_client
+    with _http_client_lock:
+        if _http_client is None:
+            _http_client = httpx.Client(
+                timeout=httpx.Timeout(300.0, connect=30.0),
+                limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+                follow_redirects=True,
+            )
+        return _http_client
+
+import atexit
+def _close_http_client():
+    global _http_client
+    with _http_client_lock:
+        if _http_client is not None:
+            _http_client.close()
+            _http_client = None
+
+atexit.register(_close_http_client)
+
 
 def ensure_ollama_running(ollama_url: str = "http://localhost:11434") -> bool:
     """Verifica si Ollama está activo. Si no, intenta levantarlo en segundo plano.
@@ -61,7 +82,7 @@ def ensure_ollama_running(ollama_url: str = "http://localhost:11434") -> bool:
         
     # Si no responde, intentar levantarlo
     logger.info("Ollama no responde. Intentando iniciar servicio 'ollama serve'...")
-    console.print(f"[yellow]⚠ Ollama no responde en {base_url}. Intentando iniciar 'ollama serve' en segundo plano...[/yellow]")
+    console.print(f"⚠ Ollama no responde en {base_url}. Intentando iniciar 'ollama serve' en segundo plano...")
     
     try:
         # Ejecutar ollama serve en segundo plano
@@ -79,21 +100,21 @@ def ensure_ollama_running(ollama_url: str = "http://localhost:11434") -> bool:
                 with httpx.Client(timeout=1.5) as client:
                     resp = client.get(api_url)
                     if resp.status_code == 200:
-                        console.print("[green]✓ Ollama iniciado correctamente en segundo plano.[/green]")
+                        console.print("✓ Ollama iniciado correctamente en segundo plano.")
                         logger.info("Ollama iniciado exitosamente en el intento %d", i+1)
                         return True
             except (httpx.ConnectError, httpx.TimeoutException, httpx.RequestError):
                 pass
     except FileNotFoundError:
-        console.print("[bold red]⚠ Alerta: El comando 'ollama' no está instalado en el sistema.[/bold red]")
+        console.print("⚠ Alerta: El comando 'ollama' no está instalado en el sistema.")
         logger.warning("El ejecutable 'ollama' no fue encontrado.")
         return False
     except Exception as e:
-        console.print(f"[bold red]⚠ Alerta: No se pudo iniciar Ollama automáticamente: {e}[/bold red]")
+        console.print(f"⚠ Alerta: No se pudo iniciar Ollama automáticamente: {e}")
         logger.error("Error al levantar Ollama: %s", e)
         return False
         
-    console.print("[bold yellow]⚠ Advertencia: Se ejecutó 'ollama serve' pero no responde. Es posible que debas iniciarlo manualmente.[/bold yellow]")
+    console.print("⚠ Advertencia: Se ejecutó 'ollama serve' pero no responde. Es posible que debas iniciarlo manualmente.")
     logger.warning("Ollama se ejecutó pero no responde en %s", base_url)
     return False
 
@@ -171,13 +192,7 @@ def _call_llm_silent(
 
     Sprint 1.2 — Usa httpx en modo síncrono con streaming silencioso.
     Sprint 3.1 — Migrado de requests a httpx.
-
-    Args:
-        state: Instancia del estado.
-        messages: Lista de mensajes en formato Chat Completions.
-
-    Returns:
-        La respuesta completa del modelo como string, o None si hay error.
+    Guía de Autonomía — Añadido bucle de reintento con retroceso exponencial para mitigar 429/rate limits.
     """
     provider_name = normalize_provider(provider or state.provider)
     url, headers = _get_provider_config(state, provider_name)
@@ -190,41 +205,76 @@ def _call_llm_silent(
     if is_cloud:
         payload["temperature"] = 0.2
 
-    try:
-        full = ""
-        parse_fn = (
-            (lambda line: _parse_sse_line(line, provider_name))
-            if is_cloud
-            else _parse_ollama_line
-        )
-        
-        with httpx.Client(timeout=300.0) as client:
-            with client.stream("POST", url, headers=headers, json=payload) as response:
-                if response.status_code != 200:
-                    logger.warning(
-                        "_call_llm_silent HTTP %s de %s", response.status_code, provider_name
-                    )
-                    return None
-                for line in response.iter_lines():
-                    if not line:
-                        continue
-                    chunk = parse_fn(line.encode("utf-8"))
-                    if chunk:
-                        full += chunk
-        if full:
-            tokens_input = sum(estimate_tokens(m.get("content", "")) for m in messages)
-            tokens_output = estimate_tokens(full)
-            total_tokens = tokens_input + tokens_output
-            if hasattr(state, "add_session_tokens"):
-                state.add_session_tokens(total_tokens)
-        return full if full else None
+    max_attempts = 5
+    initial_delay = 1.5
+    backoff_factor = 2.0
 
-    except httpx.ConnectError:
-        logger.error("No se puede conectar al proveedor %s (silent)", provider_name)
-        return None
-    except Exception as e:
-        logger.error("Error en _call_llm_silent: %s", e)
-        return None
+    for attempt in range(1, max_attempts + 1):
+        if is_cloud:
+            payload["temperature"] = max(0.0, 0.2 - 0.05 * (attempt - 1))
+        try:
+            full = ""
+            parse_fn = (
+                (lambda line: _parse_sse_line(line, provider_name))
+                if is_cloud
+                else _parse_ollama_line
+            )
+            
+            client = _get_sync_client()
+            with client.stream("POST", url, headers=headers, json=payload) as response:
+                    if response.status_code == 429 or (500 <= response.status_code < 600):
+                        delay = initial_delay * (backoff_factor ** (attempt - 1))
+                        logger.warning(
+                            "_call_llm_silent HTTP %s de %s. Reintentando en %.1fs (Intento %d/%d)...",
+                            response.status_code, provider_name, delay, attempt, max_attempts
+                        )
+                        time.sleep(delay)
+                        continue
+                    elif response.status_code != 200:
+                        logger.warning(
+                            "_call_llm_silent HTTP %s de %s", response.status_code, provider_name
+                        )
+                        return None
+                        
+                    for line in response.iter_lines():
+                        if not line:
+                            continue
+                        chunk = parse_fn(line.encode("utf-8"))
+                        if chunk:
+                            full += chunk
+
+            if full:
+                tokens_input = sum(estimate_tokens(m.get("content", "")) for m in messages)
+                tokens_output = estimate_tokens(full)
+                total_tokens = tokens_input + tokens_output
+                if hasattr(state, "add_session_tokens"):
+                    state.add_session_tokens(total_tokens)
+                return full
+            else:
+                # Si el output está vacío pero no hubo error HTTP, podemos reintentar
+                if attempt < max_attempts:
+                    delay = initial_delay * (backoff_factor ** (attempt - 1))
+                    logger.warning(
+                        "_call_llm_silent retornó output vacío de %s. Reintentando en %.1fs...",
+                        provider_name, delay
+                    )
+                    time.sleep(delay)
+                    continue
+                return None
+
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.RequestError) as e:
+            if attempt < max_attempts:
+                delay = initial_delay * (backoff_factor ** (attempt - 1))
+                logger.warning(
+                    "Error de conexión/red en _call_llm_silent: %s. Reintentando en %.1fs...",
+                    e, delay
+                )
+                time.sleep(delay)
+            else:
+                logger.error("Error definitivo en _call_llm_silent tras %d intentos: %s", max_attempts, e)
+                return None
+
+    return None
 
 
 def _stream_request(
@@ -285,20 +335,20 @@ def _stream_request(
                     if response.status_code != 200:
                         error_body = (await response.aread())[:500].decode("utf-8", errors="replace")
                         console.print(
-                            f"[bold red]Error HTTP {response.status_code} de {provider_name}:[/bold red]\n"
+                            f"Error HTTP {response.status_code} de {provider_name}:\n"
                             f"[dim]{error_body}[/dim]"
                         )
                         return
 
                     with Live(
-                        Panel("", title=provider_label),
+                        "",
                         refresh_per_second=12,
                         console=console,
                     ) as live:
                         try:
                             async for line in response.aiter_lines():
                                 if _aborted and _aborted[0]:
-                                    console.print("\n[dim]⚡ Stream interrumpido — respuesta parcial conservada.[/dim]")
+                                    print("\n⚡ Stream interrumpido — respuesta parcial conservada.")
                                     break
 
                                 if not line:
@@ -307,13 +357,9 @@ def _stream_request(
                                 chunk = parse_fn(line.encode("utf-8"))
                                 if chunk:
                                     full += chunk
-                                    live.update(Panel(
-                                        Markdown(full),
-                                        title=provider_label,
-                                        border_style="bright_black",
-                                    ))
+                                    live.update(Markdown(full))
                         except KeyboardInterrupt:
-                            console.print("\n[dim]⚡ Stream interrumpido — respuesta parcial conservada.[/dim]")
+                            print("\n⚡ Stream interrumpido — respuesta parcial conservada.")
                             if _aborted is not None:
                                 _aborted[0] = True
 
@@ -339,22 +385,22 @@ def _stream_request(
     except httpx.ConnectError:
         if provider_name == "ollama":
             console.print(
-                "[bold red]Error: No se puede conectar a Ollama.[/bold red]\n"
+                "Error: No se puede conectar a Ollama.\n"
                 "[dim]Asegúrate de que Ollama esté ejecutándose: ollama serve[/dim]"
             )
         else:
             console.print(
-                f"[bold red]Error: No se puede conectar al proveedor {provider_name}.[/bold red]\n"
+                f"Error: No se puede conectar al proveedor {provider_name}.\n"
                 "[dim]Verifica tu conexión a internet y la URL del API.[/dim]"
             )
         return None
 
     except httpx.TimeoutException:
-        console.print("[bold red]Error: Timeout en la conexión (>300s).[/bold red]")
+        console.print("Error: Timeout en la conexión (>300s).")
         return None
 
     except Exception as e:
-        console.print(f"[red]Error LLM ({provider_name}): {e}[/red]")
+        console.print(f"Error LLM ({provider_name}): {e}")
         logger.error("Error en _stream_request: %s", e, exc_info=True)
         return None
 
@@ -377,6 +423,13 @@ def stream_ollama(state, rag_context: str = "") -> str | None:
         La respuesta completa del modelo (última iteración), o None si hay error.
     """
     t_start = time.perf_counter()
+    
+    # [Mejora de Autonomía] Refrescar el contexto estático obligatoriamente
+    # Esto asegura que el agente conversacional lea las últimas escrituras de
+    # los tableros (DEV_BOARD.md) que hayan ocurrido durante ejecuciones en 2do plano.
+    if hasattr(state, "refresh_static_context"):
+        state.refresh_static_context()
+        
     state._turn_stats = []
     react_iteration = 0
     final_response = None
@@ -417,7 +470,7 @@ def stream_ollama(state, rag_context: str = "") -> str | None:
 
         if not full:
             if react_iteration == 1:
-                console.print("[yellow]⚠ El modelo no generó respuesta.[/yellow]")
+                console.print("⚠ El modelo no generó respuesta.")
             return final_response
 
         final_response = full
@@ -439,8 +492,8 @@ def stream_ollama(state, rag_context: str = "") -> str | None:
             if is_readonly_command(cmd_clean):
                 cmd_display = cmd_clean[:200] + "..." if len(cmd_clean) > 200 else cmd_clean
                 console.print(
-                    f"\n[bold green]⚡ Auto-ejecutando comando de lectura:[/bold green]\n"
-                    f"[cyan]{cmd_display}[/cyan]"
+                    f"\n⚡ Auto-ejecutando comando de lectura:\n"
+                    f"{cmd_display}"
                 )
                 output = run_terminal_command(cmd_clean, state, force_confirm=False)
             else:
@@ -488,17 +541,11 @@ def stream_ollama(state, rag_context: str = "") -> str | None:
 
     # --- Resumen Consolidado de Métricas del Turno ---
     if hasattr(state, "_turn_stats") and state._turn_stats:
-        from rich.text import Text
         total_in = sum(s["input"] for s in state._turn_stats)
         total_out = sum(s["output"] for s in state._turn_stats)
         total_tok = total_in + total_out
         elapsed = time.perf_counter() - t_start
-        
-        summary_text = Text()
-        summary_text.append("\n📊 MÉTRICAS DE LA PREGUNTA:\n", style="bold cyan")
-        summary_text.append(f"  Input: {total_in:,} tokens  |  Output: {total_out:,} tokens\n", style="dim white")
-        summary_text.append(f"  Total: {total_tok:,} tokens  |  Tiempo: {elapsed:.2f}s\n", style="bold green")
-        console.print(summary_text)
+        print(f"\n[{total_in:,} → {total_out:,} tok | total {total_tok:,} | {elapsed:.1f}s]")
 
     return final_response
 

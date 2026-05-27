@@ -186,7 +186,12 @@ def _split_python_ast(text: str, filepath: str) -> List[str]:
 
         # Capturar cualquier texto suelto antes de este nodo
         interstitial = "".join(lines[last_end:start]).strip()
-        if interstitial:
+        if len(interstitial) > 2400:
+            sub_splitter = RecursiveCharacterTextSplitter.from_language(
+                language=Language.PYTHON, chunk_size=1200, chunk_overlap=150
+            )
+            chunks.extend(sub_splitter.split_text(interstitial))
+        elif interstitial:
             chunks.append(interstitial)
 
         block = "".join(lines[start:end])
@@ -203,7 +208,12 @@ def _split_python_ast(text: str, filepath: str) -> List[str]:
 
     # Capturar código restante después del último nodo
     tail = "".join(lines[last_end:]).strip()
-    if tail:
+    if len(tail) > 2400:
+        sub_splitter = RecursiveCharacterTextSplitter.from_language(
+            language=Language.PYTHON, chunk_size=1200, chunk_overlap=150
+        )
+        chunks.extend(sub_splitter.split_text(tail))
+    elif tail:
         chunks.append(tail)
 
     return chunks if chunks else None
@@ -297,8 +307,8 @@ class CodeKnowledgeBase:
             try:
                 shutil.rmtree(self.db_path)
                 console.print(
-                    "[yellow]⚠ Base RAG corrupta detectada y eliminada. "
-                    "Usa /add para reindexar.[/yellow]"
+                    "⚠ Base RAG corrupta detectada y eliminada. "
+                    "Usa /add para reindexar."
                 )
             except (OSError, IOError) as rm_err:
                 logger.error("Error eliminando base corrupta: %s", rm_err)
@@ -328,7 +338,7 @@ class CodeKnowledgeBase:
             Número de chunks procesados.
         """
         if not self.ollama_connected:
-            console.print("[bold red]⚠ Error: RAG no disponible. Ollama está desconectado.[/bold red]")
+            console.print("⚠ Error: RAG no disponible. Ollama está desconectado.")
             return 0
         abs_path = os.path.abspath(path)
         project_hash = _dir_hash(abs_path)
@@ -338,7 +348,7 @@ class CodeKnowledgeBase:
         self.indexed_dir = abs_path
 
         console.print(
-            f"[bold blue]🔍 Indexando código en:[/bold blue] {path} "
+            f"🔍 Indexando código en: {path} "
             f"[dim](DB: {os.path.basename(self.db_path)})[/dim]"
         )
 
@@ -394,11 +404,11 @@ class CodeKnowledgeBase:
                     logger.warning("Error indexando %s: %s", filename, e)
 
         if not all_chunks:
-            console.print("[yellow]⚠ No se encontraron archivos compatibles para indexar.[/yellow]")
+            console.print("⚠ No se encontraron archivos compatibles para indexar.")
             return 0
 
         try:
-            batch_size = 40
+            batch_size = 5
             total_chunks = len(all_chunks)
 
             logger.info("📦 Preparando %d fragmentos para indexación...", total_chunks)
@@ -425,11 +435,11 @@ class CodeKnowledgeBase:
             self.indexed_chunk_count = collection.count()
             self.indexed_file_count = files_processed
             console.print(
-                f"[bold green]✓ Indexación completada: "
-                f"{files_processed} archivos → {self.indexed_chunk_count} fragmentos[/bold green]"
+                f"✓ Indexación completada: "
+                f"{files_processed} archivos → {self.indexed_chunk_count} fragmentos"
             )
         except Exception as e:
-            console.print(f"[red]Error creando la base vectorial: {e}[/red]")
+            console.print(f"Error creando la base vectorial: {e}")
             logger.error("Error en Chroma.add_texts: %s", e)
             return 0
 
@@ -504,7 +514,7 @@ class CodeKnowledgeBase:
     def remove_path(self, target_path: str) -> int:
         """Elimina documentos de una ruta específica de la base RAG."""
         if not self.vector_db:
-            console.print("[yellow]⚠ No hay índice RAG activo.[/yellow]")
+            console.print("⚠ No hay índice RAG activo.")
             return 0
 
         try:
@@ -523,20 +533,20 @@ class CodeKnowledgeBase:
                 if ids_to_delete:
                     collection.delete(ids=ids_to_delete)
                     self.indexed_chunk_count = collection.count()
-                    console.print(f"[green]✓ {len(ids_to_delete)} chunks eliminados de {target_path}[/green]")
+                    console.print(f"✓ {len(ids_to_delete)} chunks eliminados de {target_path}")
                     return len(ids_to_delete)
                 else:
-                    console.print(f"[yellow]No se encontraron documentos para: {target_path}[/yellow]")
+                    console.print(f"No se encontraron documentos para: {target_path}")
                     return 0
             else:
                 collection.delete(ids=results["ids"])
                 self.indexed_chunk_count = collection.count()
-                console.print(f"[green]✓ {len(results['ids'])} chunks eliminados.[/green]")
+                console.print(f"✓ {len(results['ids'])} chunks eliminados.")
                 return len(results["ids"])
 
         except Exception as e:
             logger.error("Error eliminando de RAG: %s", e)
-            console.print(f"[red]Error eliminando de RAG: {e}[/red]")
+            console.print(f"Error eliminando de RAG: {e}")
             return 0
 
     def clear_index(self) -> None:
@@ -547,7 +557,7 @@ class CodeKnowledgeBase:
                 shutil.rmtree(self.db_path)
                 self.indexed_file_count = 0
                 self.indexed_chunk_count = 0
-                console.print("[bold red]☢ Índice RAG eliminado.[/bold red]")
+                console.print("☢ Índice RAG eliminado.")
             except Exception as e:
                 logger.error("Error eliminando índice RAG: %s", e)
 

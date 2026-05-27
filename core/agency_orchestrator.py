@@ -2,24 +2,24 @@
 
 Clasifica los prompts de usuario y los redirige a la agencia correspondiente,
 configurando el estado global antes de delegar la ejecución a ProjectOrchestrator.
+Refactored to inherit from BaseOrchestrator.
 """
 
 import logging
 from core.state import JellyfishState
-from core.llm_engine import _call_llm_silent
+from core.orchestration import BaseOrchestrator
 
 logger = logging.getLogger("jellyfish.agency_orchestrator")
 
-class AgencyOrchestrator:
+class AgencyOrchestrator(BaseOrchestrator):
     """El CEO invisible del sistema. Clasifica intenciones y delega a la agencia correcta."""
     
     def __init__(self, state: JellyfishState):
-        self.state = state
+        super().__init__(state)
 
     def classify_agency(self, user_prompt: str) -> str:
         """Determina cuál es la mejor agencia para resolver el requerimiento (forzando JSON)."""
         import json
-        # Obtener las agencias disponibles en el catálogo
         agencies = list(self.state.agency_catalog.keys())
         if not agencies:
             agencies = ["default", "development", "marketing", "research"]
@@ -38,14 +38,10 @@ class AgencyOrchestrator:
             'Ejemplo: {"agency": "development"}'
         )
         
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Idea del usuario: {user_prompt}"}
-        ]
-        
         try:
-            response = _call_llm_silent(
-                self.state, messages,
+            response = self._generate_silent(
+                system_prompt,
+                f"Idea del usuario: {user_prompt}",
                 provider=self.state.provider,
                 model=self.state.model
             )
@@ -53,7 +49,6 @@ class AgencyOrchestrator:
             if not response:
                 return "development"
 
-            # Parsear JSON de forma robusta
             import re
             json_match = re.search(r"\{.*\}", response, re.DOTALL)
             if json_match:
@@ -61,14 +56,12 @@ class AgencyOrchestrator:
                 classified = data.get("agency", "development").lower().strip()
                 if classified in agencies:
                     return classified
-                # Fallback de coincidencia parcial
                 for agency in agencies:
                     if agency in classified:
                         return agency
         except Exception as e:
             logger.error("Error al clasificar agencia con JSON: %s", e)
         
-        # Fallback por defecto si algo falla
         return "development"
 
     def route_and_execute(self, user_prompt: str) -> str:
@@ -80,8 +73,6 @@ class AgencyOrchestrator:
             
         self.state.active_agency = agency
         
-        # Retrocompatibilidad absoluta: delegamos al ProjectOrchestrator,
-        # el cual usará el tablero y los agentes específicos de la agencia clasificada.
         from core.project_orchestrator import ProjectOrchestrator
         orchestrator = ProjectOrchestrator(self.state)
         return orchestrator.run(user_prompt)

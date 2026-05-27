@@ -6,114 +6,40 @@ import logging
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
-from rich.status import Status
 from rich.table import Table
 from rich.text import Text
 
 from core.state import JellyfishState, estimate_tokens
 from core.rag_coder import CodeKnowledgeBase, _FRAG_OPEN
-from core.llm_engine import _call_llm_silent, _stream_request
 from core.tui import tui_engine, TaskProgress
+from core.orchestration import BaseOrchestrator
+from core.orchestration.base_orchestrator import _parse_plan_safe
 
-# Sprint 2.4 — Regex dinámico que usa el prefijo UUID blindado de rag_coder
-_FRAG_PREFIX = re.escape(_FRAG_OPEN.split(" ")[0])  # e.g. "<FRAG_A1B2C3D4E5F6"
+_FRAG_PREFIX = re.escape(_FRAG_OPEN.split(" ")[0])
 _SOURCE_RE = re.compile(rf'{_FRAG_PREFIX}\s+source="([^"]+)"')
 
 logger = logging.getLogger("jellyfish.orchestrator")
 console = Console()
 
-
-def _parse_plan_safe(text: str) -> list[dict]:
-    """Parseo robusto y multi-formato del plan JSON generado por el LLM.
-
-    Sprint 1.1 — Soporta 4 variantes de respuesta comunes del modelo:
-      - Array plano: [{"query": "..."}]
-      - Objeto envolvente: {"steps": [...]}
-      - Array dentro de markdown: ```json\n[...]\n```
-      - Falla total: retorna lista vacía para que el orquestador use fallback.
-    """
-    md_match = re.search(r"```(?:json)?\s*\n(.*?)\n```", text, re.DOTALL)
-    candidate = md_match.group(1).strip() if md_match else text.strip()
-
-    for attempt in [candidate, text.strip()]:
-        try:
-            data = json.loads(attempt)
-            if isinstance(data, list):
-                return [s for s in data if isinstance(s, dict) and "query" in s]
-            if isinstance(data, dict):
-                for key in ("steps", "plan", "queries", "tasks", "searches"):
-                    if key in data and isinstance(data[key], list):
-                        return [s for s in data[key] if isinstance(s, dict) and "query" in s]
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-    array_match = re.search(r"\[[\s\S]*?\]", candidate)
-    if array_match:
-        try:
-            data = json.loads(array_match.group(0))
-            if isinstance(data, list):
-                return [s for s in data if isinstance(s, dict) and "query" in s]
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-    logger.debug("No se pudo parsear el plan del orquestador. Texto: %.200s", text)
-    return []
-
-
-class ResearchOrchestrator:
+class ResearchOrchestrator(BaseOrchestrator):
     """Orquestador Multi-Agente para Jellyfish OS — Sprint 3 Edition.
 
-    Sprints acumulados:
-    - 1.1: Parseo JSON robusto multi-formato.
-    - 1.2: Subagentes en modo silencioso.
-    - 1.3: Árbol de progreso via rich.Status.
-    - 1.5: Limpieza automática del plan temporal.
-    - 2.4: Extracción de fuentes con UUID blindado.
-    - 3.2: Status tree enriquecido con tiempos por fase.
-    - 3.4: Tabla de resumen al final del pipeline.
+    Refactored to inherit from BaseOrchestrator.
     """
 
     def __init__(self, state: JellyfishState, rag: CodeKnowledgeBase):
-        self.state = state
+        super().__init__(state)
         self.rag = rag
         self.memory_dir = os.path.join(self.state.agency_dir, "memory")
         os.makedirs(self.memory_dir, exist_ok=True)
         self._plan_file = os.path.join(self.memory_dir, "current_plan.json")
 
-    def _generate_silent(self, system_prompt: str, user_prompt: str) -> str:
-        """Llama al LLM sin streaming visible (subagentes internos)."""
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-        response = _call_llm_silent(
-            self.state,
-            messages,
-            provider=self.state.subagent_provider,
-            model=self.state.subagent_model,
-        )
-        return response if response else ""
-
-    def _generate_visible(self, system_prompt: str, user_prompt: str, label: str) -> str:
-        """Llama al LLM CON streaming visible — solo para el reporte final."""
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-        response = _stream_request(self.state, messages, label)
-        return response if response else ""
-
     def execute_task(self, user_query: str) -> str:
-        """Ejecuta el flujo multi-agente completo con UI de progreso y tabla de resumen.
-
-        Sprint 3.2 — Muestra tiempo de cada fase en el Status.
-        Sprint 3.4 — Imprime una rich.Table al terminar con métricas del pipeline.
-        """
+        """Ejecuta el flujo multi-agente completo con UI de progreso y tabla de resumen."""
         console.print(
-            "\n[bold purple]🧠 Jellyfish — Orquestador de Investigación[/bold purple]"
+            "\n🧠 Jellyfish — Orquestador de Investigación"
         )
 
-        # Registro de métricas por fase (Sprint 3.4)
         metrics: list[dict] = []
         total_start = time.perf_counter()
 
@@ -128,7 +54,7 @@ class ResearchOrchestrator:
             )
             plan_text = self._generate_silent(plan_system, user_query)
 
-        steps = _parse_plan_safe(plan_text)
+        steps = self._parse_plan_safe(plan_text)
         if not steps:
             console.print("[dim]⚠ Plan no parseable, usando consulta original como paso único.[/dim]")
             steps = [{"query": user_query}]
@@ -179,7 +105,6 @@ class ResearchOrchestrator:
                     findings.append(f"[{i+1}] Hallazgos sobre '{query}':\n{sub_result}")
 
             sub_time = time.perf_counter() - t0
-            # Sprint 3.2 — Calcular longitud de hallazgos para la tabla
             tokens_est = estimate_tokens(sub_result)
             metrics.append({
                 "fase": f"🔍 Search Agent {i+1}",
@@ -189,7 +114,7 @@ class ResearchOrchestrator:
 
         # --- FASE 3: Síntesis Final ---
         t0 = time.perf_counter()
-        console.print("\n[bold blue]✍  Lead Agent: Redactando reporte final...[/bold blue]")
+        console.print("\n✍  Lead Agent: Redactando reporte final...")
         synth_system = (
             "Eres el Lead Agent. Recibiste los hallazgos de tus subagentes de búsqueda. "
             "Redacta un reporte final cohesivo y profesional. "
@@ -218,29 +143,24 @@ class ResearchOrchestrator:
             "tiempo": phase4_time,
         })
 
-        # Sprint 1.5: Limpiar plan temporal
         try:
             if os.path.exists(self._plan_file):
                 os.remove(self._plan_file)
         except OSError as e:
             logger.warning("No se pudo eliminar el plan temporal: %s", e)
 
-        # Sprint 3.4 — Tabla de resumen del pipeline
         total_time = time.perf_counter() - total_start
         self._print_summary_table(metrics, total_time)
 
         return final_report
 
     def _print_summary_table(self, metrics: list[dict], total_time: float) -> None:
-        """Imprime una tabla rich con las métricas de cada fase del pipeline.
-
-        Sprint 3.4 — Feedback visual claro de cuánto tardó cada agente y cuántos tokens generó.
-        """
+        """Imprime una tabla rich con las métricas de cada fase del pipeline."""
         table = Table(
             title="📊 Resumen del Pipeline de Investigación",
             show_header=True,
             header_style="bold cyan",
-            border_style="bright_black",
+            border_style="dim white",
             show_footer=True,
         )
         table.add_column("Agente / Fase", style="bold", min_width=22)
@@ -249,13 +169,12 @@ class ResearchOrchestrator:
 
         for m in metrics:
             secs = m["tiempo"]
-            # Colorear según duración
             if secs < 5:
-                dur_str = f"[green]{secs:.1f}s[/green]"
+                dur_str = f"{secs:.1f}s"
             elif secs < 30:
-                dur_str = f"[yellow]{secs:.1f}s[/yellow]"
+                dur_str = f"{secs:.1f}s"
             else:
-                dur_str = f"[red]{secs:.1f}s[/red]"
+                dur_str = f"{secs:.1f}s"
 
             table.add_row(m["fase"], m["detalle"], Text.from_markup(dur_str))
 

@@ -208,16 +208,21 @@ class PluginManager:
 
             try:
                 data = json.loads(stdout)
+                if not isinstance(data, dict):
+                    return f"⚠ Plugin '{plugin_name}' no retornó un objeto JSON válido."
+                if "ok" not in data:
+                    return f"⚠ Plugin '{plugin_name}' no retornó el campo de estado 'ok'."
+                
                 if data.get("ok"):
+                    if "result" not in data:
+                        return f"⚠ Plugin '{plugin_name}' no retornó el campo de datos 'result'."
                     return data["result"] or "✓ Plugin ejecutado (sin output)."
                 else:
-                    # Bug fix: logger.error enviaba el traceback a stderr (visible en consola).
-                    # El traceback va a DEBUG; el usuario ve solo el mensaje de error limpio.
                     logger.debug(
                         "Error en plugin sandbox '%s': %s\n%s",
                         plugin_name, data.get("error"), data.get("tb", "")
                     )
-                    return f"Error en plugin '{plugin_name}': {data.get('error')}"
+                    return f"Error en plugin '{plugin_name}': {data.get('error', 'Error desconocido')}"
             except json.JSONDecodeError:
                 return f"⚠ Plugin '{plugin_name}' produjo output no-JSON: {stdout[:300]}"
 
