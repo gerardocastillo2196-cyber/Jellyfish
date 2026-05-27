@@ -149,11 +149,11 @@ def _parse_sprint_tasks(board_content: str) -> list[dict]:
             continue
 
         task_data = {
-            "id": cells[0],
+            "id": cells[0].replace("*", "").replace("`", "").strip(),
             "task": cells[1],
-            "agent": cells[2].lower().replace("@", "").strip() if len(cells) > 2 else "default",
-            "estimate": cells[3] if len(cells) > 3 else "",
-            "output_file": cells[4] if len(cells) > 4 else "",
+            "agent": cells[2].lower().replace("@", "").replace("`", "").strip() if len(cells) > 2 else "default",
+            "estimate": cells[3].replace("`", "").strip() if len(cells) > 3 else "",
+            "output_file": cells[4].replace("`", "").strip() if len(cells) > 4 else "",
         }
 
         # Solo agregar si tiene tarea real
@@ -204,19 +204,22 @@ class ProjectOrchestrator:
 
     def _read_project_file(self, filename: str) -> str:
         """Lee un archivo del proyecto activo."""
-        return _safe_read(os.path.join(self.project_path, filename))
+        filename_clean = filename.replace("`", "").strip()
+        return _safe_read(os.path.join(self.project_path, filename_clean))
 
     def _write_project_file(self, filename: str, content: str) -> bool:
         """Escribe un archivo al directorio del proyecto activo."""
-        filepath = os.path.join(self.project_path, filename)
+        filename_clean = filename.replace("`", "").strip()
+        filepath = os.path.join(self.project_path, filename_clean)
         try:
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(content)
-            self.generated_files.append(filename)
+            self.generated_files.append(filename_clean)
             return True
         except (OSError, IOError) as e:
             logger.error("Error escribiendo %s: %s", filepath, e)
-            console.print(f"Error escribiendo {filename}: {e}")
+            console.print(f"Error escribiendo {filename_clean}: {e}")
             return False
 
     def _call_agent(self, system_prompt: str, user_prompt: str) -> str:
@@ -256,6 +259,160 @@ class ProjectOrchestrator:
             if content:
                 parts.append(f"--- {fname} ---\n{content}\n")
         return "\n".join(parts)
+
+    # ─── FASE 0: Generación de Inteligencia del Proyecto ───────────────
+
+    def _generate_project_intelligence(self, user_idea: str) -> None:
+        """Auto-genera documentos de contexto técnico escaneando el proyecto real."""
+        import subprocess
+
+        console.print("\n━━━ FASE 0: 🧠 Generación de Inteligencia del Proyecto ━━━")
+        t0 = time.perf_counter()
+
+        # 1. PROJECT_TREE.md — Árbol de directorios real
+        try:
+            result = subprocess.run(
+                ["find", ".", "-maxdepth", "4", "-not", "-path", "./.git/*",
+                 "-not", "-path", "./.venv/*", "-not", "-path", "./venv/*",
+                 "-not", "-path", "./node_modules/*", "-not", "-path", "./__pycache__/*",
+                 "-not", "-name", "*.pyc"],
+                cwd=self.project_path, capture_output=True, text=True, timeout=10
+            )
+            tree_content = result.stdout.strip() if result.returncode == 0 else "No disponible"
+        except Exception:
+            tree_content = "No disponible"
+
+        self._write_project_file("PROJECT_TREE.md", (
+            "# 🌳 Árbol del Proyecto (Auto-generado)\n\n"
+            "```\n" + tree_content[:8000] + "\n```\n\n"
+            "*Auto-generado por Jellyfish OS. No editar manualmente.*\n"
+        ))
+
+        # 2. DESIGN_TOKENS.md — Extraído de ARCHITECTURE.md si existe
+        arch = self._read_project_file("ARCHITECTURE.md")
+        if arch:
+            tokens_prompt = (
+                "Eres un arquitecto de software senior. Lee el siguiente ARCHITECTURE.md y genera un resumen "
+                "ULTRA-COMPACTO (máximo 30 líneas) llamado DESIGN_TOKENS.md con SOLO:\n"
+                "- Stack tecnológico (frontend, backend, DB)\n"
+                "- Convenciones de carpetas (dónde va cada tipo de archivo)\n"
+                "- Patrones de diseño obligatorios\n"
+                "- Reglas de naming\n"
+                "NO repitas el ARCHITECTURE.md completo. Sé telegráfico."
+            )
+            tokens_result = self._call_agent(tokens_prompt, f"ARCHITECTURE.md:\n{arch[:6000]}")
+            self._write_project_file("DESIGN_TOKENS.md", tokens_result)
+
+        # 3. DATA_SCHEMA.md — Escanea modelos de datos existentes
+        schema_parts = []
+        for root, dirs, files in os.walk(self.project_path):
+            dirs[:] = [d for d in dirs if d not in ('.git', 'venv', '.venv', 'node_modules', '__pycache__')]
+            for f in files:
+                if f in ("models.py", "schema.prisma", "schema.sql", "models.js", "models.ts", "entities.py"):
+                    content = _safe_read(os.path.join(root, f))
+                    if content:
+                        rel = os.path.relpath(os.path.join(root, f), self.project_path)
+                        schema_parts.append(f"### {rel}\n```\n{content[:3000]}\n```\n")
+        if schema_parts:
+            self._write_project_file("DATA_SCHEMA.md", (
+                "# 📊 Esquema de Datos (Auto-generado)\n\n" + "\n".join(schema_parts) +
+                "\n*Auto-generado por Jellyfish OS.*\n"
+            ))
+
+        # 4. SECURITY.md — Guardrails de seguridad
+        security_path = os.path.join(self.project_path, "SECURITY.md")
+        if not os.path.isfile(security_path):
+            self._write_project_file("SECURITY.md", (
+                "# 🔒 Guardrails de Seguridad\n\n"
+                "## Reglas Obligatorias para Todo Agente\n"
+                "1. **NUNCA** hardcodear tokens, contraseñas, API keys o URIs de BD en el código.\n"
+                "   - Usar `os.getenv()` (Python) o `process.env` (Node.js).\n"
+                "2. **SIEMPRE** preparar consultas SQL con parámetros para evitar inyección.\n"
+                "3. **NUNCA** exponer stack traces en respuestas HTTP de producción.\n"
+                "4. **SIEMPRE** validar y sanitizar input del usuario antes de procesarlo.\n"
+                "5. **NUNCA** almacenar contraseñas en texto plano. Usar bcrypt o argon2.\n"
+                "6. **SIEMPRE** usar HTTPS para comunicaciones externas.\n"
+                "7. Tokens JWT deben tener expiración máxima de 24 horas.\n\n"
+                "*Archivo persistente. Editable por el usuario.*\n"
+            ))
+
+        # 5. COMPONENT_INDEX.md — Índice de componentes reutilizables
+        components = []
+        for root, dirs, files in os.walk(self.project_path):
+            dirs[:] = [d for d in dirs if d not in ('.git', 'venv', '.venv', 'node_modules', '__pycache__')]
+            for f in files:
+                if f.endswith(('.jsx', '.tsx', '.vue', '.svelte')):
+                    rel = os.path.relpath(os.path.join(root, f), self.project_path)
+                    components.append(f"- `{rel}`")
+                elif f.endswith('.py') and ('route' in f.lower() or 'view' in f.lower() or 'controller' in f.lower()):
+                    rel = os.path.relpath(os.path.join(root, f), self.project_path)
+                    components.append(f"- `{rel}`")
+        if components:
+            self._write_project_file("COMPONENT_INDEX.md", (
+                "# 🧩 Índice de Componentes (Auto-generado)\n\n"
+                "Archivos reutilizables detectados en el proyecto:\n\n"
+                + "\n".join(components[:50]) +
+                "\n\n*Antes de crear un componente nuevo, verifica si ya existe aquí.*\n"
+            ))
+
+        # 6. DEPENDENCY_MANIFEST.md — Librerías disponibles
+        dep_parts = []
+        for dep_file in ("requirements.txt", "package.json", "Pipfile", "pyproject.toml", "go.mod"):
+            content = self._read_project_file(dep_file)
+            if content:
+                dep_parts.append(f"### {dep_file}\n```\n{content[:2000]}\n```\n")
+            # Buscar en subcarpetas (frontend/, backend/)
+            for subdir in ("frontend", "backend"):
+                sub_path = os.path.join(self.project_path, subdir, dep_file)
+                if os.path.isfile(sub_path):
+                    content = _safe_read(sub_path)
+                    if content:
+                        dep_parts.append(f"### {subdir}/{dep_file}\n```\n{content[:2000]}\n```\n")
+        if dep_parts:
+            self._write_project_file("DEPENDENCY_MANIFEST.md", (
+                "# 📦 Dependencias del Proyecto (Auto-generado)\n\n"
+                "**REGLA:** Solo usa librerías que estén listadas aquí. "
+                "Si necesitas una nueva, indícalo explícitamente.\n\n"
+                + "\n".join(dep_parts) +
+                "\n*Auto-generado por Jellyfish OS.*\n"
+            ))
+
+        # 7. PLAYBOOK.md — Solo se crea vacío si no existe (se llena con retrospectivas)
+        playbook_path = os.path.join(self.project_path, "PLAYBOOK.md")
+        if not os.path.isfile(playbook_path):
+            # Cargar reglas de retrospectivas anteriores si existen
+            retro_path = os.path.join(AGENCY_DIR, "memory", "retrospective_rules.md")
+            retro_content = _safe_read(retro_path) if os.path.isfile(retro_path) else ""
+            self._write_project_file("PLAYBOOK.md", (
+                "# 📖 Playbook de Soluciones Conocidas\n\n"
+                "## Lecciones de Sprints Anteriores\n"
+                + (retro_content if retro_content else "_(Ninguna todavía)_\n") +
+                "\n## Soluciones a Errores Frecuentes\n"
+                "_(Se actualizará automáticamente tras cada retrospectiva)_\n"
+            ))
+
+        # 8. BUSINESS_CONTEXT.md — Contexto de negocio extraído de la idea del usuario
+        biz_path = os.path.join(self.project_path, "BUSINESS_CONTEXT.md")
+        if not os.path.isfile(biz_path):
+            biz_prompt = (
+                "Genera un BUSINESS_CONTEXT.md de MÁXIMO 10 líneas que responda:\n"
+                "1. ¿Para quién es esta app? (usuario final)\n"
+                "2. ¿Qué problema resuelve?\n"
+                "3. ¿Qué tono de UI se espera? (formal, casual, técnico)\n"
+                "Sé telegráfico. Solo Markdown limpio."
+            )
+            biz_result = self._call_agent(biz_prompt, f"Idea del usuario: {user_idea}")
+            self._write_project_file("BUSINESS_CONTEXT.md", biz_result)
+
+        elapsed = time.perf_counter() - t0
+        intel_files = [f for f in ["PROJECT_TREE.md", "DESIGN_TOKENS.md", "DATA_SCHEMA.md",
+                                    "SECURITY.md", "COMPONENT_INDEX.md", "DEPENDENCY_MANIFEST.md",
+                                    "PLAYBOOK.md", "BUSINESS_CONTEXT.md"] if os.path.isfile(os.path.join(self.project_path, f))]
+        console.print(f"✓ Inteligencia del proyecto generada: {len(intel_files)} documentos ({elapsed:.1f}s)")
+        self.metrics.append({
+            "fase": "🧠 Inteligencia", "detalle": f"{len(intel_files)} docs generados",
+            "tiempo": elapsed, "status": "✅",
+        })
 
     # ─── FASE 1: Product Owner ──────────────────────────────────────────
 
@@ -352,6 +509,11 @@ class ProjectOrchestrator:
         if os.path.isfile(package_json):
             return "npm run build"
             
+        # Validar si existe subdirectorio frontend con package.json
+        frontend_pkg = os.path.join(self.project_path, "frontend", "package.json")
+        if os.path.isfile(frontend_pkg):
+            return "cd frontend && npm run build && cd .. && python3 -m compileall -q ."
+            
         has_python = False
         for root, dirs, files in os.walk(self.project_path):
             dirs[:] = [d for d in dirs if d not in ('.git', 'venv', '.venv', 'node_modules')]
@@ -363,6 +525,9 @@ class ProjectOrchestrator:
                 break
                 
         if has_python:
+            frontend_dir = os.path.join(self.project_path, "frontend")
+            if os.path.isdir(frontend_dir):
+                return "python3 -m compileall -q . && [ -d frontend/src ] && echo 'Validando frontend...' && [ \"$(ls -A frontend/src)\" ]"
             return "python3 -m compileall -q ."
             
         return ""
@@ -710,6 +875,7 @@ class ProjectOrchestrator:
 
     def run(self, user_idea: str) -> str:
         """Ejecuta el pipeline completo de desarrollo autónomo dinámico."""
+        from rich.prompt import Confirm
         total_start = time.perf_counter()
 
         # Sprint 12 — Preguntar permisos globales al inicio para evitar saturación
@@ -733,23 +899,93 @@ class ProjectOrchestrator:
             logger.error("Error ejecutando Environment Probe: %s", e)
             console.print(f"⚠ No se pudo ejecutar el Environment Probe: {e}")
 
-        # Fase 1: Product Owner
-        if not self._run_product_owner(user_idea):
-            total_time = time.perf_counter() - total_start
-            self._print_summary_table(total_time)
-            return "Pipeline detenido en fase de Product Owner."
+        # FASE 0: Generación de Inteligencia del Proyecto
+        try:
+            self._generate_project_intelligence(user_idea)
+        except Exception as e:
+            logger.error("Error generando inteligencia del proyecto: %s", e)
+            console.print(f"⚠ No se pudo generar la inteligencia del proyecto: {e}")
 
-        # Validación de Definition of Ready (DoR)
-        if not self._run_dor_validation():
-            total_time = time.perf_counter() - total_start
-            self._print_summary_table(total_time)
-            return "Pipeline detenido por fallo en la validación del Definition of Ready (DoR)."
+        # Comprobar si existe un sprint activo o planeado en este proyecto
+        resume_existing = False
+        board_path = os.path.join(self.project_path, self.board_filename)
+        json_board_filename = self.board_filename.replace(".md", ".json")
+        json_board_path = os.path.join(self.project_path, json_board_filename)
+        
+        if os.path.isfile(board_path) or os.path.isfile(json_board_path):
+            if user_idea == "Reanudación de Sprint Activo":
+                resume_existing = True
+            else:
+                try:
+                    resume_existing = Confirm.ask(
+                        "\n🔄 Se detectó un sprint activo o planeado en este proyecto.\n"
+                        "¿Deseas reanudar las tareas pendientes (y) o planificar tu NUEVO requerimiento desde cero (n)?",
+                        default=False
+                    )
+                except Exception:
+                    # Fallback no interactivo: si hay una nueva idea y falla el input, planificar
+                    resume_existing = False
 
-        # Fase 2: Scrum Master (Team Assembly)
-        if not self._run_scrum_master(user_idea):
-            total_time = time.perf_counter() - total_start
-            self._print_summary_table(total_time)
-            return "Pipeline detenido en fase de Scrum Master."
+        if resume_existing:
+            # Verificar si realmente hay tareas en el tablero
+            from core.project_orchestrator import _parse_sprint_tasks
+            import json
+            tasks_found = []
+            
+            # Cargar desde JSON si existe
+            if os.path.isfile(json_board_path):
+                try:
+                    with open(json_board_path, "r", encoding="utf-8") as f:
+                        tasks_found = json.load(f)
+                except Exception:
+                    pass
+            
+            # Cargar desde Markdown si no hay en JSON o falló
+            if not tasks_found and os.path.isfile(board_path):
+                try:
+                    board_content = self._read_project_file(self.board_filename)
+                    tasks_found = _parse_sprint_tasks(board_content)
+                except Exception:
+                    pass
+
+            if not tasks_found:
+                console.print("[yellow]⚠ El tablero actual está vacío o no contiene tareas válidas.[/yellow]")
+                console.print("[bold cyan]🔄 Forzando la planificación de un nuevo requerimiento...[/bold cyan]")
+                resume_existing = False
+
+        if resume_existing:
+            console.print("[bold green]✓ Reanudando el sprint existente. Saltando fases de planificación...[/bold green]")
+            # Tratar de cargar historias del backlog como idea contextual si es posible
+            backlog_content = self._read_project_file("BACKLOG.md")
+            if backlog_content:
+                user_idea = backlog_content[:3000]
+        else:
+            # Eliminar tableros viejos si el usuario decidió planificar un requerimiento nuevo desde cero
+            for f in (board_path, json_board_path):
+                if os.path.isfile(f):
+                    try:
+                        os.remove(f)
+                    except Exception:
+                        pass
+            console.print("[bold cyan]🧹 Tablero anterior limpiado. Iniciando planificación del nuevo requerimiento...[/bold cyan]")
+
+            # Fase 1: Product Owner
+            if not self._run_product_owner(user_idea):
+                total_time = time.perf_counter() - total_start
+                self._print_summary_table(total_time)
+                return "Pipeline detenido en fase de Product Owner."
+
+            # Validación de Definition of Ready (DoR)
+            if not self._run_dor_validation():
+                total_time = time.perf_counter() - total_start
+                self._print_summary_table(total_time)
+                return "Pipeline detenido por fallo en la validación del Definition of Ready (DoR)."
+
+            # Fase 2: Scrum Master (Team Assembly)
+            if not self._run_scrum_master(user_idea):
+                total_time = time.perf_counter() - total_start
+                self._print_summary_table(total_time)
+                return "Pipeline detenido en fase de Scrum Master."
 
         # Fase 3: Task Runner (Ejecución Dinámica) y Compilación automática final (Sprint 11)
         self.state.silent_execution = True
@@ -1084,35 +1320,79 @@ class ProjectOrchestrator:
         return True, "DoD aprobado por defecto."
 
     def _build_intelligent_context(self, task_desc: str, output_file: str) -> str:
-        """Construye un contexto inteligente para la tarea usando RAG y dependencias directas."""
+        """Construye un contexto inteligente para la tarea priorizando documentos técnicos reales."""
         parts = []
-        
-        # 1. Recuperar contexto RAG del código base si existe indexado
+        total_chars = 0
+        MAX_CONTEXT = 30_000  # Budget de contexto por tarea
+
+        # 1. PRIORIDAD MÁXIMA: Documentos de inteligencia técnica (compactos y de alto valor)
+        intelligence_files = [
+            "DESIGN_TOKENS.md",       # Patrones de arquitectura
+            "DATA_SCHEMA.md",         # Modelos de datos reales
+            "SECURITY.md",            # Guardrails de seguridad
+            "COMPONENT_INDEX.md",     # Componentes reutilizables
+            "DEPENDENCY_MANIFEST.md", # Librerías disponibles
+            "PLAYBOOK.md",            # Soluciones conocidas
+            "BUSINESS_CONTEXT.md",    # Contexto de negocio
+        ]
+        for fname in intelligence_files:
+            if total_chars >= MAX_CONTEXT:
+                break
+            content = self._read_project_file(fname)
+            if content:
+                truncated = content[:4000]
+                parts.append(f"--- {fname} ---\n{truncated}\n")
+                total_chars += len(truncated)
+
+        # 2. PROJECT_TREE.md — Solo si hay espacio (es largo pero muy útil)
+        if total_chars < MAX_CONTEXT:
+            tree = self._read_project_file("PROJECT_TREE.md")
+            if tree:
+                truncated = tree[:5000]
+                parts.append(f"--- PROJECT_TREE.md ---\n{truncated}\n")
+                total_chars += len(truncated)
+
+        # 3. RAG — Código relevante del codebase indexado
         from core.rag_coder import CodeKnowledgeBase
         from core.state import DB_PATH
         try:
             rag = CodeKnowledgeBase(DB_PATH, active_project=self.project_path)
             rag_context = rag.query_code(task_desc, k=4)
-            if rag_context:
-                parts.append(f"### [CONTEXTO RELEVANTE RAG]\n{rag_context}\n")
+            if rag_context and total_chars < MAX_CONTEXT:
+                truncated = rag_context[:4000]
+                parts.append(f"### [CONTEXTO RELEVANTE RAG]\n{truncated}\n")
+                total_chars += len(truncated)
         except Exception as e:
             logger.debug("No se pudo obtener contexto RAG para la tarea: %s", e)
 
-        # 2. Cargar dependencias directas de archivos metodológicos y generados
-        base_files = ["BACKLOG.md", self.board_filename, "DAILY.md"]
-        for fname in base_files:
-            content = self._read_project_file(fname)
-            if content:
-                parts.append(f"--- {fname} ---\n{content}\n")
-                
+        # 4. Vecinos funcionales: archivos generados que son relevantes para ESTA tarea
         for fname in self.generated_files:
-            if fname in base_files or fname == output_file:
+            if total_chars >= MAX_CONTEXT:
+                break
+            if fname == output_file or fname in intelligence_files:
                 continue
-            if fname.endswith(".md") and (fname.lower() in task_desc.lower() or "architecture" in fname.lower() or "design" in fname.lower()):
+            # Incluir si el nombre del archivo aparece en la descripción de la tarea
+            # o si es un archivo de arquitectura/diseño central
+            is_relevant = (
+                fname.lower().replace("_", " ").replace("-", " ") in task_desc.lower() or
+                "architecture" in fname.lower() or
+                "design" in fname.lower() or
+                fname.endswith(('.py', '.js', '.jsx', '.ts', '.tsx'))
+            )
+            if is_relevant:
                 content = self._read_project_file(fname)
                 if content:
-                    parts.append(f"--- {fname} ---\n{content}\n")
-                    
+                    truncated = content[:3000]
+                    parts.append(f"--- {fname} ---\n{truncated}\n")
+                    total_chars += len(truncated)
+
+        # 5. PRIORIDAD BAJA: Tablero actual (solo resumen de estado, no el completo)
+        if total_chars < MAX_CONTEXT:
+            board = self._read_project_file(self.board_filename)
+            if board:
+                truncated = board[:2000]
+                parts.append(f"--- {self.board_filename} (estado actual) ---\n{truncated}\n")
+
         return "\n".join(parts)
 
     def _run_dor_validation(self) -> bool:

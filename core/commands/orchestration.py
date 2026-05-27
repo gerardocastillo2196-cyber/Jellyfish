@@ -23,12 +23,26 @@ def _handle_auto(arg: str, state, display_header_func) -> None:
         return
 
     if not idea:
-        console.print(
-            "Uso: [bold]/auto <descripción de tu proyecto>[/bold]\n"
-            "[dim]Ejemplo: /auto Quiero una API REST con FastAPI para gestionar "
-            "inventario con exportación a PDF[/dim]"
-        )
-        return
+        # Determinar si existe un tablero previo en el proyecto activo para permitir /auto vacío
+        from core.project_orchestrator import ProjectOrchestrator
+        try:
+            temp_orch = ProjectOrchestrator(state)
+            board_filename = temp_orch.board_filename
+            board_path = os.path.join(state.active_project, board_filename)
+            json_board_path = os.path.join(state.active_project, board_filename.replace(".md", ".json"))
+            has_existing_board = os.path.isfile(board_path) or os.path.isfile(json_board_path)
+        except Exception:
+            has_existing_board = False
+
+        if has_existing_board:
+            idea = "Reanudación de Sprint Activo"
+        else:
+            console.print(
+                "Uso: [bold]/auto <descripción de tu proyecto>[/bold]\n"
+                "[dim]Ejemplo: /auto Quiero una API REST con FastAPI para gestionar "
+                "inventario con exportación a PDF[/dim]"
+            )
+            return
 
     from core.agency_orchestrator import AgencyOrchestrator
 

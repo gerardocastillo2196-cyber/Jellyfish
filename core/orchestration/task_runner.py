@@ -46,13 +46,21 @@ class TaskRunnerPhase:
 
         for i, task in enumerate(tasks):
             task_num = i + 1
-            agent_name = task["agent"]
+            agent_name = task["agent"].replace("`", "").strip()
             task_desc = task["task"]
-            output_file = task.get("output_file", "").strip()
-            task_id_str = task.get("id", f"T-{task_num:03d}")
+            output_file = task.get("output_file", "").strip().replace("`", "")
+            task_id_str = task.get("id", f"T-{task_num:03d}").replace("*", "").replace("`", "").strip()
 
             if not output_file or output_file == "—":
                 output_file = f"TASK_{task_id_str.replace('-', '_')}.md"
+
+            # Omitir tareas completadas si estamos reanudando
+            if task.get("status") in ("DONE", "HECHO") or task.get("state") in ("DONE", "HECHO"):
+                console.print(
+                    f"[bold green]  [{task_num}/{len(tasks)}] {task_id_str}:[/bold green] "
+                    f"[dim]YA COMPLETADO (Saltando ejecución)[/dim]"
+                )
+                continue
 
             console.print(
                 f"[bold white]  [{task_num}/{len(tasks)}] {task_id_str}:[/bold white] "
