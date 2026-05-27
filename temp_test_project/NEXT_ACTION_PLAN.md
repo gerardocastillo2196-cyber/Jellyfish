@@ -1,1 +1,0 @@
-Plan de prueba: corregir clase A
