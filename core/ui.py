@@ -26,7 +26,7 @@ claude_style = Style.from_dict({
 })
 
 # Consola global con ancho controlado
-_main_console = Console(force_terminal=True, width=120)
+_main_console = Console(force_terminal=True, width=60)
 
 
 def display_header(active_agent="default", model_name="none", num_skills=0,

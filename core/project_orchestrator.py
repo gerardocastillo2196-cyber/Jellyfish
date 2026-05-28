@@ -871,6 +871,74 @@ class ProjectOrchestrator:
         except Exception as je:
             logger.warning("No se pudo actualizar el tablero JSON a DONE: %s", je)
 
+    def _save_board(self, tasks: list[dict]) -> None:
+        """Guarda el estado actual de las tareas en los formatos JSON y Markdown del tablero."""
+        # 1. Actualizar versión JSON
+        try:
+            import json
+            json_filename = self.board_filename.replace(".md", ".json")
+            self._write_project_file(json_filename, json.dumps(tasks, indent=2, ensure_ascii=False))
+        except Exception as je:
+            logger.warning("No se pudo guardar el tablero JSON: %s", je)
+
+        # 2. Sincronizar versión Markdown
+        try:
+            board = self._read_project_file(self.board_filename)
+            if board:
+                todo_tasks = [t for t in tasks if t.get("status") not in ("DONE", "HECHO") and t.get("state") not in ("DONE", "HECHO")]
+                done_tasks = [t for t in tasks if t.get("status") in ("DONE", "HECHO") or t.get("state") in ("DONE", "HECHO")]
+                
+                todo_rows = "\n".join(
+                    f"| {t.get('id', '')} | {t.get('task', '')} | @{t.get('agent', '')} | Pendiente |"
+                    for t in todo_tasks
+                )
+                done_rows = "\n".join(
+                    f"| {t.get('id', '')} | {t.get('task', '')} | @{t.get('agent', '')} | {t.get('completed_at', 'Completado')} |"
+                    for t in done_tasks
+                )
+                
+                # Reconstruir sección TODO
+                todo_section = (
+                    f"## 📋 POR HACER (TODO)\n\n"
+                    f"| ID | Tarea | Asignado | Estado |\n"
+                    f"|---|---|---|---|\n"
+                    f"{todo_rows}\n"
+                )
+                
+                # Vaciar EN PROGRESO
+                doing_section = (
+                    f"## ⏳ EN PROGRESO (DOING)\n\n"
+                    f"| ID | Tarea | Asignado | Progreso |\n"
+                    f"|---|---|---|---|\n"
+                )
+                
+                # Reconstruir sección DONE
+                done_section = (
+                    f"## ✅ HECHO (DONE)\n\n"
+                    f"| ID | Tarea | Asignado | Completado |\n"
+                    f"|---|---|---|---|\n"
+                    f"{done_rows}\n"
+                )
+                
+                # Reemplazar secciones usando regex
+                pattern_todo = r"##\s*(?:📋\s*)?(?:POR HACER|TODO).*?(?=\n##|\n---|\n\*|$)"
+                if re.search(pattern_todo, board, flags=re.IGNORECASE | re.DOTALL):
+                    board = re.sub(pattern_todo, todo_section, board, flags=re.IGNORECASE | re.DOTALL)
+                    
+                pattern_doing = r"##\s*(?:⏳\s*)?(?:EN PROGRESO|IN PROGRESS|DOING).*?(?=\n##|\n---|\n\*|$)"
+                if re.search(pattern_doing, board, flags=re.IGNORECASE | re.DOTALL):
+                    board = re.sub(pattern_doing, doing_section, board, flags=re.IGNORECASE | re.DOTALL)
+                    
+                pattern_done = r"##\s*(?:✅\s*)?(?:HECHO|DONE|Completadas|Completado).*?(?=\n##|\n---|\n\*|$)"
+                if re.search(pattern_done, board, flags=re.IGNORECASE | re.DOTALL):
+                    board = re.sub(pattern_done, done_section, board, flags=re.IGNORECASE | re.DOTALL)
+                else:
+                    board = board.strip() + "\n\n" + done_section
+                    
+                self._write_project_file(self.board_filename, board)
+        except Exception as me:
+            logger.warning("No se pudo sincronizar el tablero Markdown: %s", me)
+
     # ─── Orquestación Principal ─────────────────────────────────────────
 
     def run(self, user_idea: str) -> str:

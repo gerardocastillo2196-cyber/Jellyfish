@@ -449,3 +449,332 @@ Para evitar que estos errores de integración, consistencia y omisión se repita
 2.  **Contrato de API Primero (API-First):** El desarrollador de Backend (`@backend_dev`) y el de Frontend (`@frontend_dev`) deben acordar y documentar un JSON Schema de los cuestionarios dinámicos antes de escribir código en `surveyController.js` o `DynamicFormRenderer.kt`.
 3.  **Checklist de Inicialización de SQLCipher:** Cualquier tarea que involucre `AppDatabase.kt` con encriptación debe incluir la configuración de ProGuard/R8 y la carga de librerías nativas en la clase `Application`.
 4.  **Estrategia de Sincronización Explícita:** Toda arquitectura *Offline-First* debe contar con un manejador de conflictos (Conflict Resolution Policy) documentado antes de codificar los endpoints de sincronización.
+
+---
+
+## Retrospectiva 2026-05-27 15:56
+
+# 🕵️‍♂️ Reporte del Scrum Master: Lecciones Aprendidas y Reglas de Acción
+**Proyecto:** Jellyfish OS  
+**Sprint:** 2026-05-27  
+**Autor:** Scrum Master Agent
+
+---
+
+## 1. Análisis de Fallos e Incidentes (Análisis Forense)
+
+Aunque la bitácora muestra un estado general de "Completado con éxito", un análisis detallado del flujo de trabajo, los tiempos de ejecución y la correlación de tareas revela fallos críticos de coordinación, tareas fantasma y anti-patrones de desarrollo:
+
+### A. La Tarea Perdida: Vacío en la Secuencia (T-011)
+*   **Fallo:** Existe un salto directo de la tarea **T-010** (15:39) a la **T-012** (15:44). La tarea **T-011** no fue registrada en el `DAILY.md`.
+*   **Causa probable:** La tarea T-011 correspondía a la integración del cliente de sincronización en Android (el puente con el `syncController.ts` de la T-010). El agente asignado falló silenciosamente, experimentó un bucle de compilación infinito o el proceso de *auto-healing* abortó la tarea sin reportar el error al log.
+
+### B. El "Gap" de 5 Minutos (Sospecha de Auto-healing / Compilación Fallida)
+*   **Fallo:** Entre las 15:39 y las 15:44 hay una ventana de inactividad de 5 minutos. En entornos de agentes de IA, este tiempo de espera usualmente indica que un agente intentó compilar la base de datos Room con SQLCipher (T-006) o el motor de renderizado (T-007), falló debido a dependencias de Gradle/KSP incompatibles, y el sistema de *auto-healing* consumió tokens reintentando la compilación en segundo plano.
+
+### C. Anti-patrón de Seguridad: Auditoría Tardía (Shift-Right Security)
+*   **Fallo:** La auditoría de seguridad de Android Keystore y SQLCipher (T-012) se realizó a las 15:44, **después** de que el código de la base de datos (T-006) y el motor de renderizado (T-007) ya estuvieran completamente implementados y cerrados.
+*   **Impacto:** Si el auditor de seguridad encuentra una vulnerabilidad en el manejo de claves de Room, se tendrá que reescribir todo el código de persistencia, generando desperdicio de recursos (*rework*).
+
+### D. Ausencia Absoluta de Pruebas Unitarias y de Integración
+*   **Fallo:** No se registra ninguna tarea de testing (Unit Tests, Espresso o Postman/Supertest para el backend). Se asumió que el código funciona solo porque "compiló".
+
+---
+
+## 2. Reglas Recomendadas para Futuros Sprints (Negative Prompts y Directrices)
+
+Para evitar que estos errores de coordinación, vacíos de información y riesgos de seguridad se repitan, se establecen las siguientes reglas de diseño y ejecución para los agentes:
+
+### 🚫 Negative Prompts (Lo que los agentes NO deben hacer)
+
+```markdown
+- NO declares una tarea como "Completada" si no has verificado que la tarea numéricamente anterior (T-X) esté registrada y cerrada en el DAILY.md.
+- NO implementes código de persistencia cifrada (SQLCipher/Room) o autenticación sin que el diseño de seguridad (Keystore/Crypt) esté previamente aprobado por el Security Auditor.
+- NO omitas el registro de fallos de compilación en el DAILY.md. Si una tarea requiere auto-healing o reintentos, el agente DEBE registrar un estado intermedio de [REINTENTO/AUTO-HEALING] antes de marcar el éxito.
+- NO des por finalizada una tarea de desarrollo (Frontend/Backend) sin adjuntar o referenciar su respectivo archivo de pruebas unitarias (*.test.ts, *Test.kt).
+```
+
+### 🎯 Directrices de Acción (Mejores Prácticas)
+
+1.  **Trazabilidad Estricta de Tareas (No gaps):**
+    *   El orquestador de agentes debe validar que la secuencia de IDs de tareas (`T-001`, `T-002`, etc.) sea estrictamente correlativa. Si una tarea se cancela o falla críticamente, debe registrarse explícitamente como `[ESTADO: FALLIDO/CANCELADO]` en el log en lugar de desaparecer.
+
+2.  **Seguridad "Shift-Left" Obligatoria:**
+    *   La tarea de diseño de arquitectura de seguridad (ej. políticas de cifrado) debe ejecutarse en paralelo con el diseño de UI/UX, y siempre **antes** de la codificación de la base de datos local.
+
+3.  **Sincronización de Dependencias en Android:**
+    *   Antes de codificar con Room y SQLCipher, el agente de DevOps o Arquitectura debe definir y congelar las versiones de Gradle, Kotlin, KSP y SQLCipher en un archivo de configuración global (`libs.versions.toml`) para evitar bucles de compilación por incompatibilidad.
+
+---
+
+## Retrospectiva 2026-05-27 16:09
+
+# 📊 Reporte del Scrum Master: Lecciones Aprendidas y Directrices de Ejecución
+**Proyecto:** Jellyfish OS  
+**Fecha de Análisis:** 28 de Mayo de 2026  
+**Autor:** Scrum Master Agent
+
+---
+
+## 1. Análisis del Sprint y Anomalías Detectadas
+
+A primera vista, la bitácora `DAILY.md` muestra un progreso lineal y exitoso. Sin embargo, un análisis profundo de los tiempos de ejecución, la secuencia de tareas y la asignación de roles revela fallos metodológicos y riesgos técnicos latentes que deben corregirse de inmediato.
+
+### 🔍 Hallazgos y Puntos de Falla:
+
+1. **La Tarea Fantasma (T-011 Desaparecida):**
+   * **Evidencia:** Se observa un salto directo de la tarea `T-010` (15:39) a la `T-012` (15:44). 
+   * **Fallo:** La tarea `T-011` falló silenciosamente, fue descartada sin dejar registro, o se eliminó de la bitácora de manera manual. Esto rompe la trazabilidad del sprint y oculta errores de integración.
+
+2. **Compromisos en "Ráfaga" (Ultra-Fast Commits):**
+   * **Evidencia:** Entre las 15:35 y las 15:39 se completaron 7 tareas complejas (Room cifrado, motor de renderizado dinámico, algoritmo de scoring, fragmentos de UI, endpoints de API).
+   * **Fallo:** Es físicamente imposible codificar, compilar, probar y asegurar la calidad de estos componentes en intervalos de 1 minuto. Los agentes están asumiendo que el código funciona solo por haber generado el archivo, omitiendo la fase de compilación y pruebas unitarias locales.
+
+3. **Invasión de Roles y Riesgo de Compilación:**
+   * **Evidencia:** El `@copywriter` modificó directamente `strings.xml` y el `@data_scientist` escribió directamente código Kotlin en `ScoringEngine.kt`.
+   * **Fallo:** Permitir que roles no técnicos o de especialidades distintas escriban directamente en el código base sin un paso intermedio de validación sintáctica/compilación incrementa exponencialmente el riesgo de romper el build (ej. un XML mal formateado o un error de tipos en Kotlin).
+
+4. **Ausencia Total de Pruebas (QA):**
+   * **Evidencia:** Ningún agente de QA participó en el sprint. Se pasó directamente del desarrollo a la auditoría de seguridad (`CRYPT_AUDIT.md`) sin pruebas unitarias ni de integración registradas.
+
+---
+
+## 2. Reglas Recomendadas y Negative Prompts
+
+Para evitar que los agentes cometan estos mismos errores en los próximos sprints, se establecen las siguientes directrices operativas estrictas.
+
+### 🚫 Negative Prompts (Lo que los agentes NO deben hacer)
+
+```markdown
+- DO NOT skip task numbers in the sequence. If a task fails or is discarded, it must be logged as [FAILED] or [DEPRECATED] with an explanation. Never delete a task from the log.
+- DO NOT mark a task as "Completado con éxito" immediately after generating the file. You must run a local compilation/validation check first.
+- DO NOT allow non-developer roles (e.g., copywriters, designers, data scientists) to commit directly to production code branches without an explicit peer review or automated syntax validation.
+- DO NOT proceed to security audits or deployment phases without at least one documented testing/QA task.
+```
+
+### 🛠️ Mejores Directrices (Mejores Prácticas para Agentes)
+
+1. **Validación de Compilación Obligatoria:**
+   * Antes de registrar una tarea de desarrollo como completada, el agente debe ejecutar el comando de compilación correspondiente (ej. `./gradlew assembleDebug` para Android o `npm run build` para el servidor) y adjuntar el resultado exitoso de manera interna.
+
+2. **Flujo de Trabajo para Roles No-Dev:**
+   * Los cambios de texto (`strings.xml`) o algoritmos matemáticos (`ScoringEngine.kt`) propuestos por Copywriters o Data Scientists deben pasar por un proceso de *Pull Request* donde un `@frontend_dev` o `@backend_dev` valide la integración antes de fusionar a la rama principal.
+
+3. **Trazabilidad Absoluta:**
+   * Cada tarea del backlog debe tener un estado claro. Si la tarea `T-011` falló debido a dependencias de SQLCipher o problemas de Keystore, debe registrarse como tal:
+     > `[2026-05-27 15:41] @frontend_dev — T-011 [FALLIDO] — Error de enlace con SQLCipher. Reintentando en T-012.`
+
+4. **Inclusión de Criterios de Aceptación (DoD - Definition of Done):**
+   * Ninguna tarea de UI o lógica de negocio se considerará terminada sin su respectiva prueba unitaria o de renderizado.
+
+---
+
+## Retrospectiva 2026-05-27 16:28
+
+# 🕵️‍♂️ Reporte del Scrum Master: Análisis de Retrospectiva y Lecciones Aprendidas (Jellyfish OS)
+
+Como Scrum Master de Jellyfish OS, he analizado la bitácora de ejecución del sprint (`DAILY.md`). A pesar de que todas las tareas se marcaron finalmente como "Completado con éxito", un análisis detallado de los tiempos de ejecución, la secuencia de las tareas y la asignación de recursos revela cuellos de botella críticos y fallas de proceso que deben corregirse de inmediato para futuros sprints.
+
+---
+
+## 1. Análisis de Incidentes y Cuellos de Botella
+
+### 🚨 El Cuello de Botella de WorkManager (T-011)
+* **Síntoma:** Mientras que las tareas T-001 a T-010 se completaron en intervalos de 1 a 2 minutos, la tarea **T-011 (SyncWorker con WorkManager)** tomó **41 minutos** (de 15:39 a 16:20).
+* **Causa raíz:** Implementar sincronización en segundo plano con `WorkManager` sobre una base de datos Room cifrada con `SQLCipher` suele generar conflictos severos de dependencias, bloqueos de hilos (thread locking) y problemas al recuperar la clave de cifrado desde el `Android Keystore` desde un contexto de background worker. El agente se enfrentó a un escenario complejo de debugging/auto-healing no documentado explícitamente.
+
+### ⚠️ Desfase Cronológico en la Auditoría de Seguridad (T-012 vs T-011)
+* **Síntoma:** La auditoría de seguridad de cifrado (T-012) se completó a las **15:44**, pero el servicio de sincronización en segundo plano (T-011), que transmite esos mismos datos cifrados, se terminó a las **16:20**.
+* **Causa raíz:** Falla de proceso. Se auditó la seguridad del almacenamiento local *antes* de que el mecanismo de transmisión y sincronización de datos (el componente con mayor superficie de ataque) estuviera siquiera construido. Esto invalida parcialmente la auditoría.
+
+### 👤 Sobrecarga del Frontend Developer (`@frontend_dev`)
+* **Síntoma:** El agente `@frontend_dev` asumió secuencialmente las tareas T-006 (DB), T-007 (Form Engine), T-009 (Dossier UI) y T-011 (Sync Worker).
+* **Causa raíz:** Mala distribución de la carga de trabajo. Mientras otros agentes terminaron a las 15:39, el desarrollador frontend quedó como único cuello de botella del equipo durante más de 40 minutos.
+
+---
+
+## 2. Reglas de Acción y Negative Prompts para Futuros Agentes
+
+Para evitar que estos errores de integración, seguridad y estimación se repitan, se establecen las siguientes directrices estrictas para los agentes de Jellyfish OS:
+
+### 🛠️ Reglas Técnicas (Android, Room, SQLCipher y WorkManager)
+
+```markdown
+[NEGATIVE PROMPT]
+DO NOT implement Android WorkManager tasks that access Room + SQLCipher without:
+1. Verifying that the SQLCipher passphrase is safely retrieved from Android Keystore using a non-blocking, thread-safe provider.
+2. Explicitly declaring the dependency versions of 'androidx.work:work-runtime-ktx' and 'sqlite-ktx' to avoid classpath collisions.
+3. Ensuring the database instance is a Singleton and is not re-initialized inside the Worker's 'doWork()' thread, which causes "Database locked" exceptions.
+```
+
+* **Mejor Práctica:** Antes de codificar un `Worker`, el agente debe validar la compatibilidad de las firmas de inicialización de la base de datos cifrada en hilos secundarios.
+
+### 🔒 Reglas de Proceso y Seguridad (Auditorías)
+
+```markdown
+[NEGATIVE PROMPT]
+NEVER complete or sign off on a Security Audit (e.g., CRYPT_AUDIT) if there are pending tasks related to data transit, background sync, or API communication. 
+The security audit MUST be the absolute last step of the feature lifecycle, executed only when all code touching sensitive data is merged.
+```
+
+* **Mejor Práctica:** El rol de `@security_auditor` no debe iniciar su análisis final hasta que el estado de las tareas de sincronización y red asociadas sea `Completado`.
+
+### 📋 Reglas de Planificación y Asignación (Scrum)
+
+```markdown
+[NEGATIVE PROMPT]
+DO NOT assign database setup, UI rendering, and background synchronization to a single developer in the same sprint without establishing intermediate integration checkpoints.
+If a developer is assigned more than 3 critical path tasks, the Scrum Master agent must trigger a redistribution alert.
+```
+
+* **Mejor Práctica:** Dividir las tareas de infraestructura (Room/SQLCipher) y las de integración (WorkManager) entre diferentes agentes, o asegurar que el `@backend_dev` o `@arquitecto_software` apoyen en la lógica de sincronización para balancear la carga.
+
+---
+
+## Retrospectiva 2026-05-27 16:49
+
+# 🕵️‍♂️ Reporte del Scrum Master: Lecciones Aprendidas y Reglas de Acción (Sprint 1)
+
+**De:** Scrum Master de Jellyfish OS  
+**Para:** Agentes de Desarrollo y Automatización  
+**Asunto:** Retrospectiva del Sprint - Análisis de Tiempos, Cuellos de Botella y Directrices de Mitigación
+
+---
+
+## 1. Análisis del Sprint (Retrospectiva)
+
+Aunque el log `DAILY.md` reporta un estado final de **"Completado con éxito"** para todas las tareas, un análisis detallado de la línea de tiempo revela asimetrías críticas en los tiempos de ejecución que denotan fricción técnica, bloqueos de dependencias y posibles re-trabajos (auto-healing silencioso):
+
+*   **Fase de Inicialización y Diseño (15:34 - 15:35):** Flujo ultra-rápido. El diseño de arquitectura, UI, strings y Docker se generó en paralelo sin fricción.
+*   **Fase de Desarrollo Core (15:36 - 15:39):** Implementación masiva de Room, SQLCipher, el motor de renderizado y el Scoring Engine en solo 3 minutos. Esto sugiere generación de código sin pruebas unitarias previas.
+*   **Primer Cuello de Botella - Auditoría de Seguridad (15:39 - 15:44):** Un desfase de 5 minutos para la auditoría de seguridad (`CRYPT_AUDIT.md`). Esto indica que la auditoría se realizó *después* de escribir el código de cifrado, lo que usualmente fuerza refactorizaciones reactivas en el Keystore.
+*   **Segundo Cuello de Botella - Sincronización en Segundo Plano (15:44 - 16:20 | 36 minutos):** La implementación de `SyncWorker.kt` con `WorkManager` tomó la mayor parte del tiempo del sprint. Esto se debe a la complejidad de inyectar dependencias cifradas (SQLCipher) en hilos de fondo y gestionar el ciclo de vida de Android.
+*   **Tercer Cuello de Botella - Pruebas de Integración (16:20 - 16:49 | 29 minutos):** La creación de `SyncIntegrationTest.kt` experimentó retrasos significativos. Configurar pruebas instrumentadas que involucren bases de datos cifradas, trabajadores en segundo plano y llamadas de red simuladas suele fallar por falta de sincronización (idling resources).
+
+---
+
+## 2. Qué falló / Qué causó fricción (Análisis Técnico)
+
+1.  **Seguridad como "Afterthought" (Pensamiento Tardío):** Se implementó `AppDatabase.kt` con SQLCipher antes de definir formalmente la auditoría de seguridad. Esto genera vulnerabilidades en la gestión de la clave de cifrado en el Android Keystore.
+2.  **Complejidad de Hilos en WorkManager:** `SyncWorker` requiere acceder a la base de datos cifrada. Si la clave del Keystore no está disponible en segundo plano o el hilo principal bloquea la base de datos, el Worker falla silenciosamente.
+3.  **Pruebas Instrumentadas Inestables (Flaky Tests):** Intentar probar la sincronización offline/online sin un servidor de pruebas mockeado (`MockWebServer`) o sin detener el `WorkManager` real genera falsos negativos en el pipeline de CI/CD.
+
+---
+
+## 3. Reglas de Acción para Futuros Agentes (Negative Prompts y Directrices)
+
+Para evitar que los agentes cometan los mismos errores en los siguientes sprints, se establecen las siguientes reglas de diseño y desarrollo:
+
+### 🚫 NEGATIVE PROMPTS (Lo que NO deben hacer los agentes)
+
+*   **PROHIBIDO** implementar bases de datos locales cifradas (SQLCipher/Room) sin inicializar y validar primero el alias del `AndroidKeystore` en una clase de configuración de seguridad aislada.
+*   **PROHIBIDO** hardcodear strings, URLs de API o esquemas de bases de datos dentro de los componentes de UI (`DossierFragment`, `DynamicFormEngine`). Todo debe consumirse desde recursos (`strings.xml`) o inyectarse mediante arquitectura limpia.
+*   **PROHIBIDO** escribir Workers de `WorkManager` que realicen consultas directas a la base de datos sin manejar excepciones de base de datos bloqueada (`SQLiteDatabaseLockedException`) o base de datos cerrada.
+*   **PROHIBIDO** crear pruebas de integración (`androidTest`) que dependan de la conectividad de red real o de un servidor externo activo.
+
+### 🎯 MEJORES DIRECTRICES (Lo que SÍ deben hacer los agentes)
+
+#### Para el Arquitecto y Desarrollador Frontend:
+1.  **Seguridad Primero:** Diseñe el flujo de descifrado de la base de datos de manera que la clave nunca se guarde en texto plano en memoria RAM. Use `char[]` en lugar de `String` para manejar contraseñas/claves.
+2.  **Robustez en Formularios Dinámicos:** El `DynamicFormEngine` debe validar el JSON Schema localmente antes de intentar renderizar la vista. Si el JSON está corrupto, debe mostrar un estado de error amigable en lugar de lanzar un `NullPointerException`.
+
+#### Para el Ingeniero de QA y DevOps:
+3.  **Aislamiento de Pruebas:** Al probar `SyncWorker`, utilice `WorkManagerTestInitHelper` para controlar manualmente el estado de ejecución del Worker y simular la pérdida de conexión de red de forma controlada.
+4.  **Mocking Obligatorio:** Utilice `MockWebServer` para interceptar las peticiones de sincronización salientes del dispositivo durante las pruebas de integración.
+
+---
+
+## Retrospectiva 2026-05-27 19:12
+
+# 🕵️‍♂️ Reporte del Scrum Master: Lecciones Aprendidas & Reglas de Acción
+**Proyecto:** Jellyfish OS  
+**Sprint:** Sprint 1 (Inicialización y Core Offline-First)
+
+---
+
+## 1. Análisis del Sprint (Retrospectiva de Tiempos)
+
+Aunque todas las tareas se registraron como **"Completado con éxito"**, el análisis de las marcas de tiempo (*timestamps*) revela cuellos de botella y fricciones críticas en el flujo de desarrollo de los agentes:
+
+*   **Desarrollo Fluido (15:34 - 15:39):** El diseño de arquitectura, UI, base de datos local (Room + SQLCipher) y el motor de renderizado dinámico se generaron en cascada casi inmediata.
+*   **Primer Cuello de Botella - Sincronización en Segundo Plano (T-011 | 15:39 a 16:20 - 41 minutos):** Implementar `SyncWorker` con `WorkManager` tomó un tiempo desproporcionado. Esto suele deberse a conflictos de hilos al acceder a bases de datos cifradas (SQLCipher) desde hilos de fondo de WorkManager y problemas de inyección de dependencias.
+*   **Segundo Cuello de Botella - Pruebas de Integración (T-013 | 16:20 a 16:49 - 29 minutos):** Las pruebas automatizadas de flujos offline/online requirieron múltiples iteraciones. Probar `WorkManager` y Room cifrado de forma instrumental suele fallar por falta de inicialización del contexto de pruebas.
+*   **Anomalía de Secuencia (T-012):** La auditoría de seguridad se completó a las **15:44**, *antes* de que se terminara de implementar el servicio de sincronización en segundo plano (`SyncWorker` a las **16:20**). Esto dejó una ventana de riesgo sin auditar en el flujo de transmisión de datos.
+
+---
+
+## 2. Puntos de Fricción Detectados
+
+1.  **Acceso Concurrente a SQLCipher:** Bloqueos de base de datos al intentar escribir desde el hilo principal (UI) y leer/sincronizar desde el hilo de `WorkManager`.
+2.  **Serialización en WorkManager:** Intentos de pasar objetos complejos o entidades de Room directamente a través de los parámetros de entrada (`Data`) de `WorkManager`, lo cual viola las limitaciones de tamaño (10KB) de la API.
+3.  **Desfase de Auditoría:** Validar la seguridad del almacenamiento local sin haber implementado el transporte/sincronización de esos mismos datos.
+
+---
+
+## 3. Reglas de Acción para Futuros Agentes (Negative Prompts & Directrices)
+
+Para evitar que los agentes cometan estos errores en los siguientes sprints, se establecen las siguientes directrices estrictas:
+
+### 🚫 NEGATIVE PROMPTS (Lo que NO deben hacer los agentes)
+
+*   **[DATABASE/SECURITY]** `DO NOT` inicializar la base de datos Room con SQLCipher utilizando contraseñas en texto plano en el código. `DO NOT` permitir que el hilo principal (UI Thread) realice operaciones de escritura en la base de datos cifrada; usa siempre corrutinas (`withContext(Dispatchers.IO)`).
+*   **[WORKMANAGER]** `DO NOT` pasar objetos serializados, JSONs grandes o entidades completas dentro del `Data` de entrada de un `Worker`. `DO NOT` instanciar manualmente el `SyncWorker` sin usar el `WorkManagerTestInitHelper` en el entorno de pruebas.
+*   **[JSON SCHEMA]** `DO NOT` generar esquemas de cuestionarios dinámicos sin definir un campo de versión (`schema_version`) y un mecanismo de fallback para campos desconocidos en el parser móvil.
+*   **[WORKFLOW]** `DO NOT` dar por finalizada una auditoría de seguridad (`security_auditor`) si existen tareas de transmisión de datos (sincronización, APIs, workers) pendientes de implementar en el mismo sprint.
+
+### 🎯 MEJORES PRÁCTICAS (Lo que SÍ deben hacer los agentes)
+
+*   **Patrón de Identificadores en Workers:** Pasa únicamente IDs únicos (UUIDs/Primary Keys) en el `Data` de `WorkManager`. El `Worker` debe encargarse de consultar la base de datos local cifrada utilizando ese ID dentro de su propio hilo de ejecución.
+*   **Secuenciación de Auditoría:** El rol de `security_auditor` debe ser el último en firmar el sprint. Su tarea debe ejecutarse únicamente cuando el código de persistencia (Room) y el de transporte (WorkManager/Retrofit) estén en estado *Pull Request* o *Merge Ready*.
+*   **Aislamiento de Pruebas de Sincronización:** Para pruebas de integración offline-online, utiliza siempre `MockWebServer` para simular fallos de red (latencia, error 500, timeout) y asegurar que el mecanismo de reintento exponencial de `WorkManager` funcione sin realizar peticiones reales.
+
+---
+
+## Retrospectiva 2026-05-27 19:20
+
+# 🕵️‍♂️ Reporte del Scrum Master: Lecciones Aprendidas y Reglas de Acción
+**Proyecto:** Jellyfish OS  
+**Fecha de Análisis:** 27 de Mayo de 2026  
+
+---
+
+## 1. Análisis de Fricciones y Puntos de Dolor (¿Qué falló?)
+
+Al analizar la secuencia temporal y la naturaleza de las tareas en el `DAILY.md`, se identificó un patrón de **"desarrollo acelerado seguido de un cuello de botella de estabilización"**. 
+
+A pesar de que todas las tareas se marcaron como "Completado con éxito", el flujo revela las siguientes anomalías operativas:
+
+*   **Bloqueo por Desalineación de Dependencias y Tipado (Brecha de 2.5 horas):**  
+    Entre las 16:49 (fin de las pruebas de integración de QA) y las 19:14, el desarrollo se detuvo por completo. Esto se debió a que el código de Android (Room, SQLCipher, WorkManager) y del Servidor (Node.js/TypeScript) se escribió sin un marco de compilación estricto ni dependencias unificadas. El equipo tuvo que pausar para resolver errores de tipado, sintaxis y conflictos de versiones de último minuto.
+*   **Configuración Tardía del Pipeline de CI/CD y Calidad:**  
+    El pipeline de CI (`ci.yml`), el linter (`.eslintrc.json`) y el escáner de seguridad (SAST) se implementaron al final del día (19:18 - 19:20), *después* de haber escrito y "completado" todo el código core. Esto significa que el código inicial se desarrolló "a ciegas", sin validación automatizada de calidad ni de seguridad en tiempo real.
+*   **Auditoría de Seguridad Reactiva:**  
+    La auditoría de seguridad sobre el cifrado local (T-012) se realizó a las 15:44, *después* de que el desarrollador frontend ya había implementado la base de datos Room cifrada a las 15:36 (T-006). Esto pudo haber generado refactorizaciones masivas si se hubieran encontrado fallos de diseño en el uso de SQLCipher.
+
+---
+
+## 2. Reglas de Acción para Futuros Sprints (Directrices y Negative Prompts)
+
+Para evitar que los agentes repitan estos errores de secuenciación y configuración en los próximos sprints, se establecen las siguientes reglas de diseño y desarrollo:
+
+### 🚫 Negative Prompts (Lo que los agentes NO deben hacer)
+
+```markdown
+# [NEGATIVE PROMPT: ORDEN DE CONFIGURACIÓN]
+NO inicies el desarrollo de lógica de negocio o interfaces de usuario (código funcional) si no se han definido y unificado previamente las dependencias base (package.json, build.gradle) y las reglas del compilador (tsconfig.json, reglas de Kotlin).
+
+# [NEGATIVE PROMPT: CI/CD Y LINTING POST-MORTEM]
+NO postergues la creación del pipeline de Integración Continua (CI), linter o herramientas de análisis estático (SAST) para el final del sprint. Estas herramientas deben estar operativas antes de fusionar el primer Pull Request de código funcional.
+
+# [NEGATIVE PROMPT: SEGURIDAD REACTIVA]
+NO implementes mecanismos de persistencia sensible, criptografía o manejo de credenciales (ej. SQLCipher, Keystore, JWT) sin que el rol de Arquitectura o Seguridad haya aprobado formalmente el diseño técnico y el esquema de datos.
+```
+
+### 🎯 Mejores Directrices (Lo que los agentes SÍ deben hacer)
+
+1.  **Estrategia "Shift-Left" en Configuración:**  
+    La primera tarea de cualquier sprint de desarrollo de software debe ser la creación del entorno de compilación estricto (`tsconfig.json` con `strict: true`, linters configurados para fallar en advertencias y matriz de dependencias fijadas con versiones exactas).
+2.  **Definición de Esquemas Antes de la Implementación:**  
+    El JSON Schema (T-005) y el diseño de arquitectura (T-001) deben estar completamente cerrados y validados por el Arquitecto antes de que el Frontend o el Backend escriban una sola línea de código que consuma dichos datos.
+3.  **Automatización del Feedback Loop:**  
+    Cualquier prueba de humo (`smoke.test.js`) o prueba de integración (`SyncIntegrationTest.kt`) debe ejecutarse de manera obligatoria en el pipeline de CI ante cada commit, impidiendo la mezcla de código que rompa la compilación o el tipado.

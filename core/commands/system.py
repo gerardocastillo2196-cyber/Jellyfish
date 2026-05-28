@@ -296,7 +296,7 @@ def _show_help(display_header_func):
         import pydoc
         from io import StringIO
         buf = StringIO()
-        temp_console = Console(file=buf, force_terminal=True, width=min(120, get_term_width()))
+        temp_console = Console(file=buf, force_terminal=True, width=min(60, get_term_width()))
         temp_console.print(Panel(Markdown(_MANUAL), border_style="dim white"))
         pydoc.pager(buf.getvalue())
         tui_engine.init_terminal()

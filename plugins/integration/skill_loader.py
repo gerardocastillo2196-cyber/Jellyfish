@@ -160,3 +160,21 @@ PLUGIN_METADATA = {
         "agency_filtering"
     ]
 }
+
+def load_skills(agent_name: str, agency_dir: str) -> str:
+    """Helper function to load skill content matching the agent's agency/role"""
+    skills_path = os.path.join(agency_dir, "skills")
+    loader = SkillLoaderPlugin(skills_path)
+    loader.discover_skills()
+    
+    contents = []
+    # If agent_name is backend_dev or development, load development agency skills
+    agency_key = "development" if agent_name == "backend_dev" else agent_name
+    
+    for skill in loader.skills.values():
+        if agency_key.lower() in skill.agency.lower() or agency_key.lower() in skill.file_path.lower():
+            content = loader.get_skill_content(skill.name)
+            if content:
+                contents.append(content)
+                
+    return "\n\n".join(contents)
