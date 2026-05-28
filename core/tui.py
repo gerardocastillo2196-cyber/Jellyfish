@@ -57,7 +57,7 @@ class TUIEngine:
         """Muestra el arte ASCII de bienvenida de las Medusas de forma elegante."""
         self._term_width = get_term_width()
         buf = StringIO()
-        c = Console(file=buf, force_terminal=True, width=min(120, self._term_width))
+        c = Console(file=buf, force_terminal=True, width=min(60, self._term_width))
         
         jelly = Text()
         jelly.append("  ▄█████▄       ▄█████▄\n", style="bold purple")
@@ -66,7 +66,7 @@ class TUIEngine:
         c.print(jelly, justify="center")
         
         c.print(Text("JELLYFISH OS v7.0 — Habilitado", style="bold #06b6d4"), justify="center")
-        term_w = min(120, self._term_width)
+        term_w = min(60, self._term_width)
         c.print(Text("─" * term_w, style="dim #4b5563"))
         
         sys.stdout.write(buf.getvalue())
@@ -120,7 +120,7 @@ class TUIEngine:
         from rich.table import Table
         with self._lock:
             self._term_width = get_term_width()
-            term_width = min(120, self._term_width)
+            term_width = min(60, self._term_width)
 
             buf = StringIO()
             local_console = Console(file=buf, force_terminal=True, width=term_width)
@@ -306,9 +306,9 @@ class TUIEngine:
         elapsed = time.time() - task["start_time"]
         agent_val = task.get("agent")
         
-        term_width = min(120, get_term_width())
-        # Reservar unos 50 caracteres para los prefijos, tiempo y agente
-        max_desc_len = max(10, term_width - 55)
+        term_width = min(60, get_term_width())
+        # Reservar unos 35 caracteres para los prefijos, tiempo y agente
+        max_desc_len = max(10, term_width - 35)
         desc = raw_desc if len(raw_desc) <= max_desc_len else raw_desc[:max_desc_len] + "..."
 
         buf = StringIO()

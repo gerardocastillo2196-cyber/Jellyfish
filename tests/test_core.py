@@ -19,6 +19,8 @@ import json
 import os
 import sys
 import pytest
+import dotenv
+dotenv.load_dotenv = lambda *args, **kwargs: None
 
 # Aseguramos que el proyecto esté en el path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -190,12 +192,20 @@ class TestSmartTruncate:
 
 class TestTokenBudget:
     def setup_method(self):
+        import os
+        self._orig_env = os.environ.get("JELLYFISH_ACTIVE_PROJECT")
+        os.environ["JELLYFISH_ACTIVE_PROJECT"] = ""
         # Parchamos el límite para que sea predecible en el test
         import core.state as s
         self._orig = s._HISTORY_CHAR_BUDGET
         s._HISTORY_CHAR_BUDGET = 200  # presupuesto pequeño para el test
 
     def teardown_method(self):
+        import os
+        if self._orig_env is not None:
+            os.environ["JELLYFISH_ACTIVE_PROJECT"] = self._orig_env
+        else:
+            os.environ.pop("JELLYFISH_ACTIVE_PROJECT", None)
         import core.state as s
         s._HISTORY_CHAR_BUDGET = self._orig
 
@@ -234,6 +244,43 @@ class TestTokenBudget:
 
         history = state.get_full_history()
         assert history[-1]["content"].endswith("pregunta final importante")
+
+    def test_history_persistance_in_active_project(self):
+        import tempfile
+        import shutil
+        import os
+        from core.state import JellyfishState
+
+        temp_dir = tempfile.mkdtemp()
+        try:
+            state = JellyfishState()
+            state.active_project = temp_dir
+            
+            # Append something to history
+            state.history.append({"role": "user", "content": "Hola test"})
+            
+            # Check if JELLYFISH_HISTORY.md and .jellyfish_history.json were created
+            json_path = os.path.join(temp_dir, ".jellyfish_history.json")
+            md_path = os.path.join(temp_dir, "JELLYFISH_HISTORY.md")
+            
+            assert os.path.isfile(json_path)
+            assert os.path.isfile(md_path)
+            
+            # Verify contents of JSON
+            import json
+            with open(json_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            assert data["history"] == [{"role": "user", "content": "Hola test"}]
+            
+            # Verify load_history_from_project
+            state2 = JellyfishState()
+            state2.active_project = temp_dir
+            state2.load_history_from_project()
+            assert len(state2.history) == 1
+            assert state2.history[0]["role"] == "user"
+            assert state2.history[0]["content"] == "Hola test"
+        finally:
+            shutil.rmtree(temp_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -451,8 +498,8 @@ class TestDynamicScrum:
         # Run _run_scrum_master and verify it returns True
         result = orchestrator._run_scrum_master("Test user idea")
         assert result is True
-        # El pipeline /auto escribe en DEV_BOARD.md para proteger el SPRINT_BOARD.md manual
-        assert os.path.exists(os.path.join(str(project_dir), "DEV_BOARD.md"))
+        # El pipeline /auto escribe en SPRINT_BOARD.md
+        assert os.path.exists(os.path.join(str(project_dir), "SPRINT_BOARD.md"))
 
     def test_estimate_tokens(self):
         from core.state import estimate_tokens

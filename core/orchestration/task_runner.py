@@ -117,7 +117,11 @@ class TaskRunnerPhase:
                 f"contenido del archivo real aquí...\n"
                 f"```\n\n"
                 f"Puedes incluir múltiples archivos si es necesario. El Task Runner los extraerá y creará automáticamente en el disco. "
-                f"Asegúrate de que las rutas relativas sean correctas a partir de la raíz del proyecto."
+                f"Asegúrate de que las rutas relativas sean correctas a partir de la raíz del proyecto.\n\n"
+                f"[REGLA DE DECISIÓN TECNOLÓGICA]\n"
+                f"REGLA DE DECISIÓN TECNOLÓGICA: Si el usuario no ha especificado explícitamente el stack tecnológico (lenguajes, bases de datos, frameworks, librerías principales) en su requerimiento, ESTÁ ESTRICTAMENTE PROHIBIDO que lo inventes o asumas. Debes detenerte y emitir la etiqueta `[ASK_USER: <tu pregunta detallada con opciones sugeridas>]`. No generes código ni diagramas de arquitectura hasta que el usuario responda.\n\n"
+                f"[REGLAS DE INFRAESTRUCTURA]\n"
+                f"REGLA ESTRUCTURAL ESTRICTA: NUNCA referencies un directorio, archivo o contexto de compilación (ej. en docker-compose) sin haber verificado primero que existe usando comandos de consola. Si configuras un servicio que requiere compilación (build), ESTÁS OBLIGADO a crear el `Dockerfile` correspondiente en la ruta exacta que especificaste y a generar el `package.json` o `requirements.txt` base si no existen. NO puedes dar una tarea de DevOps por terminada si faltan los archivos de construcción."
             )
 
             user_prompt = (
@@ -145,6 +149,18 @@ class TaskRunnerPhase:
 
             system = system + env_capabilities_prompt
 
+            # Auto-Validación Obligatoria en el Bucle ReAct (Requirement 2)
+            task_desc_lower = task_desc.lower()
+            if any(kw in task_desc_lower for kw in ["docker", "compose", "servidor", "despliegue"]):
+                infra_validation_prompt = (
+                    "\n\n[INSTRUCCIÓN DE AUTO-VALIDACIÓN DE INFRAESTRUCTURA]\n"
+                    "Dado que esta tarea involucra docker, compose, servidor o despliegue, ESTÁS OBLIGADO "
+                    "a ejecutar obligatoriamente 'docker compose config' o 'docker compose build --no-cache' "
+                    "usando la etiqueta <run_command> como un paso ReAct para validar la configuración o compilación "
+                    "de los contenedores ANTES de emitir tu entregable final y finalizar la tarea con [TAREA_COMPLETADA]."
+                )
+                system = system + infra_validation_prompt
+
             # Lazo de compilación y depuración (Compile & Debug Loop) - Sprint 12
             max_attempts = 5
             build_cmd = self.orchestrator._detect_compile_command()
@@ -161,6 +177,7 @@ class TaskRunnerPhase:
             task_result = None
 
             short_desc = f"Tarea {task_id_str}: {task_desc[:50]}..."
+            feedback = ""
             try:
                 with TaskProgress(tui_engine, f"auto_task_{i}", short_desc, agent=agent_name) as progress:
                     for attempt in range(1, max_attempts + 1):
@@ -170,12 +187,13 @@ class TaskRunnerPhase:
                         current_messages = list(base_messages)
                         if attempt > 1:
                             current_messages.append({"role": "assistant", "content": last_task_result})
-                            current_messages.append({"role": "user", "content": feedback})
+                            if feedback:
+                                current_messages.append({"role": "user", "content": feedback})
 
                         # Bucle de Continuación de Tarea + ReAct Loop (Mejora 31)
                         task_result = ""
                         react_messages = list(current_messages)
-                        max_react_steps = 6
+                        max_react_steps = 15
                         
                         for step in range(1, max_react_steps + 1):
                             response_chunk = _call_llm_silent(
@@ -186,6 +204,29 @@ class TaskRunnerPhase:
                             
                             if not response_chunk:
                                 break
+                                
+                            # Interceptor HITL (Requirement 2 & 3)
+                            if "[ASK_USER:" in response_chunk:
+                                import re as _re
+                                ask_match = _re.search(r'\[ASK_USER:\s*(.*?)\]', response_chunk, _re.DOTALL)
+                                if ask_match:
+                                    question = ask_match.group(1).strip()
+                                else:
+                                    question = response_chunk.split("[ASK_USER:")[1].strip()
+                                
+                                console.print("\n[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
+                                console.print(f"[bold yellow]🤔 CONSULTA HITL DE @{agent_name}:[/bold yellow]")
+                                console.print(f"[yellow]{question}[/yellow]")
+                                console.print("[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
+                                
+                                user_response = input("✍ Escribe tu respuesta: ")
+                                
+                                react_messages.append({"role": "assistant", "content": response_chunk})
+                                user_msg = {"role": "user", "content": f"Respuesta del usuario a tu consulta: {user_response}"}
+                                react_messages.append(user_msg)
+                                current_messages.append({"role": "assistant", "content": response_chunk})
+                                current_messages.append(user_msg)
+                                continue
                                 
                             # Detectar si solicita ejecutar comando
                             import re as _re
@@ -204,13 +245,22 @@ class TaskRunnerPhase:
                                     return_code_dict=ret_dict
                                 )
                                 
+                                if step >= max_react_steps - 3:
+                                    urgency_prompt = (
+                                        f"⚠️ ALERTA CRÍTICA: Te quedan solo {max_react_steps - step} pasos ReAct. "
+                                        f"ESTÁ ESTRICTAMENTE PROHIBIDO SEGUIR EXPLORANDO O LANZANDO COMANDOS. "
+                                        f"Con la información que tienes, DEBES generar el entregable final AHORA MISMO utilizando las etiquetas [WRITE_FILE: ...] o <write_file>. Si no lo haces, el sistema colapsará."
+                                    )
+                                else:
+                                    urgency_prompt = "Analiza el resultado y continúa redactando el archivo o solicita más comandos si es necesario."
+
                                 react_messages.append({"role": "assistant", "content": response_chunk})
                                 react_messages.append({
                                     "role": "user",
                                     "content": (
                                         f"Resultado de ejecución (Código {ret_dict['returncode']}):\n"
                                         f"```\n{cmd_output[:3000]}\n```\n"
-                                        f"Analiza el resultado y continúa redactando el archivo o solicita más comandos si es necesario."
+                                        f"{urgency_prompt}"
                                     )
                                 })
                                 continue
@@ -232,6 +282,7 @@ class TaskRunnerPhase:
                         task_elapsed += attempt_elapsed
 
                         if not task_result:
+                            feedback = "Tu entregable anterior estuvo vacío. Por favor, genera el código o contenido solicitado utilizando las etiquetas [WRITE_FILE: ...]."
                             if attempt == max_attempts:
                                 progress.fail()
                             continue
@@ -241,15 +292,44 @@ class TaskRunnerPhase:
 
                         # Guardar entregable en disco e interactuar con archivos reales
                         self.orchestrator._write_project_file(output_file, task_result)
-                        self.orchestrator._extract_and_write_files(task_result)
+                        created_files = self.orchestrator._extract_and_write_files(task_result)
+
+                        # Pre-chequeo de infraestructura DoD (Requirement 3)
+                        infra_ok = True
+                        infra_error_msg = ""
+                        for path in created_files:
+                            if "docker-compose.yml" in path or "docker-compose.yaml" in path:
+                                abs_compose_path = os.path.join(self.orchestrator.project_path, path)
+                                try:
+                                    import re
+                                    with open(abs_compose_path, "r", encoding="utf-8") as f:
+                                        content = f.read()
+                                    context_matches = re.findall(r'context:\s*[\'"]?([^\s\'"#]+)[\'"]?', content)
+                                    for rel_ctx in context_matches:
+                                        compose_dir = os.path.dirname(abs_compose_path)
+                                        abs_ctx_dir = os.path.abspath(os.path.join(compose_dir, rel_ctx))
+                                        dockerfile_path = os.path.join(abs_ctx_dir, "Dockerfile")
+                                        
+                                        if not os.path.exists(abs_ctx_dir) or not os.path.exists(dockerfile_path):
+                                            infra_ok = False
+                                            infra_error_msg = f"ERROR DE INFRAESTRUCTURA: El archivo docker-compose.yml apunta al contexto '{rel_ctx}', pero este directorio o su Dockerfile no existen. Debes crear los Dockerfiles necesarios o corregir la ruta antes de terminar."
+                                            break
+                                except Exception as e:
+                                    logger.error("Error al validar infraestructura en DoD: %s", e)
+                            if not infra_ok:
+                                break
 
                         # Si no hay comando de compilación, podemos validar DoD directamente
                         if not build_cmd:
                             # Validar DoD (Mejora 15)
-                            file_content = self.orchestrator._read_project_file(output_file)
-                            dod_approved, dod_reason = self.orchestrator._run_dod_validation(
-                                task_id_str, agent_name, task_desc, output_file, file_content
-                            )
+                            if not infra_ok:
+                                dod_approved = False
+                                dod_reason = infra_error_msg
+                            else:
+                                file_content = self.orchestrator._read_project_file(output_file)
+                                dod_approved, dod_reason = self.orchestrator._run_dod_validation(
+                                    task_id_str, agent_name, task_desc, output_file, file_content
+                                )
                             if dod_approved:
                                 console.print(f"       ✓ DoD Aprobado: {dod_reason}")
                                 success_task = True
@@ -270,10 +350,14 @@ class TaskRunnerPhase:
                         returncode, build_output = self.orchestrator._run_build_command(build_cmd)
                         if returncode == 0:
                             # Validar DoD
-                            file_content = self.orchestrator._read_project_file(output_file)
-                            dod_approved, dod_reason = self.orchestrator._run_dod_validation(
-                                task_id_str, agent_name, task_desc, output_file, file_content
-                            )
+                            if not infra_ok:
+                                dod_approved = False
+                                dod_reason = infra_error_msg
+                            else:
+                                file_content = self.orchestrator._read_project_file(output_file)
+                                dod_approved, dod_reason = self.orchestrator._run_dod_validation(
+                                    task_id_str, agent_name, task_desc, output_file, file_content
+                                )
                             if dod_approved:
                                 console.print(f"       ✓ DoD Aprobado: {dod_reason}")
                                 success_task = True
@@ -421,6 +505,13 @@ class TaskRunnerPhase:
                 # Actualizar DAILY.md con handoff
                 self.orchestrator._write_task_handoff_with_status(task_id_str, agent_name, task_desc, output_file, status_text)
 
+                # Actualizar estado de tarea individual y guardar tablero
+                from datetime import datetime
+                task["status"] = "DONE"
+                task["state"] = "DONE"
+                task["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                self.orchestrator._save_board(tasks)
+
             except Exception as ex:
                 if use_microbranch:
                     self.orchestrator._git_end_task_branch(task_id_str, original_branch, success=False)
@@ -442,5 +533,4 @@ class TaskRunnerPhase:
                     "status": "❌",
                 })
 
-        # Actualizar tablero: mover todo a DONE
-        self.orchestrator._mark_all_done(tasks)
+        # Fin de ejecución de tareas

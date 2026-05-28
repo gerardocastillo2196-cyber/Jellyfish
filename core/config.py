@@ -192,7 +192,29 @@ def load_config_from_env(state) -> None:
     state.active_project = os.getenv("JELLYFISH_ACTIVE_PROJECT", "")
     state.project_methodology = os.getenv("JELLYFISH_PROJECT_METHODOLOGY", "scrum").lower()
     if old_project != state.active_project:
+        # Limpiar archivos del proyecto anterior del contexto en memoria
+        if old_project and hasattr(state, "context_files"):
+            old_project_abs = os.path.abspath(old_project)
+            files_to_discard = [
+                fp for fp in state.context_files
+                if os.path.abspath(fp).startswith(old_project_abs + os.sep) or os.path.abspath(fp) == old_project_abs
+            ]
+            for fp in files_to_discard:
+                state.context_files.discard(fp)
+
         state._update_project_lock(old_project)
+
+        # Cargar archivos de inteligencia/metodología del nuevo proyecto activo
+        if hasattr(state, "_load_project_files_on_boot"):
+            state._load_project_files_on_boot()
+
+        # Cargar historial de conversación del nuevo proyecto activo
+        if hasattr(state, "load_history_from_project"):
+            state.load_history_from_project()
+
+        # Actualizar base de datos RAG correspondiente al nuevo proyecto
+        if hasattr(state, "rag") and state.rag:
+            state.rag.set_active_project(state.active_project)
 
 def save_config_to_env(state, **kwargs) -> None:
     """Guarda configuraciones en el archivo .env y las recarga en memoria."""

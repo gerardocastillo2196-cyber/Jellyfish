@@ -278,6 +278,21 @@ class CodeKnowledgeBase:
         else:
             logger.warning("RAG inactivo debido a que Ollama está desconectado.")
 
+    def set_active_project(self, project_path: str) -> None:
+        """Cambia el proyecto activo del RAG, recargando o limpiando la base de datos según corresponda."""
+        self._close_db()
+        if project_path:
+            self.indexed_dir = os.path.abspath(os.path.expanduser(project_path))
+            self.db_path = f"{self.db_base_path}_{_dir_hash(self.indexed_dir)}"
+            if self.ollama_connected:
+                self._try_load_existing_db()
+        else:
+            self.indexed_dir = ""
+            self.db_path = self.db_base_path
+            self.vector_db = None
+            self.indexed_file_count = 0
+            self.indexed_chunk_count = 0
+
     def _try_load_existing_db(self) -> None:
         """Intenta cargar la base de datos vectorial existente."""
         if not os.path.exists(self.db_path) or not os.listdir(self.db_path):

@@ -48,7 +48,7 @@ def get_term_width() -> int:
     try:
         return os.get_terminal_size().columns
     except (OSError, ValueError):
-        return 120
+        return 60
 
 def get_term_height() -> int:
     """Obtiene el alto de la terminal de forma segura."""
@@ -69,6 +69,52 @@ def _safe_read(filepath: str) -> str:
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
+class PersistedHistoryList(list):
+    def __init__(self, state, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.state = state
+
+    def append(self, item):
+        super().append(item)
+        if hasattr(self.state, "save_history_to_project"):
+            self.state.save_history_to_project()
+
+    def extend(self, iterable):
+        super().extend(iterable)
+        if hasattr(self.state, "save_history_to_project"):
+            self.state.save_history_to_project()
+
+    def clear(self):
+        super().clear()
+        if hasattr(self.state, "save_history_to_project"):
+            self.state.save_history_to_project()
+
+    def __setitem__(self, index, value):
+        super().__setitem__(index, value)
+        if hasattr(self.state, "save_history_to_project"):
+            self.state.save_history_to_project()
+
+    def __delitem__(self, index):
+        super().__delitem__(index)
+        if hasattr(self.state, "save_history_to_project"):
+            self.state.save_history_to_project()
+
+    def insert(self, index, item):
+        super().insert(index, item)
+        if hasattr(self.state, "save_history_to_project"):
+            self.state.save_history_to_project()
+
+    def pop(self, index=-1):
+        item = super().pop(index)
+        if hasattr(self.state, "save_history_to_project"):
+            self.state.save_history_to_project()
+        return item
+
+    def remove(self, item):
+        super().remove(item)
+        if hasattr(self.state, "save_history_to_project"):
+            self.state.save_history_to_project()
+
 class JellyfishState:
     """Estado central del sistema Jellyfish.
     
@@ -82,10 +128,11 @@ class JellyfishState:
     MAX_FILE_CHARS = 15_000
 
     def __init__(self):
+        self._loading_history = False
+        self.history = PersistedHistoryList(self)
         self.active_agent: str = "default"
         self.active_skills: set = set()
         self.context_files: set = set()
-        self.history: list = []          # Charla activa (Sliding Window)
         self.static_history: list = []   # Core Context (system prompts)
         self.system_prompt: str = ""
         self.active_project: str = ""   # Ruta absoluta del proyecto activo
@@ -102,6 +149,7 @@ class JellyfishState:
         self.load_config()
         self.scan_agencies()
         self._load_project_files_on_boot()
+        self.load_history_from_project()
         self.load_agent("default")
 
     def _load_project_files_on_boot(self) -> None:
@@ -268,7 +316,8 @@ class JellyfishState:
                 self.active_agency = "default"
                 self.system_prompt += "Eres Jellyfish, un asistente técnico avanzado."
 
-        self.history = []
+        if not hasattr(self, "history") or not isinstance(self.history, PersistedHistoryList):
+            self.history = PersistedHistoryList(self)
         self.refresh_static_context()
 
     def refresh_static_context(self) -> None:
@@ -470,10 +519,111 @@ class JellyfishState:
 
     def reset_history(self) -> None:
         """Limpia el historial de conversación manteniendo el contexto estático."""
-        self.history = []
+        self.history.clear()
         self.history_summary = ""
         self.summarized_message_count = 0
         self.refresh_static_context()
+
+    def save_history_to_project(self) -> None:
+        """Guarda el historial de chat tanto en JSON estructurado como en Markdown legible."""
+        if getattr(self, "_loading_history", False):
+            return
+        if not self.active_project or not os.path.isdir(self.active_project):
+            return
+
+        json_path = os.path.join(self.active_project, ".jellyfish_history.json")
+        try:
+            import json
+            payload = {
+                "history": list(self.history),
+                "history_summary": self.history_summary,
+                "summarized_message_count": self.summarized_message_count
+            }
+            temp_path = json_path + ".tmp"
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2, ensure_ascii=False)
+            os.replace(temp_path, json_path)
+        except Exception as e:
+            logger.warning("No se pudo escribir .jellyfish_history.json: %s", e)
+
+        md_path = os.path.join(self.active_project, "JELLYFISH_HISTORY.md")
+        try:
+            with open(md_path, "w", encoding="utf-8") as f:
+                f.write("# 🪼 Historial de Conversación — Jellyfish OS\n\n")
+                f.write("Este archivo se actualiza automáticamente y registra las interacciones del asistente.\n\n")
+                f.write("---\n")
+                
+                if self.history_summary:
+                    f.write("### 🧠 Resumen de Contexto Acumulado (Memoria a Largo Plazo)\n")
+                    f.write(f"{self.history_summary}\n\n")
+                    f.write("---\n")
+
+                for msg in self.history:
+                    role = msg.get("role", "unknown").upper()
+                    content = msg.get("content", "")
+                    
+                    if role == "SYSTEM":
+                        f.write(f"### ⚙️ Sistema\n```markdown\n{content}\n```\n\n")
+                    elif role == "USER":
+                        if content.startswith("[TERMINAL OUTPUT FOR:"):
+                            parts = content.split("]\n", 1)
+                            cmd = parts[0].replace("[TERMINAL OUTPUT FOR: ", "")
+                            out = parts[1] if len(parts) > 1 else ""
+                            f.write(f"#### 💻 Ejecución de Comando: `{cmd}`\n")
+                            f.write(f"<details>\n<summary>Ver salida del terminal</summary>\n\n```\n{out}\n```\n\n</details>\n\n")
+                        else:
+                            f.write(f"### 👤 Usuario\n{content}\n\n")
+                    elif role == "ASSISTANT":
+                        f.write(f"### 🤖 Asistente (Jellyfish)\n{content}\n\n")
+                    else:
+                        f.write(f"### ❓ {role}\n{content}\n\n")
+                    f.write("---\n")
+        except Exception as e:
+            logger.warning("No se pudo escribir JELLYFISH_HISTORY.md: %s", e)
+
+    def load_history_from_project(self) -> None:
+        """Carga el historial de chat y resúmenes desde el proyecto activo."""
+        if not self.active_project or not os.path.isdir(self.active_project):
+            self.history = PersistedHistoryList(self)
+            self.history_summary = ""
+            self.summarized_message_count = 0
+            return
+
+        json_path = os.path.join(self.active_project, ".jellyfish_history.json")
+        if os.path.isfile(json_path):
+            try:
+                import json
+                self._loading_history = True
+                with open(json_path, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+                
+                if isinstance(payload, dict):
+                    history_data = payload.get("history", [])
+                    self.history_summary = payload.get("history_summary", "")
+                    self.summarized_message_count = payload.get("summarized_message_count", 0)
+                else:
+                    history_data = payload
+                    self.history_summary = ""
+                    self.summarized_message_count = 0
+
+                self.history = PersistedHistoryList(self)
+                if isinstance(history_data, list):
+                    for item in history_data:
+                        if isinstance(item, dict) and "role" in item and "content" in item:
+                            super(PersistedHistoryList, self.history).append(item)
+                
+                logger.info("Historial de conversación cargado (%d mensajes) para el proyecto %s", len(self.history), self.active_project)
+            except Exception as e:
+                logger.warning("Error al cargar .jellyfish_history.json: %s", e)
+                self.history = PersistedHistoryList(self)
+                self.history_summary = ""
+                self.summarized_message_count = 0
+            finally:
+                self._loading_history = False
+        else:
+            self.history = PersistedHistoryList(self)
+            self.history_summary = ""
+            self.summarized_message_count = 0
 
     def add_context_file(self, filepath: str) -> None:
         """Agrega un archivo al contexto de forma segura."""

@@ -473,6 +473,8 @@ def _project_unlink(state, display_header_func) -> None:
         state.context_files.discard(fp)
 
     state.save_config(active_project="", project_methodology="scrum")
+    if hasattr(state, "reset_history"):
+        state.reset_history()
     state.refresh_static_context()
     console.print(f"✓ Proyecto desvinculado: {old}")
 
