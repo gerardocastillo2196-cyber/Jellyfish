@@ -49,12 +49,15 @@ class ProductOwnerPhase:
             f"{agent_prompt}\n\n"
             "[INSTRUCCIONES ESPECÍFICAS]\n"
             "Tu ÚNICO entregable es el contenido completo del archivo BACKLOG.md. "
-            "Genera SOLAMENTE Markdown listo para guardar. NO incluyas explicaciones externas.\n"
-            "Incluye:\n"
-            "- Título del proyecto y visión general\n"
-            "- Al menos 5 historias de usuario: 'Como [rol], quiero [acción] para [beneficio]'\n"
-            "- Criterios de aceptación en formato Gherkin\n"
-            "- Prioridades MoSCoW y estimación de puntos de historia\n"
+            "Genera SOLAMENTE Markdown listo para guardar. NO incluyas explicaciones externas.\n\n"
+            "REQUISITOS DE CALIDAD Y RIQUEZA DE CONTENIDO:\n"
+            "Queremos un backlog extremadamente detallado, profesional y exhaustivo para guiar al equipo de desarrollo de forma precisa. Evita descripciones cortas u omitir detalles cruciales. Cumple obligatoriamente con:\n"
+            "1. Título del proyecto, visión general detallada, alcance del producto, arquitectura de alto nivel recomendada y stack tecnológico sugerido.\n"
+            "2. Al menos 5 historias de usuario completas. Cada historia debe usar el formato: 'Como [rol], quiero [acción] para [beneficio]'.\n"
+            "3. Cada historia debe incluir una descripción detallada que explique el contexto del negocio y los beneficios de la característica.\n"
+            "4. Cada historia de usuario debe tener al menos 2 criterios de aceptación detallados y exhaustivos en formato Gherkin (Dado que... Cuando... Entonces...) cubriendo tanto caminos felices como flujos alternativos o de error.\n"
+            "5. Clasifica prioridades usando la metodología MoSCoW (Must-have, Should-have, Could-have, Won't-have) y estimación de esfuerzo en T-shirt sizing (XS, S, M, L, XL).\n"
+            "6. Agrega una sección de 'Notas Técnicas Generales y Restricciones' que cubra seguridad, rendimiento, consistencia de datos y lineamientos técnicos.\n"
         )
         with TaskProgress(tui_engine, "auto_po", "Product Owner: Redactando backlog..."):
             result = self.orchestrator._call_agent(system, f"IDEA DEL PROYECTO:\n{user_idea}")

@@ -450,6 +450,64 @@ class TestDynamicScrum:
         tasks = _parse_sprint_tasks(board_content)
         assert len(tasks) == 0
 
+    def test_parse_sprint_tasks_spanish_headers(self):
+        from core.project_orchestrator import _parse_sprint_tasks
+        board_content = """
+# 🗂️ Sprint Board
+## 📋 PENDIENTES (BACKLOG)
+| ID | Tarea | Asignado | Estimación | Entregable |
+|---|---|---|---|---|
+| T-001 | Tarea en español | @backend_dev | L | src/db.py |
+
+## ⏳ EN PROCESO
+| T-002 | Tarea en proceso | @frontend_dev | S | src/ui.tsx |
+"""
+        tasks = _parse_sprint_tasks(board_content)
+        assert len(tasks) == 1
+        assert tasks[0]["id"] == "T-001"
+        assert tasks[0]["task"] == "Tarea en español"
+        assert tasks[0]["agent"] == "backend_dev"
+        assert tasks[0]["estimate"] == "L"
+        assert tasks[0]["output_file"] == "src/db.py"
+
+    def test_parse_sprint_tasks_omitted_estimate(self):
+        from core.project_orchestrator import _parse_sprint_tasks
+        # 4 columns: ID | Tarea | Asignado | Entregable
+        board_content = """
+## 📋 POR HACER
+| ID | Tarea | Asignado | Entregable |
+|---|---|---|---|
+| T-001 | Tarea sin estimación | @backend_dev | src/app.py |
+"""
+        tasks = _parse_sprint_tasks(board_content)
+        assert len(tasks) == 1
+        assert tasks[0]["id"] == "T-001"
+        assert tasks[0]["task"] == "Tarea sin estimación"
+        assert tasks[0]["agent"] == "backend_dev"
+        assert tasks[0]["estimate"] == "M"  # Inferred default
+        assert tasks[0]["output_file"] == "src/app.py"
+
+    def test_parse_sprint_tasks_shifted_columns(self):
+        from core.project_orchestrator import _parse_sprint_tasks
+        # 5 columns, but estimate column is empty or contains path, or shifted
+        board_content = """
+## 📋 POR HACER
+| ID | Tarea | Asignado | Estimación | Entregable |
+|---|---|---|---|---|
+| T-001 | Tarea 1 | @backend_dev | src/app.py | |
+| T-002 | Tarea 2 | @frontend_dev | | src/index.js |
+"""
+        tasks = _parse_sprint_tasks(board_content)
+        assert len(tasks) == 2
+        
+        assert tasks[0]["id"] == "T-001"
+        assert tasks[0]["estimate"] == "M"
+        assert tasks[0]["output_file"] == "src/app.py"
+
+        assert tasks[1]["id"] == "T-002"
+        assert tasks[1]["estimate"] == "M"
+        assert tasks[1]["output_file"] == "src/index.js"
+
     def test_scan_available_agents(self):
         from core.project_orchestrator import _scan_available_agents
         agents = _scan_available_agents()

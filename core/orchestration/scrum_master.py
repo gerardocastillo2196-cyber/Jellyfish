@@ -53,6 +53,12 @@ class ScrumMasterPhase:
             "4. Define un archivo de código fuente real para el entregable de la tarea (ej: src/main.dart, app/server.js, lib/database.py). Usa extensión .md SOLO si la tarea es puramente de documentación, investigación o arquitectura.\n"
             f"5. TRASPASOS INTER-AGENCIA (HANDOFFS): Si una tarea técnica excede las capacidades de tu agencia actual (agencia activa: '{self.orchestrator.state.active_agency}'), "
             "puedes definir como 'Entregable' un archivo que servirá de insumo para otra agencia (ej: un COPY_LANDING.md generado por MKT para que DEV lo consuma).\n\n"
+            "REQUISITOS DE CALIDAD Y RIQUEZA DE CONTENIDO:\n"
+            "Queremos un tablero de sprint extremadamente rico en detalles técnicos. Sigue estas directrices:\n"
+            "- Las descripciones de las tareas en la tabla deben ser detalladas y explícitas sobre qué construir (no usar resúmenes vagos).\n"
+            "- Abajo de la tabla de tareas, debes incluir obligatoriamente una sección titulada '### 📋 Especificaciones de Tareas y Criterios de Aceptación Técnicos'.\n"
+            "- En esta sección, desglosa cada ID de tarea (T-001, T-002, etc.) y detalla paso a paso qué debe implementar el agente, qué APIs o controladores usar, qué validaciones hacer, y los entregables esperados en el archivo destino.\n"
+            "- Asegúrate de incluir las secciones de '## ⏳ EN PROCESO (IN PROGRESS)' y '## ✅ HECHO (DONE)' vacías como marcadores.\n\n"
             f"FORMATO OBLIGATORIO del tablero (la tabla TODO DEBE tener exactamente 5 columnas en {self.orchestrator.board_filename}):\n"
             "```\n"
             "## 📋 POR HACER (TODO)\n"
@@ -66,7 +72,6 @@ class ScrumMasterPhase:
             "- La columna 'Asignado' DEBE ser exactamente un @nombre de la lista de agentes.\n"
             "- La columna 'Entregable' DEBE ser la ruta de un archivo de CÓDIGO FUENTE REAL adecuado para la tecnología del proyecto.\n"
             "- Ordena las tareas en el orden lógico de ejecución.\n"
-            "- Incluye también secciones IN PROGRESS (vacía) y DONE (vacía).\n"
         )
 
         user_prompt = (

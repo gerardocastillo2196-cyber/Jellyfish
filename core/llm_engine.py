@@ -331,37 +331,43 @@ def _stream_request(
                 limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
                 follow_redirects=True,
             ) as client:
-                async with client.stream("POST", url, headers=headers, json=payload) as response:
-                    if response.status_code != 200:
-                        error_body = (await response.aread())[:500].decode("utf-8", errors="replace")
-                        console.print(
-                            f"Error HTTP {response.status_code} de {provider_name}:\n"
-                            f"[dim]{error_body}[/dim]"
-                        )
-                        return
-
-                    with Live(
-                        "",
-                        refresh_per_second=12,
-                        console=console,
-                    ) as live:
-                        try:
-                            async for line in response.aiter_lines():
-                                if _aborted and _aborted[0]:
-                                    print("\n⚡ Stream interrumpido — respuesta parcial conservada.")
-                                    break
-
-                                if not line:
-                                    continue
-
-                                chunk = parse_fn(line.encode("utf-8"))
-                                if chunk:
-                                    full += chunk
-                                    live.update(Markdown(full))
-                        except KeyboardInterrupt:
-                            print("\n⚡ Stream interrumpido — respuesta parcial conservada.")
-                            if _aborted is not None:
-                                _aborted[0] = True
+                status = console.status(f"[cyan]Pensando ({provider_name})...[/cyan]")
+                status.start()
+                try:
+                    async with client.stream("POST", url, headers=headers, json=payload) as response:
+                        status.stop()
+                        if response.status_code != 200:
+                            error_body = (await response.aread())[:500].decode("utf-8", errors="replace")
+                            console.print(
+                                f"Error HTTP {response.status_code} de {provider_name}:\n"
+                                f"[dim]{error_body}[/dim]"
+                            )
+                            return
+    
+                        with Live(
+                            "",
+                            refresh_per_second=12,
+                            console=console,
+                        ) as live:
+                            try:
+                                async for line in response.aiter_lines():
+                                    if _aborted and _aborted[0]:
+                                        print("\n⚡ Stream interrumpido — respuesta parcial conservada.")
+                                        break
+    
+                                    if not line:
+                                        continue
+    
+                                    chunk = parse_fn(line.encode("utf-8"))
+                                    if chunk:
+                                        full += chunk
+                                        live.update(Markdown(full))
+                            except KeyboardInterrupt:
+                                print("\n⚡ Stream interrumpido — respuesta parcial conservada.")
+                                if _aborted is not None:
+                                    _aborted[0] = True
+                finally:
+                    status.stop()
 
         asyncio.run(_run_stream())
 

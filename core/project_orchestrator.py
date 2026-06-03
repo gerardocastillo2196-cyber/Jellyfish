@@ -100,29 +100,31 @@ def _scan_available_agents(state: JellyfishState = None) -> list[dict]:
 
 
 def _parse_sprint_tasks(board_content: str) -> list[dict]:
-    """Parsea las tareas TODO del SPRINT_BOARD.md.
-
-    Retorna lista de dicts con keys: id, task, agent, estimate, output_file.
-    """
+    """Parsea las tareas del tablero de forma defensiva y tolerante a variaciones."""
     tasks = []
     in_todo = False
-
-    for line in board_content.split("\n"):
+    lines = board_content.split("\n")
+    
+    for line in lines:
         stripped = line.strip()
+        
+        # Detectar inicio/fin de sección de tareas pendientes (tolerante a idiomas)
+        if stripped.startswith("#"):
+            # Limpiar emojis y caracteres especiales, convertir a mayúsculas
+            clean_header = re.sub(r'[^\w\s]', ' ', stripped).upper()
+            is_todo_header = any(kw in clean_header for kw in ["TODO", "POR HACER", "PENDIENTE", "TRACK", "BACKLOG", "HACER"])
+            
+            if is_todo_header:
+                in_todo = True
+                continue
+            elif in_todo:
+                # Si ya estábamos en la sección de pendientes y encontramos otro encabezado principal,
+                # significa que salimos de la sección de TODO.
+                # Para evitar salir ante subencabezados muy pequeños, validamos que comience con ## o #
+                if stripped.startswith("##") or stripped.startswith("# "):
+                    break
 
-        # Detectar inicio de sección TODO
-        if "TODO" in stripped.upper() and ("##" in stripped or "POR HACER" in stripped.upper()):
-            in_todo = True
-            continue
-
-        # Detectar fin de sección TODO (otra sección ##)
-        if in_todo and stripped.startswith("##"):
-            break
-
-        if not in_todo:
-            continue
-
-        if not stripped.startswith("|"):
+        if not in_todo or not stripped.startswith("|"):
             continue
 
         # Separar por |
@@ -136,31 +138,64 @@ def _parse_sprint_tasks(board_content: str) -> list[dict]:
         if not cells:
             continue
 
-        # Saltar separadores de tabla (ej: |---|---|...)
+        # Ignorar separadores de tabla Markdown |---|
         if all(all(char in ('-', ':', ' ') for char in cell) for cell in cells if cell):
             continue
 
-        # Saltar cabecera de la tabla
-        if cells[0].upper() in ("ID", "TASK ID", "TASK_ID", "CÓDIGO", "CODIGO") or cells[1].upper() in ("TAREA", "TASK", "DESCRIPCIÓN", "DESCRIPCION"):
+        # Ignorar cabeceras de texto de la tabla (por ejemplo: ID, Tarea, Asignado) utilizando coincidencia exacta
+        col0_clean = re.sub(r'[^\w\s]', '', cells[0]).upper().strip()
+        col1_clean = re.sub(r'[^\w\s]', '', cells[1]).upper().strip() if len(cells) > 1 else ""
+        if col0_clean in ("ID", "TASK ID", "TASK_ID", "CODIGO", "CÓDIGO", "CODE") or \
+           col1_clean in ("TAREA", "TASK", "DESCRIPCION", "DESCRIPCIÓN", "DESCRIPTION"):
             continue
 
-        # Ignorar filas placeholder
-        if cells[0] == "—" or cells[1] == "—" or not cells[0] or not cells[1]:
+        # Ignorar filas placeholder o vacías
+        if not cells[0] or cells[0] in ("—", "-", "") or (len(cells) > 1 and (not cells[1] or cells[1] in ("—", "-", ""))):
             continue
 
-        task_data = {
-            "id": cells[0].replace("*", "").replace("`", "").strip(),
-            "task": cells[1],
-            "agent": cells[2].lower().replace("@", "").replace("`", "").strip() if len(cells) > 2 else "default",
-            "estimate": cells[3].replace("`", "").strip() if len(cells) > 3 else "",
-            "output_file": cells[4].replace("`", "").strip() if len(cells) > 4 else "",
-        }
+        # Sanitización de datos extraídos
+        task_id = cells[0].replace("*", "").replace("`", "").strip()
+        task_desc = cells[1].strip()
+        
+        agent_name = "default"
+        if len(cells) > 2:
+            agent_name = cells[2].lower().replace("@", "").replace("*", "").replace("`", "").strip()
+        if not agent_name:
+            agent_name = "default"
+            
+        estimate = "M"
+        output_file = "src/output.md"
+        
+        if len(cells) == 4:
+            # La columna de estimación fue omitida: ID, Tarea, Agente, Entregable
+            output_file = cells[3].replace("`", "").replace("*", "").strip()
+        elif len(cells) >= 5:
+            # Estructura estándar: ID, Tarea, Agente, Estimación, Entregable
+            estimate = cells[3].replace("`", "").replace("*", "").strip()
+            output_file = cells[4].replace("`", "").replace("*", "").strip()
+            
+        # Detección inteligente si se cruzaron o desplazaron las columnas de Estimación y Entregable
+        if estimate and ("." in estimate or "/" in estimate or "\\" in estimate) and (not output_file or output_file == "src/output.md"):
+            output_file = estimate
+            estimate = "M"
+            
+        # Valores por defecto si quedaron vacíos después de sanitizar
+        if not estimate:
+            estimate = "M"
+        if not output_file:
+            output_file = "src/output.md"
 
-        # Solo agregar si tiene tarea real
-        if task_data["task"] and task_data["id"]:
-            tasks.append(task_data)
+        if task_id and task_desc:
+            tasks.append({
+                "id": task_id,
+                "task": task_desc,
+                "agent": agent_name,
+                "estimate": estimate,
+                "output_file": output_file
+            })
 
     return tasks
+
 
 
 class ProjectOrchestrator:
