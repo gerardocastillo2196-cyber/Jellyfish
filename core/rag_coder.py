@@ -423,7 +423,7 @@ class CodeKnowledgeBase:
             return 0
 
         try:
-            batch_size = 5
+            batch_size = 15
             total_chunks = len(all_chunks)
 
             logger.info("📦 Preparando %d fragmentos para indexación...", total_chunks)
@@ -434,17 +434,29 @@ class CodeKnowledgeBase:
                 embedding_function=self.embeddings
             )
 
-            for i in range(0, total_chunks, batch_size):
-                batch_chunks = all_chunks[i:i + batch_size]
-                batch_metadatas = all_metadatas[i:i + batch_size]
-                self.vector_db.add_texts(texts=batch_chunks, metadatas=batch_metadatas)
+            from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                TimeRemainingColumn(),
+                console=console
+            ) as progress:
+                task = progress.add_task("[cyan]Generando embeddings...", total=total_chunks)
 
-                current_count = min(i + batch_size, total_chunks)
-                percent = int((current_count / total_chunks) * 100)
-                logger.info(
-                    "⚡ Generando embeddings: %d/%d (%d%%) ...",
-                    current_count, total_chunks, percent
-                )
+                for i in range(0, total_chunks, batch_size):
+                    batch_chunks = all_chunks[i:i + batch_size]
+                    batch_metadatas = all_metadatas[i:i + batch_size]
+                    self.vector_db.add_texts(texts=batch_chunks, metadatas=batch_metadatas)
+    
+                    current_count = min(i + batch_size, total_chunks)
+                    percent = int((current_count / total_chunks) * 100)
+                    logger.info(
+                        "⚡ Generando embeddings: %d/%d (%d%%) ...",
+                        current_count, total_chunks, percent
+                    )
+                    progress.update(task, advance=len(batch_chunks))
 
             collection = self.vector_db._collection
             self.indexed_chunk_count = collection.count()

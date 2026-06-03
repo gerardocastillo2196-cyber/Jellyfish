@@ -1620,3 +1620,24 @@ IndentationError: unexpected indent
 2026-05-27 23:03:14,215 [jellyfish.project_orchestrator] ERROR: ⚠️ El modelo gemini-3.1-pro-preview-0815 (gemini) retornó un output vacío.
 2026-05-27 23:03:14,768 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de gemini
 2026-05-27 23:03:14,769 [jellyfish.project_orchestrator] ERROR: ⚠️ El modelo gemini-3.1-pro-preview-0815 (gemini) retornó un output vacío.
+2026-05-28 00:12:02,878 [jellyfish.project_manager] INFO: Historial de conversación cargado (30 mensajes) para el proyecto /home/gerardo/Documentos/gerardo/Scripts/chino
+2026-05-28 00:12:02,879 [jellyfish.project_manager] INFO: Historial de conversación cargado (30 mensajes) para el proyecto /home/gerardo/Documentos/gerardo/Scripts/chino
+2026-05-28 00:12:02,879 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/MisModelosIA/agencia/skills/template.md: [Errno 2] No such file or directory: '/home/gerardo/MisModelosIA/agencia/skills/template.md'
+2026-05-28 00:12:02,892 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://localhost:11434
+2026-05-28 00:12:02,914 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-28 00:12:02,914 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-05-28 00:12:02,914 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-28 00:12:02,914 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-05-28 00:12:02,914 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-28 00:12:02,914 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-05-28 00:12:02,915 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-28 00:12:02,915 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-05-28 00:12:21,259 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de gemini
+2026-05-28 00:12:23,250 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/chino/ARCHITECTURE.md: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/chino/ARCHITECTURE.md'
+2026-05-28 00:12:23,251 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/chino/requirements.txt: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/chino/requirements.txt'
+2026-05-28 00:12:23,251 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/chino/package.json: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/chino/package.json'
+2026-05-28 00:12:23,252 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/chino/Pipfile: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/chino/Pipfile'
+2026-05-28 00:12:23,252 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/chino/pyproject.toml: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/chino/pyproject.toml'
+2026-05-28 00:12:23,252 [jellyfish.project_manager] WARNING: No se pudo leer /home/gerardo/Documentos/gerardo/Scripts/chino/go.mod: [Errno 2] No such file or directory: '/home/gerardo/Documentos/gerardo/Scripts/chino/go.mod'
+2026-05-28 00:12:29,271 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de gemini
+2026-05-28 00:12:29,272 [jellyfish.project_orchestrator] ERROR: ⚠️ El modelo gemini-3.1-pro-preview-0815 (gemini) retornó un output vacío.

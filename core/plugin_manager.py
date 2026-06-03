@@ -108,11 +108,11 @@ class PluginManager:
                     continue
                 self._plugin_files[plugin_name] = filepath
 
-            if not self._sandbox:
-                # Modo legado: importación directa
-                self._load_module(plugin_name, filepath)
-            else:
-                logger.info("Plugin descubierto (sandbox): %s", plugin_name)
+                if not self._sandbox:
+                    # Modo legado: importación directa
+                    self._load_module(plugin_name, filepath)
+                else:
+                    logger.info("Plugin descubierto (sandbox): %s", plugin_name)
 
     def _load_module(self, plugin_name: str, filepath: str) -> None:
         """Carga un módulo Python en memoria (modo legado, sin sandbox)."""
