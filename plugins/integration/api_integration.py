@@ -8,6 +8,8 @@ from typing import Dict, List, Optional, Any, Callable
 from datetime import datetime
 from urllib.parse import urljoin
 
+from plugins.plugin_core import PluginInterface, PluginMetadata
+
 class APIEndpoint:
     """Represents a single API endpoint"""
     
@@ -67,10 +69,25 @@ class APIRouter:
         key = f"{method.upper()}:{path}"
         return self.endpoints.get(key)
 
-class APIIntegrationPlugin:
+class APIIntegrationPlugin(PluginInterface):
     """Plugin for API integrations and service orchestration"""
     
+    PLUGIN_METADATA = PluginMetadata(
+        name="api-integration",
+        version="1.0.0",
+        description="Integrate with external APIs and services",
+        author="Jellyfish OS Team",
+        capabilities=[
+            "api_routing",
+            "service_configuration",
+            "auth_management",
+            "rate_limiting",
+            "usage_tracking"
+        ]
+    )
+    
     def __init__(self):
+        super().__init__()
         self.routers: Dict[str, APIRouter] = {}
         self.api_keys: Dict[str, str] = {}
         self.service_configs: Dict[str, Dict] = {}
@@ -152,7 +169,7 @@ class APIIntegrationPlugin:
             "last_call": logs[-1]["timestamp"] if logs else None
         }
 
-# Plugin metadata
+# Module-level metadata for package import compatibility
 PLUGIN_METADATA = {
     "name": "api-integration",
     "version": "1.0.0",

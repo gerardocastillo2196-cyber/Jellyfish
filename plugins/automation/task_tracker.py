@@ -7,6 +7,8 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from enum import Enum
 
+from plugins.plugin_core import PluginInterface, PluginMetadata
+
 class TaskStatus(Enum):
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
@@ -41,10 +43,24 @@ class Task:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None
         }
 
-class TaskTrackerPlugin:
+class TaskTrackerPlugin(PluginInterface):
     """Plugin to track tasks and progress"""
     
+    PLUGIN_METADATA = PluginMetadata(
+        name="task-tracker",
+        version="1.0.0",
+        description="Track tasks, subtasks, and progress",
+        author="Jellyfish OS Team",
+        capabilities=[
+            "task_creation",
+            "progress_tracking",
+            "hierarchy_management",
+            "note_taking"
+        ]
+    )
+    
     def __init__(self):
+        super().__init__()
         self.tasks: Dict[str, Task] = {}
         self.task_counter = 0
     
@@ -117,7 +133,7 @@ class TaskTrackerPlugin:
             "completion_percentage": round(total_completion, 2)
         }
 
-# Plugin metadata
+# Module-level metadata for package import compatibility
 PLUGIN_METADATA = {
     "name": "task-tracker",
     "version": "1.0.0",

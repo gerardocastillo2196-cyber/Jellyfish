@@ -25,9 +25,13 @@ class ScrumMasterPhase:
 
         # Escanear agentes disponibles
         available_agents = _scan_available_agents(self.orchestrator.state)
-        agents_catalog = "\n".join(
-            f"  - @{a['name']}: {a['role']}" for a in available_agents
-        )
+        agent_lines = []
+        for a in available_agents:
+            line = f"  - @{a['name']}: {a['role']}"
+            if "expertise" in a and a["expertise"]:
+                line += f" (Expertise: {', '.join(a['expertise'])})"
+            agent_lines.append(line)
+        agents_catalog = "\n".join(agent_lines)
         console.print(f"[dim]   Agentes disponibles en la agencia '{self.orchestrator.state.active_agency}': {len(available_agents)}[/dim]")
 
         backlog = self.orchestrator._read_project_file("BACKLOG.md")
