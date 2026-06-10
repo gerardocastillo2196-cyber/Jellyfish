@@ -28,6 +28,7 @@ from rich.prompt import Confirm
 from core.state import JellyfishState, AGENCY_DIR, _safe_read, estimate_tokens
 from core.llm_engine import _call_llm_silent
 from core.tui import tui_engine, TaskProgress
+from core.agents.registry import AgentRegistry
 
 logger = logging.getLogger("jellyfish.project_orchestrator")
 console = Console()
@@ -65,7 +66,11 @@ _MANAGEMENT_ROLES = {"product_owner", "scrum_master", "template", "researcher"}
 
 
 def _scan_available_agents(state: JellyfishState = None) -> list[dict]:
-    """Escanea agents/ y retorna nombre + primera línea de rol de cada uno, filtrados por la agencia activa si está provisto."""
+    """Escanea agents/ y retorna nombre + primera línea de rol de cada uno.
+    
+    Sprint 12 — Prioriza agentes Python del AgentRegistry.
+    Los .md son fallback para agentes aún no migrados.
+    """
     agents_dir = os.path.join(AGENCY_DIR, "agents")
     agents = []
     if not os.path.isdir(agents_dir):
@@ -79,11 +84,29 @@ def _scan_available_agents(state: JellyfishState = None) -> list[dict]:
         if not allowed_agents:
             allowed_agents = state.agency_catalog.get("default", [])
 
+    seen_names = set()
+    
+    # 1. Agentes Python (.py) — prioridad
+    for name, agent_cls in AgentRegistry.list_agents().items():
+        if name in _MANAGEMENT_ROLES:
+            continue
+        if state is not None and name not in allowed_agents:
+            continue
+        agent_inst = agent_cls()
+        agents.append({
+            "name": name,
+            "file": f"{name}.py",
+            "role": agent_inst.role,
+            "expertise": getattr(agent_inst, "expertise", [])
+        })
+        seen_names.add(name)
+    
+    # 2. Agentes Markdown (.md) — fallback
     for fname in sorted(os.listdir(agents_dir)):
         if not fname.endswith(".md"):
             continue
         name = fname[:-3]  # quitar .md
-        if name in _MANAGEMENT_ROLES:
+        if name in _MANAGEMENT_ROLES or name in seen_names:
             continue
         # Filtrar agentes permitidos si state está provisto
         if state is not None and name not in allowed_agents:
@@ -233,7 +256,14 @@ class ProjectOrchestrator:
             return "DEV_BOARD.md"
 
     def _load_agent_prompt(self, agent_name: str) -> str:
-        """Carga el system prompt de un agente desde su archivo .md."""
+        """Carga el system prompt de un agente.
+        
+        Sprint 12 — Prioriza clase Python del AgentRegistry.
+        Si no existe, cae al archivo .md (retrocompatibilidad).
+        """
+        py_agent = AgentRegistry.get(agent_name)
+        if py_agent:
+            return py_agent.get_system_prompt()
         filepath = os.path.join(AGENCY_DIR, "agents", f"{agent_name}.md")
         return _safe_read(filepath)
 
@@ -812,19 +842,20 @@ class ProjectOrchestrator:
         
         xml_matches = re.findall(r'<write_file\s+path="([^"]+)">\s*\n?(.*?)\s*\n?</write_file>', content, re.DOTALL)
         for rel_path, file_content in xml_matches:
-            full_path = os.path.join(self.project_path, rel_path.strip())
+            clean_rel_path = rel_path.strip().replace("`", "")
+            full_path = os.path.join(self.project_path, clean_rel_path)
             try:
                 os.makedirs(os.path.dirname(full_path), exist_ok=True)
                 with open(full_path, "w", encoding="utf-8") as f:
                     f.write(file_content)
-                created_files.append(rel_path.strip())
+                created_files.append(clean_rel_path)
             except Exception as e:
-                console.print(f"       ✗ Error creando archivo {rel_path}: {e}")
+                console.print(f"       ✗ Error creando archivo {clean_rel_path}: {e}")
                 logger.error("Error al escribir archivo real de agente: %s", e)
 
         md_matches = re.findall(r'\[WRITE_FILE:\s*([^\]\s]+)\]\s*\n*```[a-zA-Z0-9_-]*\n(.*?)\n```', content, re.DOTALL)
         for rel_path, file_content in md_matches:
-            rel_clean = rel_path.strip()
+            rel_clean = rel_path.strip().replace("`", "")
             if rel_clean in created_files:
                 continue
             full_path = os.path.join(self.project_path, rel_clean)
@@ -1153,12 +1184,7 @@ class ProjectOrchestrator:
 
         for m in self.metrics:
             secs = m["tiempo"]
-            if secs < 10:
-                dur = f"{secs:.1f}s"
-            elif secs < 60:
-                dur = f"{secs:.1f}s"
-            else:
-                dur = f"{secs:.1f}s"
+            dur = f"{secs:.1f}s"
             table.add_row(m["fase"], m["detalle"], Text.from_markup(dur), m["status"])
 
         console.print()

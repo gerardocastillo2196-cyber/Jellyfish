@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 import statistics
 
+from plugins.plugin_core import PluginInterface, PluginMetadata
+
 class MetricBucket:
     """Container for time-bucketed metrics"""
     
@@ -52,10 +54,24 @@ class MetricBucket:
             "p99": sorted_values[int(n * 0.99)] if n > 1 else sorted_values[0]
         }
 
-class MetricsCollectorPlugin:
+class MetricsCollectorPlugin(PluginInterface):
     """Plugin to collect and analyze agent metrics"""
     
+    PLUGIN_METADATA = PluginMetadata(
+        name="metrics-collector",
+        version="1.0.0",
+        description="Collect and analyze agent activity metrics",
+        author="Jellyfish OS Team",
+        capabilities=[
+            "metric_recording",
+            "session_tracking",
+            "skill_usage_tracking",
+            "performance_analytics"
+        ]
+    )
+    
     def __init__(self):
+        super().__init__()
         self.buckets: Dict[str, MetricBucket] = {}
         self.current_bucket: Optional[MetricBucket] = None
         self.agent_sessions: Dict[str, Dict] = {}
@@ -202,7 +218,7 @@ class MetricsCollectorPlugin:
             "efficiency": session["interactions"] / max(session.get("duration_seconds", 1), 1) * 60
         }
 
-# Plugin metadata
+# Module-level metadata for package import compatibility
 PLUGIN_METADATA = {
     "name": "metrics-collector",
     "version": "1.0.0",

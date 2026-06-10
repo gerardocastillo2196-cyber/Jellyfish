@@ -24,9 +24,43 @@ except ImportError:
 logger = logging.getLogger("jellyfish.state")
 
 # Import config constants, variables and functions
-from core.config import *
-from core.config import _xml_attr
+from core.config import (
+    AGENCY_DIR,
+    normalize_provider,
+    load_config_from_env,
+    save_config_to_env,
+    estimate_tokens,
+    supported_provider_names,
+    PROVIDER_CONFIGS,
+    _xml_attr,
+    PROVIDER,
+    MODEL,
+    OLLAMA_URL,
+    OPENAI_BASE_URL,
+    DEEPSEEK_BASE_URL,
+    OPENROUTER_BASE_URL,
+    GEMINI_BASE_URL,
+    DASHSCOPE_BASE_URL,
+    KIMI_BASE_URL,
+    ZHIPU_BASE_URL,
+    CUSTOM_BASE_URL,
+    OPENAI_API_KEY,
+    DEEPSEEK_API_KEY,
+    OPENROUTER_API_KEY,
+    GEMINI_API_KEY,
+    DASHSCOPE_API_KEY,
+    KIMI_API_KEY,
+    ZHIPU_API_KEY,
+    CUSTOM_API_KEY,
+    RELEVANCE_THRESHOLD,
+    EMBED_MODEL,
+    ACTIVE_PROJECT,
+)
 from core.project_manager import *
+
+# Sprint 12 — Registros de agentes y skills Python
+from core.agents.registry import AgentRegistry
+from core.skills.registry import SkillRegistry
 
 # Bootstrap directories
 for _folder in ["agents", "skills", "memory", "plugins"]:
@@ -216,7 +250,11 @@ class JellyfishState:
         save_config_to_env(self, **kwargs)
 
     def scan_agencies(self) -> None:
-        """Escanea todos los archivos .md en agents/ y los agrupa por agencia según metadatos."""
+        """Escanea agentes Python y .md en agents/ y los agrupa por agencia.
+        
+        Sprint 12 — Prioriza agentes Python (clases BaseAgent) sobre .md.
+        Los .md sirven como fallback para agentes aún no migrados.
+        """
         self.agency_catalog = {}
         agents_dir = os.path.join(AGENCY_DIR, "agents")
         if not os.path.exists(agents_dir):
@@ -225,9 +263,27 @@ class JellyfishState:
         # El agente "default" especial siempre pertenece a la agencia default
         self.agency_catalog.setdefault("default", []).append("default")
         
+        # 1. Escanear agentes Python (.py) — prioridad
+        py_count = AgentRegistry.scan(agents_dir)
+        for name, agent_cls in AgentRegistry.list_agents().items():
+            agent_inst = agent_cls()
+            agency_name = getattr(agent_inst, "agency", "default").lower()
+            if name != "default":
+                self.agency_catalog.setdefault(agency_name, []).append(name)
+        
+        if py_count:
+            logger.info("Agentes Python registrados: %d", py_count)
+        
+        # 2. Escanear agentes Markdown (.md) — fallback para los no migrados
+        _py_agents = set(AgentRegistry.list_agents().keys())
         for f in sorted(os.listdir(agents_dir)):
             if f.endswith(".md") and not f.startswith("template"):
                 agent_name = f[:-3].lower()
+                
+                # Saltar si ya existe como Python
+                if agent_name in _py_agents:
+                    continue
+                
                 filepath = os.path.join(agents_dir, f)
                 agency_name = "default"
                 
@@ -250,6 +306,12 @@ class JellyfishState:
                 if agent_name == "default":
                     continue
                 self.agency_catalog.setdefault(agency_name, []).append(agent_name)
+        
+        # 3. Escanear skills Python
+        skills_dir = os.path.join(AGENCY_DIR, "skills")
+        sk_count = SkillRegistry.scan(skills_dir)
+        if sk_count:
+            logger.info("Skills Python registradas: %d", sk_count)
 
     def get_agent_agency(self, agent_name: str) -> str:
         """Retorna la agencia a la que pertenece un agente, o 'default'."""
@@ -259,7 +321,11 @@ class JellyfishState:
         return "default"
 
     def load_agent(self, agent_name: str) -> None:
-        """Carga un perfil de agente y reinicia el historial de conversación."""
+        """Carga un perfil de agente y reinicia el historial de conversación.
+        
+        Sprint 12 — Prioriza la clase Python del AgentRegistry.
+        Si no existe, cae al archivo .md (retrocompatibilidad).
+        """
         self.active_agent = agent_name.lower().strip()
         self.active_agency = self.get_agent_agency(self.active_agent)
         
@@ -306,15 +372,22 @@ class JellyfishState:
                     "Cuando el usuario te pida analizar código, utiliza el contexto RAG proporcionado."
                 )
         else:
-            agent_content = _safe_read(agent_file)
-            if agent_content:
-                agent_clean = FRONTMATTER_RE.sub("", agent_content)
-                self.system_prompt += f"[PERFIL ESPECÍFICO DE @{self.active_agent.upper()}]\n{agent_clean}"
+            # Sprint 12 — Intentar cargar desde AgentRegistry (Python) primero
+            py_agent = AgentRegistry.get(self.active_agent)
+            if py_agent:
+                self.system_prompt += f"[PERFIL ESPECÍFICO DE @{self.active_agent.upper()}]\n{py_agent.get_system_prompt()}"
+                logger.info("Agente Python cargado: @%s", self.active_agent)
             else:
-                logger.warning("Agente '%s' no encontrado, usando default.", self.active_agent)
-                self.active_agent = "default"
-                self.active_agency = "default"
-                self.system_prompt += "Eres Jellyfish, un asistente técnico avanzado."
+                # Fallback: leer archivo .md
+                agent_content = _safe_read(agent_file)
+                if agent_content:
+                    agent_clean = FRONTMATTER_RE.sub("", agent_content)
+                    self.system_prompt += f"[PERFIL ESPECÍFICO DE @{self.active_agent.upper()}]\n{agent_clean}"
+                else:
+                    logger.warning("Agente '%s' no encontrado (ni .py ni .md), usando default.", self.active_agent)
+                    self.active_agent = "default"
+                    self.active_agency = "default"
+                    self.system_prompt += "Eres Jellyfish, un asistente técnico avanzado."
 
         if not hasattr(self, "history") or not isinstance(self.history, PersistedHistoryList):
             self.history = PersistedHistoryList(self)

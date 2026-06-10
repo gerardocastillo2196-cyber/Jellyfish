@@ -2,10 +2,13 @@ import os
 import time
 import logging
 from rich.console import Console
+from rich.prompt import Confirm
 from core.tui import tui_engine, TaskProgress
 from core.state import estimate_tokens, _safe_read
 from core.llm_engine import _call_llm_silent
 from core.terminal import run_terminal_command
+from core.agents.registry import AgentRegistry
+from core.skills.registry import SkillRegistry
 
 logger = logging.getLogger("jellyfish.orchestration.task_runner")
 console = Console()
@@ -83,10 +86,47 @@ class TaskRunnerPhase:
             if not agent_prompt:
                 agent_prompt = f"Eres @{agent_name}, un especialista técnico del equipo de desarrollo."
 
+            # Sprint 12 — Resolver agente Python para hooks de ciclo de vida
+            py_agent = AgentRegistry.get(agent_name)
+            task_context = {
+                "project_path": self.orchestrator.project_path,
+                "output_file": output_file,
+                "task_id": task_id_str,
+                "agent_name": agent_name,
+            }
+
+            # Sprint 12 — Hook pre_execute (inyectar datos dinámicos, validar precondiciones)
+            if py_agent:
+                try:
+                    py_agent.pre_execute(task, task_context)
+                except Exception as pre_err:
+                    logger.warning("pre_execute de @%s falló: %s", agent_name, pre_err)
+
+            # Sprint 12 — Inyección selectiva de skills por keywords (ahorro de tokens)
+            skills_context = ""
+            relevant_skills = SkillRegistry.get_skills_for_task(
+                task_desc,
+                agency=getattr(self.orchestrator.state, "active_agency", "")
+            )
+            if relevant_skills:
+                skill_blocks = []
+                for sk in relevant_skills:
+                    try:
+                        skill_blocks.append(f"### SKILL: {sk.name}\n{sk.get_instructions()}")
+                    except Exception as sk_err:
+                        logger.warning("Skill '%s' falló en get_instructions: %s", sk.name, sk_err)
+                if skill_blocks:
+                    skills_context = (
+                        "\n\n[SKILLS RELEVANTES PARA ESTA TAREA]\n"
+                        + "\n\n".join(skill_blocks)
+                        + "\n"
+                    )
+
             accumulated = self.orchestrator._build_intelligent_context(task_desc, output_file)
 
             system = (
                 f"{agent_prompt}\n\n"
+                f"{skills_context}"
                 f"[TAREA ASIGNADA POR EL SCRUM MASTER]\n"
                 f"ID: {task_id_str}\n"
                 f"Descripción: {task_desc}\n"
@@ -290,6 +330,13 @@ class TaskRunnerPhase:
                         # Preservar el último resultado por si la compilación vuelve a fallar
                         last_task_result = task_result
 
+                        # Sprint 12 — Hook post_execute (validación, AST, tests en sandbox)
+                        if py_agent:
+                            try:
+                                task_result = py_agent.post_execute(task_result, task_context)
+                            except Exception as post_err:
+                                logger.warning("post_execute de @%s falló: %s", agent_name, post_err)
+
                         # Guardar entregable en disco e interactuar con archivos reales
                         self.orchestrator._write_project_file(output_file, task_result)
                         created_files = self.orchestrator._extract_and_write_files(task_result)
@@ -467,7 +514,6 @@ class TaskRunnerPhase:
 
                     # Solicitar aprobación del usuario
                     console.print()
-                    from rich.prompt import Confirm
                     try:
                         skip_approved = Confirm.ask(
                             "¿Continuar el pipeline saltando esta tarea? [y=continuar / n=detener pipeline]",

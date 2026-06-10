@@ -169,12 +169,7 @@ class ResearchOrchestrator(BaseOrchestrator):
 
         for m in metrics:
             secs = m["tiempo"]
-            if secs < 5:
-                dur_str = f"{secs:.1f}s"
-            elif secs < 30:
-                dur_str = f"{secs:.1f}s"
-            else:
-                dur_str = f"{secs:.1f}s"
+            dur_str = f"{secs:.1f}s"
 
             table.add_row(m["fase"], m["detalle"], Text.from_markup(dur_str))
 

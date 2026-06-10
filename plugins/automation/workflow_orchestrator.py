@@ -7,6 +7,8 @@ from typing import Dict, List, Callable, Any, Optional
 from datetime import datetime
 from enum import Enum
 
+from plugins.plugin_core import PluginInterface, PluginMetadata
+
 class WorkflowStatus(Enum):
     CREATED = "created"
     RUNNING = "running"
@@ -67,10 +69,25 @@ class Workflow:
             "created_at": self.created_at.isoformat()
         }
 
-class WorkflowOrchestrator:
+class WorkflowOrchestrator(PluginInterface):
     """Plugin to orchestrate multi-step workflows"""
     
+    PLUGIN_METADATA = PluginMetadata(
+        name="workflow-orchestrator",
+        version="1.0.0",
+        description="Orchestrate multi-step workflows for complex tasks",
+        author="Jellyfish OS Team",
+        capabilities=[
+            "workflow_creation",
+            "step_management",
+            "workflow_execution",
+            "context_passing",
+            "error_handling"
+        ]
+    )
+    
     def __init__(self):
+        super().__init__()
         self.workflows: Dict[str, Workflow] = {}
         self.execution_history: List[Dict] = []
     
@@ -153,7 +170,7 @@ class WorkflowOrchestrator:
             return None
         return self.workflows[workflow_id].to_dict()
 
-# Plugin metadata
+# Module-level metadata for package import compatibility
 PLUGIN_METADATA = {
     "name": "workflow-orchestrator",
     "version": "1.0.0",

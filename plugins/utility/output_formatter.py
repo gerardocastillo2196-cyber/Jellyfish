@@ -7,8 +7,26 @@ import json
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
-class OutputFormatter:
+from plugins.plugin_core import PluginInterface, PluginMetadata
+
+class OutputFormatter(PluginInterface):
     """Plugin to format agent outputs in various structured formats"""
+    
+    PLUGIN_METADATA = PluginMetadata(
+        name="output-formatter",
+        version="1.0.0",
+        description="Format agent outputs to various structured formats",
+        author="Jellyfish OS Team",
+        capabilities=[
+            "markdown_table",
+            "json_format",
+            "csv_format",
+            "structured_text"
+        ]
+    )
+    
+    def __init__(self):
+        super().__init__()
     
     @staticmethod
     def to_markdown_table(data: List[Dict], headers: Optional[List[str]] = None) -> str:
@@ -85,7 +103,7 @@ class OutputFormatter:
             "version": "1.0"
         }
 
-# Plugin metadata
+# Module-level metadata for package import compatibility
 PLUGIN_METADATA = {
     "name": "output-formatter",
     "version": "1.0.0",

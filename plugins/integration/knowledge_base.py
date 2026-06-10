@@ -9,6 +9,8 @@ from pathlib import Path
 import json
 import re
 
+from plugins.plugin_core import PluginInterface, PluginMetadata
+
 class KnowledgeEntry:
     """Represents a single knowledge base entry"""
     
@@ -68,10 +70,24 @@ class KnowledgeEntry:
             "access_count": self.access_count
         }
 
-class KnowledgeBasePlugin:
+class KnowledgeBasePlugin(PluginInterface):
     """Plugin to manage a searchable knowledge base"""
     
+    PLUGIN_METADATA = PluginMetadata(
+        name="knowledge-base",
+        version="1.0.0",
+        description="Manage a searchable knowledge base for agents",
+        author="Jellyfish OS Team",
+        capabilities=[
+            "knowledge_storage",
+            "semantic_search",
+            "category_management",
+            "tag_indexing"
+        ]
+    )
+    
     def __init__(self, storage_path: Optional[str] = None):
+        super().__init__()
         self.entries: Dict[str, KnowledgeEntry] = {}
         self.categories: Dict[str, List[str]] = {}
         self.tag_index: Dict[str, List[str]] = {}
@@ -273,7 +289,7 @@ class KnowledgeBasePlugin:
         
         return True
 
-# Plugin metadata
+# Module-level metadata for package import compatibility
 PLUGIN_METADATA = {
     "name": "knowledge-base",
     "version": "1.0.0",

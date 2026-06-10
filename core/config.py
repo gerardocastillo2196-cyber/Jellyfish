@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 logger = logging.getLogger("jellyfish.config")
 
-AGENCY_DIR = os.path.expanduser("~/MisModelosIA/agencia")
+AGENCY_DIR = os.getenv("JELLYFISH_AGENCY_DIR", os.path.expanduser("~/MisModelosIA/agencia"))
 
 PROVIDER_CONFIGS = {
     "ollama": {
@@ -148,11 +148,7 @@ def load_config_from_env(state) -> None:
 
     state.provider = normalize_provider(os.getenv("JELLYFISH_PROVIDER", "ollama"))
     state.model = os.getenv("JELLYFISH_MODEL", "qwen2.5-agent:latest")
-    if state.provider == "gemini":
-        if state.model == "gemini-1.5-pro":
-            state.model = "gemini-3.1-pro-preview"
-        elif state.model == "gemini-1.5-flash":
-            state.model = "gemini-2.5-flash"
+    # No auto-upgrading to non-existent models.
 
     state.provider_configs = PROVIDER_CONFIGS
     state.api_keys = {}

@@ -299,11 +299,11 @@ def _handle_model_picker(state, display_header_func) -> None:
         models.insert(0, "[➕ Descargar nuevo modelo de Ollama]")
     elif target_prov == "gemini":
         models = [
-            "gemini-3.1-pro-preview",
-            "gemini-2.5-pro",
-            "gemini-2.5-flash",
             "gemini-3.5-flash",
-            "gemini-3.1-pro-preview-0815",
+            "gemini-3.1-pro-preview",
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-2.0-flash",
             "gemini-1.5-flash",
             "gemini-1.5-pro",
         ]

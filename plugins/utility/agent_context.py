@@ -7,10 +7,25 @@ import json
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
-class AgentContextPlugin:
+from plugins.plugin_core import PluginInterface, PluginMetadata
+
+class AgentContextPlugin(PluginInterface):
     """Plugin to manage agent conversation context and history"""
     
+    PLUGIN_METADATA = PluginMetadata(
+        name="agent-context",
+        version="1.0.0",
+        description="Context management for AI agents",
+        author="Jellyfish OS Team",
+        capabilities=[
+            "context_management",
+            "memory_storage",
+            "context_search"
+        ]
+    )
+    
     def __init__(self):
+        super().__init__()
         self.context_stack: List[Dict[str, Any]] = []
         self.max_context_size = 10
         self.agent_memory: Dict[str, Any] = {}
@@ -68,7 +83,7 @@ class AgentContextPlugin:
         
         return " | ".join(summary_parts)
 
-# Plugin metadata
+# Module-level metadata for package import compatibility
 PLUGIN_METADATA = {
     "name": "agent-context",
     "version": "1.0.0",
