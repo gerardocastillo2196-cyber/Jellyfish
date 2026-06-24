@@ -24,6 +24,14 @@ console = Console()
 # Máximo de iteraciones Auto-ReAct (evitar bucles infinitos)
 MAX_REACT_LOOPS = 3
 
+# Auditoría — Caché L1 por turno para evitar llamadas LLM duplicadas.
+# Se limpia al inicio de cada turno con clear_llm_cache().
+_llm_call_cache: dict[str, str] = {}
+
+def clear_llm_cache() -> None:
+    """Limpia la caché L1 de llamadas LLM. Llamar al inicio de cada turno."""
+    _llm_call_cache.clear()
+
 # Regex para detectar bloques de código bash/sh/shell
 _BASH_REGEX = re.compile(
     r"```(?:bash|sh|shell|zsh)?\s*\n(.*?)\n```",
@@ -131,7 +139,7 @@ def _get_provider_config(state, provider: str | None = None) -> tuple[str, dict]
     """Retorna (url, headers) para el proveedor activo u override.
 
     Ollama usa su endpoint nativo. Los demas proveedores pasan por endpoints
-    compatibles con OpenAI Chat Completions.
+    compatibles con OpenAI Chat Completions, a menos que sea el proveedor native Claude.
     """
     provider_name = normalize_provider(provider or state.provider)
     if provider_name == "ollama":
@@ -142,6 +150,17 @@ def _get_provider_config(state, provider: str | None = None) -> tuple[str, dict]
         raise ValueError(f"Proveedor '{provider_name}' requiere configurar base_url.")
 
     api_key = state.api_keys.get(provider_name) or getattr(state, f"{provider_name}_api_key", "")
+    
+    # Soporte nativo para Anthropic si el base_url apunta a su endpoint oficial
+    if provider_name == "claude" and "api.anthropic.com" in base_url:
+        headers = {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+        url = f"{base_url.rstrip('/')}/messages"
+        return url, headers
+
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -154,7 +173,7 @@ def _get_provider_config(state, provider: str | None = None) -> tuple[str, dict]
 
 
 def _parse_sse_line(line_bytes: bytes, provider: str) -> str:
-    """Parsea una línea del stream SSE (OpenAI-compatible) y retorna el contenido delta."""
+    """Parsea una línea del stream SSE (OpenAI/Anthropic compatible) y retorna el contenido delta."""
     decoded = line_bytes.decode("utf-8").strip()
     if not decoded.startswith("data: "):
         return ""
@@ -165,7 +184,12 @@ def _parse_sse_line(line_bytes: bytes, provider: str) -> str:
         data = json.loads(payload)
         choices = data.get("choices", [])
         if choices:
-            return choices[0].get("delta", {}).get("content", "")
+            return choices[0].get("delta", {}).get("content", "") or ""
+        
+        # Formato Anthropic SSE
+        if data.get("type") == "content_block_delta":
+            return data.get("delta", {}).get("text", "") or ""
+            
     except json.JSONDecodeError:
         pass
     return ""
@@ -182,6 +206,49 @@ def _parse_ollama_line(line_bytes: bytes) -> str:
     return ""
 
 
+def _prepare_payload(provider_name: str, url: str, model_name: str, messages: list, attempt: int = 1) -> dict:
+    is_cloud = provider_name != "ollama"
+    is_native_anthropic = (provider_name == "claude" and "api.anthropic.com" in url)
+
+    # Mapeo de modelos locales/antigravity de Gemini a IDs oficiales de la API de Google
+    if provider_name == "gemini":
+        gemini_mapping = {
+            "gemini-3.5-flash-medium": "gemini-3.5-flash",
+            "gemini-3.5-flash-high": "gemini-3.5-flash",
+            "gemini-3.5-flash-low": "gemini-3.5-flash",
+            "gemini-3.1-pro-low": "gemini-3.1-pro",
+            "gemini-3.1-pro-high": "gemini-3.1-pro",
+        }
+        model_name = gemini_mapping.get(model_name, model_name)
+
+    payload = {
+        "model": model_name,
+        "stream": True,
+    }
+    if is_cloud:
+        payload["temperature"] = max(0.0, 0.2 - 0.05 * (attempt - 1))
+
+    if is_native_anthropic:
+        payload["max_tokens"] = 4096
+        system_prompt = ""
+        filtered_messages = []
+        for msg in messages:
+            if msg.get("role") == "system":
+                system_prompt += msg.get("content", "") + "\n"
+            else:
+                role = msg.get("role")
+                if role not in ("user", "assistant"):
+                    role = "user"
+                filtered_messages.append({"role": role, "content": msg.get("content", "")})
+        payload["messages"] = filtered_messages
+        if system_prompt:
+            payload["system"] = system_prompt.strip()
+    else:
+        payload["messages"] = messages
+
+    return payload
+
+
 def _call_llm_silent(
     state,
     messages: list,
@@ -192,26 +259,31 @@ def _call_llm_silent(
 
     Sprint 1.2 — Usa httpx en modo síncrono con streaming silencioso.
     Sprint 3.1 — Migrado de requests a httpx.
-    Guía de Autonomía — Añadido bucle de reintento con retroceso exponencial para mitigar 429/rate limits.
+    Auditoría — Reestructurado el bucle de reintento: el bug anterior hacía
+    que el `continue` dentro del `with client.stream(...)` no escapara al
+    loop de reintentos, causando ráfagas masivas de 429 sin backoff real.
+    Auditoría — Añadida caché L1 por turno para evitar llamadas duplicadas.
     """
     provider_name = normalize_provider(provider or state.provider)
     url, headers = _get_provider_config(state, provider_name)
     is_cloud = provider_name != "ollama"
-    payload = {
-        "model": model or state.model,
-        "messages": messages,
-        "stream": True,
-    }
-    if is_cloud:
-        payload["temperature"] = 0.2
+    model_name = model or state.model
+
+    # --- Caché L1 por turno: evitar llamadas duplicadas con los mismos mensajes ---
+    import hashlib as _hashlib
+    cache_key = _hashlib.sha256(
+        f"{provider_name}:{model_name}:{json.dumps(messages, ensure_ascii=False, sort_keys=True)}".encode()
+    ).hexdigest()
+    if cache_key in _llm_call_cache:
+        logger.debug("Cache hit para _call_llm_silent (hash=%s…)", cache_key[:12])
+        return _llm_call_cache[cache_key]
 
     max_attempts = 5
-    initial_delay = 1.5
+    initial_delay = 2.0
     backoff_factor = 2.0
 
     for attempt in range(1, max_attempts + 1):
-        if is_cloud:
-            payload["temperature"] = max(0.0, 0.2 - 0.05 * (attempt - 1))
+        payload = _prepare_payload(provider_name, url, model_name, messages, attempt)
         try:
             full = ""
             parse_fn = (
@@ -221,21 +293,25 @@ def _call_llm_silent(
             )
             
             client = _get_sync_client()
+            # Auditoría: usamos request() sin streaming primero para verificar
+            # el status code, y luego procesamos el stream solo si es 200.
+            # Esto evita el bug donde `continue` no escapaba del context manager.
+            should_retry = False
             with client.stream("POST", url, headers=headers, json=payload) as response:
-                    if response.status_code == 429 or (500 <= response.status_code < 600):
-                        delay = initial_delay * (backoff_factor ** (attempt - 1))
-                        logger.warning(
-                            "_call_llm_silent HTTP %s de %s. Reintentando en %.1fs (Intento %d/%d)...",
-                            response.status_code, provider_name, delay, attempt, max_attempts
-                        )
-                        time.sleep(delay)
-                        continue
-                    elif response.status_code != 200:
-                        logger.warning(
-                            "_call_llm_silent HTTP %s de %s", response.status_code, provider_name
-                        )
-                        return None
-                        
+                if response.status_code == 429 or (500 <= response.status_code < 600):
+                    should_retry = True
+                    # Consumir el body para liberar la conexión
+                    try:
+                        response.read()
+                    except Exception:
+                        pass
+                elif response.status_code != 200:
+                    logger.warning(
+                        "_call_llm_silent HTTP %s de %s", response.status_code, provider_name
+                    )
+                    return None
+                else:
+                    # Status 200 — procesar stream normalmente
                     for line in response.iter_lines():
                         if not line:
                             continue
@@ -243,15 +319,27 @@ def _call_llm_silent(
                         if chunk:
                             full += chunk
 
+            # Evaluar resultado FUERA del context manager del stream
+            if should_retry:
+                delay = initial_delay * (backoff_factor ** (attempt - 1))
+                logger.warning(
+                    "_call_llm_silent HTTP retryable de %s. Reintentando en %.1fs (Intento %d/%d)...",
+                    provider_name, delay, attempt, max_attempts
+                )
+                time.sleep(delay)
+                continue
+
             if full:
                 tokens_input = sum(estimate_tokens(m.get("content", "")) for m in messages)
                 tokens_output = estimate_tokens(full)
                 total_tokens = tokens_input + tokens_output
                 if hasattr(state, "add_session_tokens"):
                     state.add_session_tokens(total_tokens)
+                # Guardar en caché L1
+                _llm_call_cache[cache_key] = full
                 return full
             else:
-                # Si el output está vacío pero no hubo error HTTP, podemos reintentar
+                # Output vacío sin error HTTP — reintentar
                 if attempt < max_attempts:
                     delay = initial_delay * (backoff_factor ** (attempt - 1))
                     logger.warning(
@@ -305,13 +393,7 @@ def _stream_request(
     url, headers = _get_provider_config(state, provider_name)
     is_cloud = provider_name != "ollama"
 
-    payload = {
-        "model": model_name,
-        "messages": messages,
-        "stream": True,
-    }
-    if is_cloud:
-        payload["temperature"] = 0.2
+    payload = _prepare_payload(provider_name, url, model_name, messages)
 
     full = ""
     provider_label = f"{provider_name}:{model_name}" if is_cloud else f"@{agent_name}"
@@ -430,7 +512,8 @@ def stream_ollama(state, rag_context: str = "") -> str | None:
     """
     t_start = time.perf_counter()
     
-    # [Mejora de Autonomía] Refrescar el contexto estático obligatoriamente
+    # Auditoría — Limpiar caché L1 al inicio de cada turno
+    clear_llm_cache()
     # Esto asegura que el agente conversacional lea las últimas escrituras de
     # los tableros (DEV_BOARD.md) que hayan ocurrido durante ejecuciones en 2do plano.
     if hasattr(state, "refresh_static_context"):

@@ -413,16 +413,10 @@ def _project_create(raw_path: str, state, rag, display_header_func, methodology:
     state.refresh_static_context()
 
     if Confirm.ask("¿Indexar el proyecto en el RAG para análisis inteligente?", default=True):
-        result = {"count": 0}
-
-        def _index_worker():
-            result["count"] = rag.index_codebase(project_path)
-
-        thread = threading.Thread(target=_index_worker, daemon=True)
-        thread.start()
-
-        with TaskProgress(tui_engine, "project_rag", "Indexando proyecto con RAG..."):
-            thread.join()
+        try:
+            rag.index_codebase(project_path)
+        except KeyboardInterrupt:
+            console.print("\n[bold yellow]⚠ Indexación cancelada por el usuario.[/bold yellow]")
 
     input("\nPresiona Enter para continuar...")
 
@@ -601,6 +595,6 @@ def _handle_compile(state) -> None:
             if os.path.exists(path):
                 try:
                     os.remove(path)
-                except:
+                except Exception:
                     pass
         console.print("✓ Compilación exitosa. Circuit Breaker restablecido.")

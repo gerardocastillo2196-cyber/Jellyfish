@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import logging
 from rich.console import Console
@@ -215,6 +216,7 @@ class TaskRunnerPhase:
             success_task = False
             task_elapsed = 0.0
             task_result = None
+            created_files = []
 
             short_desc = f"Tarea {task_id_str}: {task_desc[:50]}..."
             feedback = ""
@@ -247,8 +249,7 @@ class TaskRunnerPhase:
                                 
                             # Interceptor HITL (Requirement 2 & 3)
                             if "[ASK_USER:" in response_chunk:
-                                import re as _re
-                                ask_match = _re.search(r'\[ASK_USER:\s*(.*?)\]', response_chunk, _re.DOTALL)
+                                ask_match = re.search(r'\[ASK_USER:\s*(.*?)\]', response_chunk, re.DOTALL)
                                 if ask_match:
                                     question = ask_match.group(1).strip()
                                 else:
@@ -269,8 +270,7 @@ class TaskRunnerPhase:
                                 continue
                                 
                             # Detectar si solicita ejecutar comando
-                            import re as _re
-                            cmd_match = _re.search(r'<run_command>(.*?)</run_command>', response_chunk, _re.DOTALL)
+                            cmd_match = re.search(r'<run_command>(.*?)</run_command>', response_chunk, re.DOTALL)
                             if cmd_match:
                                 cmd_to_run = cmd_match.group(1).strip()
                                 console.print(f"       ⚙ Agente @{agent_name} ejecutando comando ReAct: {cmd_to_run}")
@@ -348,7 +348,6 @@ class TaskRunnerPhase:
                             if "docker-compose.yml" in path or "docker-compose.yaml" in path:
                                 abs_compose_path = os.path.join(self.orchestrator.project_path, path)
                                 try:
-                                    import re
                                     with open(abs_compose_path, "r", encoding="utf-8") as f:
                                         content = f.read()
                                     context_matches = re.findall(r'context:\s*[\'"]?([^\s\'"#]+)[\'"]?', content)
@@ -550,6 +549,56 @@ class TaskRunnerPhase:
 
                 # Actualizar DAILY.md con handoff
                 self.orchestrator._write_task_handoff_with_status(task_id_str, agent_name, task_desc, output_file, status_text)
+
+                # Actualizar DEVELOPMENT_LOG.md (Sprint 13 — Bitácora de Coherencia sin LLM pesado)
+                try:
+                    from core.orchestration.code_analyzer import format_analysis_for_log
+                    
+                    # Generar resumen semántico ultra-corto (máximo 15 palabras)
+                    semantic_summary = ""
+                    summary_sys = "Eres el Escritor de Bitácoras de Jellyfish. Genera un resumen semántico de 1 sola oración y muy breve (máximo 15 palabras) de los cambios realizados en esta tarea."
+                    summary_user = f"Tarea: {task_desc}\nCódigo generado:\n{task_result[:1500] if task_result else 'Sin código'}"
+                    try:
+                        summary_res = _call_llm_silent(
+                            self.orchestrator.state,
+                            [
+                                {"role": "system", "content": summary_sys},
+                                {"role": "user", "content": summary_user}
+                            ],
+                            provider=self.orchestrator.state.provider,
+                            model=self.orchestrator.state.model
+                        )
+                        if summary_res:
+                            semantic_summary = summary_res.strip().replace("\n", " ")
+                    except Exception as llm_err:
+                        logger.warning("No se pudo generar el resumen semántico con LLM: %s", llm_err)
+                    
+                    if not semantic_summary:
+                        semantic_summary = f"Completó la tarea: {task_desc[:60]}..."
+
+                    log_entry = format_analysis_for_log(
+                        task_id=task_id_str,
+                        agent_name=agent_name,
+                        task_desc=task_desc,
+                        created_files=created_files,
+                        project_path=self.orchestrator.project_path,
+                        semantic_summary=semantic_summary
+                    )
+
+                    log_filename = "DEVELOPMENT_LOG.md"
+                    existing_log = self.orchestrator._read_project_file(log_filename) or ""
+                    
+                    if not existing_log.strip():
+                        existing_log = (
+                            "# Jellyfish OS — Bitácora de Desarrollo Coherente\n\n"
+                            "Este archivo documenta las modificaciones realizadas por cada agente en el pipeline.\n\n"
+                        )
+                    
+                    updated_log = existing_log.rstrip() + "\n\n" + log_entry
+                    self.orchestrator._write_project_file(log_filename, updated_log)
+                    console.print("       [dim]✓ Bitácora de desarrollo actualizada (DEVELOPMENT_LOG.md)[/dim]")
+                except Exception as log_err:
+                    logger.warning("No se pudo escribir en DEVELOPMENT_LOG.md: %s", log_err)
 
                 # Actualizar estado de tarea individual y guardar tablero
                 from datetime import datetime

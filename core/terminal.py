@@ -424,6 +424,11 @@ def run_terminal_command(
                 process.wait(timeout=5)
             except Exception:
                 pass
+        # Auditoría — Esperar al hilo de lectura para evitar threads huérfanos
+        try:
+            reader.join(timeout=2)
+        except Exception:
+            pass
         msg = f"⏰ Timeout: el comando excedió los {actual_timeout} segundos."
         screen_console.print(f"{msg}")
         logger.warning("Timeout ejecutando: %s", actual_command[:100])

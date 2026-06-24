@@ -111,6 +111,62 @@ class AgentRegistry:
         return dict(cls._registry)
 
     @classmethod
+    def get_agents_by_agency(cls, agency_name: str) -> Dict[str, Type[BaseAgent]]:
+        """Retorna los agentes registrados que pertenecen a una agencia específica.
+
+        Args:
+            agency_name: Nombre de la agencia (ej: 'development', 'marketing').
+
+        Returns:
+            Diccionario {nombre: clase} de agentes de esa agencia.
+        """
+        result: Dict[str, Type[BaseAgent]] = {}
+        for name, agent_cls in cls._registry.items():
+            try:
+                inst = agent_cls()
+                if getattr(inst, "agency", "default").lower() == agency_name.lower():
+                    result[name] = agent_cls
+            except Exception:
+                pass
+        return result
+
+    @classmethod
+    def best_agent_for_task(
+        cls, task_description: str, agency: str = ""
+    ) -> Optional[BaseAgent]:
+        """Selecciona programáticamente al mejor agente para una tarea.
+
+        Itera los agentes registrados, calcula matches_task() para cada uno
+        y retorna la instancia con mayor puntaje. Cero tokens consumidos.
+
+        Args:
+            task_description: Texto descriptivo de la tarea.
+            agency: Si se especifica, solo considera agentes de esa agencia.
+
+        Returns:
+            Instancia del mejor agente, o None si no hay agentes.
+        """
+        best_score = -1.0
+        best_agent: Optional[BaseAgent] = None
+
+        for name, agent_cls in cls._registry.items():
+            try:
+                inst = agent_cls()
+            except Exception:
+                continue
+
+            # Filtrar por agencia si se especifica
+            if agency and getattr(inst, "agency", "default").lower() != agency.lower():
+                continue
+
+            score = inst.matches_task(task_description)
+            if score > best_score:
+                best_score = score
+                best_agent = inst
+
+        return best_agent
+
+    @classmethod
     def clear(cls) -> None:
         """Limpia el registro (útil para testing)."""
         cls._registry.clear()

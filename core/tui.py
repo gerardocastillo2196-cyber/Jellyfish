@@ -306,7 +306,8 @@ class TUIEngine:
         elapsed = time.time() - task["start_time"]
         agent_val = task.get("agent")
         
-        term_width = min(60, get_term_width())
+        # Asegurar que el ancho sea menor que la terminal real para evitar wraps de última columna
+        term_width = max(40, min(60, get_term_width() - 2))
         # Reservar unos 35 caracteres para los prefijos, tiempo y agente
         max_desc_len = max(10, term_width - 35)
         desc = raw_desc if len(raw_desc) <= max_desc_len else raw_desc[:max_desc_len] + "..."
@@ -358,7 +359,7 @@ class TUIEngine:
                 indicator.append(f" {desc} ", style="bold yellow")
                 indicator.append(f" [{elapsed_final:.1f}s] ", style="dim yellow")
 
-        local_console.print(indicator)
+        local_console.print(indicator, soft_wrap=True)
         output = buf.getvalue()
 
         with self._lock:

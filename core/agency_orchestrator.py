@@ -68,11 +68,21 @@ class AgencyOrchestrator(BaseOrchestrator):
         """Clasifica el prompt, cambia la agencia activa y ejecuta el orquestador."""
         from core.tui import TaskProgress, tui_engine
         
-        with TaskProgress(tui_engine, "auto_ceo", "CEO: Analizando requerimientos y seleccionando agencia idónea..."):
-            agency = self.classify_agency(user_prompt)
+        try:
+            with TaskProgress(tui_engine, "auto_ceo", "CEO: Analizando requerimientos y seleccionando agencia idónea..."):
+                agency = self.classify_agency(user_prompt)
+        except Exception as e:
+            logger.error("Error al clasificar agencia en CEO: %s", e)
+            agency = "development"
             
         self.state.active_agency = agency
         
-        from core.project_orchestrator import ProjectOrchestrator
-        orchestrator = ProjectOrchestrator(self.state)
-        return orchestrator.run(user_prompt)
+        try:
+            from core.project_orchestrator import ProjectOrchestrator
+            orchestrator = ProjectOrchestrator(self.state)
+            return orchestrator.run(user_prompt)
+        except Exception as e:
+            logger.error("Error crítico durante la ejecución de la agencia %s: %s", agency, e, exc_info=True)
+            from core.ui import console
+            console.print(f"\n[bold red]❌ Error Crítico en Orquestador de Agencia ({agency}):[/bold red] {e}")
+            return f"Error de orquestación en la agencia '{agency}': {e}"
