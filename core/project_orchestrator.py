@@ -34,6 +34,11 @@ logger = logging.getLogger("jellyfish.project_orchestrator")
 console = Console()
 
 class SilentExecutionRedirect:
+    """Context manager que redirige las consolas Rich a un archivo de log.
+    
+    Auditoría: Corregido para prevenir leak de file descriptors si __enter__
+    falla parcialmente (e.g. alguna consola no existe o no tiene .file).
+    """
     def __init__(self, state):
         self.state = state
         self.log_file = None
@@ -44,22 +49,36 @@ class SilentExecutionRedirect:
         log_path = os.path.join(proj_path, "jellyfish_debug.log") if proj_path else "jellyfish_debug.log"
         self.log_file = open(log_path, "a", encoding="utf-8")
         
-        from core.project_orchestrator import console as po_console
-        from core.terminal import console as term_console
-        from core.ui import console as ui_console
-        
-        self.consoles = [po_console, term_console, ui_console]
-        for c in self.consoles:
-            self.old_files[c] = c.file
-            c.file = self.log_file
+        try:
+            from core.project_orchestrator import console as po_console
+            from core.terminal import console as term_console
+            from core.ui import console as ui_console
+            
+            self.consoles = [po_console, term_console, ui_console]
+            for c in self.consoles:
+                self.old_files[c] = c.file
+                c.file = self.log_file
+        except Exception:
+            # Si falla la asignación de consoles, cerrar el archivo y propagar
+            if self.log_file:
+                self.log_file.close()
+                self.log_file = None
+            raise
             
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for c in self.consoles:
-            c.file = self.old_files.get(c, sys.stdout)
+        for c in self.old_files:
+            try:
+                c.file = self.old_files[c]
+            except Exception:
+                # Fallback: restaurar a stdout si el archivo original ya no es válido
+                c.file = sys.stdout
         if self.log_file:
-            self.log_file.close()
+            try:
+                self.log_file.close()
+            except Exception:
+                pass
 
 # Agentes que son roles de gestión y NO deben asignarse a tareas de ejecución
 _MANAGEMENT_ROLES = {"product_owner", "scrum_master", "template", "researcher"}
@@ -800,7 +819,7 @@ class ProjectOrchestrator:
             try:
                 with open(exit_code_path, "r", encoding="utf-8") as f:
                     return int(f.read().strip())
-            except:
+            except Exception:
                 pass
         return 0
 
@@ -810,7 +829,7 @@ class ProjectOrchestrator:
             try:
                 with open(cb_path, "r", encoding="utf-8") as f:
                     return int(f.read().strip())
-            except:
+            except Exception:
                 pass
         return 0
 
@@ -821,7 +840,7 @@ class ProjectOrchestrator:
             if os.path.exists(path):
                 try:
                     os.remove(path)
-                except:
+                except Exception:
                     pass
 
     def _update_circuit_breaker(self, returncode: int) -> None:
@@ -833,7 +852,7 @@ class ProjectOrchestrator:
         try:
             with open(cb_path, "w", encoding="utf-8") as f:
                 f.write(str(count))
-        except:
+        except Exception:
             pass
 
     def _extract_and_write_files(self, content: str) -> list[str]:
@@ -1460,6 +1479,7 @@ class ProjectOrchestrator:
             "DATA_SCHEMA.md",         # Modelos de datos reales
             "SECURITY.md",            # Guardrails de seguridad
             "COMPONENT_INDEX.md",     # Componentes reutilizables
+            "DEVELOPMENT_LOG.md",     # Bitácora de desarrollo (coherencia inter-agente)
             "DEPENDENCY_MANIFEST.md", # Librerías disponibles
             "PLAYBOOK.md",            # Soluciones conocidas
             "BUSINESS_CONTEXT.md",    # Contexto de negocio
@@ -1469,7 +1489,11 @@ class ProjectOrchestrator:
                 break
             content = self._read_project_file(fname)
             if content:
-                truncated = content[:4000]
+                if fname == "DEVELOPMENT_LOG.md":
+                    # Conservar el final de la bitácora (las tareas más recientes)
+                    truncated = content[-6000:]
+                else:
+                    truncated = content[:4000]
                 parts.append(f"--- {fname} ---\n{truncated}\n")
                 total_chars += len(truncated)
 

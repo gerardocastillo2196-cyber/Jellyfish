@@ -1,11 +1,16 @@
 import os
 import re
 import logging
+from pathlib import Path
 from dotenv import load_dotenv
 
 logger = logging.getLogger("jellyfish.config")
 
-AGENCY_DIR = os.getenv("JELLYFISH_AGENCY_DIR", os.path.expanduser("~/MisModelosIA/agencia"))
+# Resolución dinámica del directorio base de la agencia.
+# Prioridad: 1) variable de entorno, 2) directorio raíz del repositorio Jellyfish.
+# Esto elimina la dependencia de rutas absolutas del usuario (~/ hardcodeado).
+_REPO_ROOT = str(Path(__file__).resolve().parent.parent)
+AGENCY_DIR = os.getenv("JELLYFISH_AGENCY_DIR", _REPO_ROOT)
 
 PROVIDER_CONFIGS = {
     "ollama": {
@@ -74,6 +79,15 @@ PROVIDER_CONFIGS = {
         "base_url_env": "CUSTOM_BASE_URL",
         "default_base_url": "",
         "openai_compatible": True,
+    },
+    "claude": {
+        "label": "Claude (Anthropic)",
+        "api_key_env": "ANTHROPIC_API_KEY",
+        "api_key_aliases": ("CLAUDE_API_KEY",),
+        "base_url_env": "ANTHROPIC_BASE_URL",
+        "base_url_aliases": ("CLAUDE_BASE_URL",),
+        "default_base_url": "https://api.anthropic.com/v1",
+        "openai_compatible": False,
     },
 }
 
@@ -231,6 +245,7 @@ def save_config_to_env(state, **kwargs) -> None:
         "kimi_key": "KIMI_API_KEY",
         "zhipu_key": "ZHIPU_API_KEY",
         "custom_key": "CUSTOM_API_KEY",
+        "claude_key": "ANTHROPIC_API_KEY",
         "ollama_base_url": "OLLAMA_URL",
         "openai_base_url": "OPENAI_BASE_URL",
         "deepseek_base_url": "DEEPSEEK_BASE_URL",
@@ -240,6 +255,7 @@ def save_config_to_env(state, **kwargs) -> None:
         "kimi_base_url": "KIMI_BASE_URL",
         "zhipu_base_url": "ZHIPU_BASE_URL",
         "custom_base_url": "CUSTOM_BASE_URL",
+        "claude_base_url": "ANTHROPIC_BASE_URL",
         "subagent_model": "JELLYFISH_SUBAGENT_MODEL",
         "subagent_provider": "JELLYFISH_SUBAGENT_PROVIDER",
         "context_limit": "JELLYFISH_CONTEXT_LIMIT",
@@ -302,6 +318,7 @@ DASHSCOPE_BASE_URL  = os.getenv("DASHSCOPE_BASE_URL", PROVIDER_CONFIGS["qwen"]["
 KIMI_BASE_URL       = os.getenv("KIMI_BASE_URL", PROVIDER_CONFIGS["kimi"]["default_base_url"])
 ZHIPU_BASE_URL      = os.getenv("ZHIPU_BASE_URL", PROVIDER_CONFIGS["zhipu"]["default_base_url"])
 CUSTOM_BASE_URL     = os.getenv("CUSTOM_BASE_URL", PROVIDER_CONFIGS["custom"]["default_base_url"])
+CLAUDE_BASE_URL     = os.getenv("ANTHROPIC_BASE_URL", os.getenv("CLAUDE_BASE_URL", PROVIDER_CONFIGS["claude"]["default_base_url"]))
 OPENAI_API_KEY      = os.getenv("OPENAI_API_KEY", "")
 DEEPSEEK_API_KEY    = os.getenv("DEEPSEEK_API_KEY", "")
 OPENROUTER_API_KEY  = os.getenv("OPENROUTER_API_KEY", "")
@@ -310,6 +327,11 @@ DASHSCOPE_API_KEY   = os.getenv("DASHSCOPE_API_KEY", os.getenv("QWEN_API_KEY", "
 KIMI_API_KEY        = os.getenv("KIMI_API_KEY", os.getenv("MOONSHOT_API_KEY", ""))
 ZHIPU_API_KEY       = os.getenv("ZHIPU_API_KEY", "")
 CUSTOM_API_KEY      = os.getenv("CUSTOM_API_KEY", "")
+ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY", os.getenv("CLAUDE_API_KEY", ""))
 RELEVANCE_THRESHOLD = float(os.getenv("JELLYFISH_RAG_THRESHOLD", "1.2"))
 EMBED_MODEL         = os.getenv("JELLYFISH_EMBED_MODEL", "nomic-embed-text")
 ACTIVE_PROJECT      = os.getenv("JELLYFISH_ACTIVE_PROJECT", "")
+
+# Rutas derivadas del AGENCY_DIR — single source of truth
+DB_PATH    = os.path.join(AGENCY_DIR, "code_vector_db")
+PLUGINS_DIR = os.path.join(AGENCY_DIR, "plugins")

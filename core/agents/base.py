@@ -4,6 +4,7 @@ Define la interfaz común que todo agente Python debe implementar:
 - Metadatos estructurados (name, agency, role, expertise)
 - Generación dinámica del system prompt
 - Hooks pre_execute / post_execute para intervención programática
+- Emparejamiento programático agente↔tarea via matches_task()
 
 Referencia de acoplamiento:
     - core/state.py            → load_agent() instancia la clase y llama get_system_prompt()
@@ -12,37 +13,86 @@ Referencia de acoplamiento:
     - core/orchestration/scrum_master.py → lee .expertise para asignar tareas
 """
 
+import re
 from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, ConfigDict, Field
 
-class BaseAgent:
+
+class BaseAgent(BaseModel):
     """Clase base para todos los agentes en Jellyfish OS.
 
     Los agentes Python reemplazan los archivos .md estáticos, proveyendo:
     1. Metadatos tipados (expertise, agency) para asignación inteligente de tareas.
     2. Generación dinámica del system prompt.
     3. Hooks de ciclo de vida (pre/post ejecución) para validación programática.
+    4. Emparejamiento programático agente↔tarea sin consumir tokens del LLM.
+
+    Retrocompatibilidad:
+        Todos los agentes existentes usan super().__init__(name=..., role=..., ...)
+        y Pydantic v2 acepta keyword arguments de forma idéntica al constructor
+        clásico de Python. No se requiere modificar ningún archivo de agente.
     """
 
-    def __init__(
-        self,
-        name: str,
-        role: str,
-        agency: str = "default",
-        context: str = "",
-        tone: str = "Técnico, directo.",
-        expertise: Optional[List[str]] = None,
-        directives: Optional[List[str]] = None,
-        rules: Optional[List[str]] = None,
-    ):
-        self.name = name
-        self.role = role
-        self.agency = agency
-        self.context = context
-        self.tone = tone
-        self.expertise: List[str] = expertise or []
-        self.directives: List[str] = directives or []
-        self.rules: List[str] = rules or []
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    name: str = ""
+    role: str = ""
+    agency: str = "default"
+    context: str = ""
+    tone: str = "Técnico, directo."
+    expertise: List[str] = Field(default_factory=list)
+    directives: List[str] = Field(default_factory=list)
+    rules: List[str] = Field(default_factory=list)
+
+    # ── Emparejamiento Programático ────────────────────────────
+
+    def matches_task(self, task_description: str) -> float:
+        """Calcula un puntaje de afinidad agente↔tarea en Python puro.
+
+        Compara las palabras de la descripción de la tarea contra
+        las keywords de expertise y directivas del agente.
+        Retorna un float entre 0.0 (sin afinidad) y 1.0+.
+
+        Esto reemplaza la necesidad de que el LLM decida qué agente
+        es el más adecuado para cada tarea, ahorrando tokens.
+
+        El algoritmo da peso doble a coincidencias directas con
+        expertise (alta señal) vs palabras extraídas de directivas
+        (señal complementaria). Se normaliza por la cantidad de
+        palabras de la tarea cubiertas para premiar al agente que
+        cubre más aspectos de la descripción.
+
+        Args:
+            task_description: Texto descriptivo de la tarea del sprint.
+
+        Returns:
+            Float >= 0.0 indicando la afinidad (mayor = mejor).
+        """
+        task_words = set(re.findall(r'\w{3,}', task_description.lower()))
+        if not task_words:
+            return 0.0
+
+        # Expertise: coincidencias directas de alta señal (peso 2x)
+        expertise_words = set()
+        for kw in self.expertise:
+            # Soportar expertise multi-palabra como "base de datos"
+            expertise_words.update(re.findall(r'\w{3,}', kw.lower()))
+
+        # Directivas: palabras complementarias (peso 1x)
+        directive_words: set[str] = set()
+        for d in self.directives:
+            directive_words.update(re.findall(r'\w{4,}', d.lower()))
+        # Evitar duplicar lo que ya está en expertise
+        directive_words -= expertise_words
+
+        # Calcular puntaje ponderado
+        expertise_hits = len(task_words & expertise_words)
+        directive_hits = len(task_words & directive_words)
+        weighted_score = (expertise_hits * 2.0) + (directive_hits * 1.0)
+
+        # Normalizar por cantidad de palabras en la tarea
+        return weighted_score / len(task_words)
 
     # ── Generación del Prompt ──────────────────────────────────
 

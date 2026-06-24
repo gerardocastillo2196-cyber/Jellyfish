@@ -5,8 +5,48 @@ from datetime import datetime
 from rich.console import Console
 from core.tui import tui_engine, TaskProgress
 from core.state import estimate_tokens, AGENCY_DIR
+from core.agents.registry import AgentRegistry
 
 logger = logging.getLogger("jellyfish.orchestration.scrum_master")
+
+# Roles de gestión que no deben ser asignados a tareas de ejecución
+_MANAGEMENT_ROLES = {"product_owner", "scrum_master", "template", "researcher"}
+
+
+def _resolve_agent_assignments(tasks: list[dict], active_agency: str = "") -> int:
+    """Resuelve asignaciones '@autodetect' o agentes no reconocidos usando Python puro.
+
+    Recorre cada tarea y si su agente es 'autodetect' o no existe en el
+    AgentRegistry, lo reemplaza por el agente con mayor puntaje de
+    matches_task(). Cero tokens consumidos.
+
+    Args:
+        tasks: Lista de dicts con claves 'task', 'agent', etc.
+        active_agency: Agencia activa para filtrar agentes.
+
+    Returns:
+        Número de asignaciones resueltas.
+    """
+    resolved = 0
+    for task in tasks:
+        agent_name = task.get("agent", "").lower().strip()
+        needs_resolve = (
+            not agent_name
+            or agent_name == "autodetect"
+            or agent_name in _MANAGEMENT_ROLES
+            or not AgentRegistry.has(agent_name)
+        )
+        if needs_resolve:
+            task_desc = task.get("task", "")
+            best = AgentRegistry.best_agent_for_task(task_desc, agency=active_agency)
+            if best and best.name.lower() not in _MANAGEMENT_ROLES:
+                task["agent"] = best.name.lower()
+                resolved += 1
+                logger.info(
+                    "Asignación programática: tarea '%s' → @%s (score=%.3f)",
+                    task_desc[:50], best.name, best.matches_task(task_desc)
+                )
+    return resolved
 console = Console()
 
 class ScrumMasterPhase:
@@ -73,7 +113,8 @@ class ScrumMasterPhase:
             "| T-003 | Crear componente de Login | @frontend_dev | S | lib/components/Login.tsx |\n"
             "```\n\n"
             "IMPORTANTE:\n"
-            "- La columna 'Asignado' DEBE ser exactamente un @nombre de la lista de agentes.\n"
+            "- La columna 'Asignado' DEBE ser exactamente un @nombre de la lista de agentes. "
+            "Si no estás seguro de qué agente asignar, puedes usar '@autodetect' y el sistema lo resolverá automáticamente.\n"
             "- La columna 'Entregable' DEBE ser la ruta de un archivo de CÓDIGO FUENTE REAL adecuado para la tecnología del proyecto.\n"
             "- Ordena las tareas en el orden lógico de ejecución.\n"
         )
@@ -105,6 +146,12 @@ class ScrumMasterPhase:
             self.orchestrator.metrics.append({"fase": "📋 Scrum Master", "detalle": "ERROR — No se encontraron tareas", "tiempo": elapsed, "status": "❌"})
             console.print(f"❌ Error: El Scrum Master no pudo generar tareas válidas en {target_board}.")
             return False
+
+        # Sprint 13 — Resolver asignaciones @autodetect programáticamente (Python puro, 0 tokens)
+        active_agency = getattr(self.orchestrator.state, "active_agency", "")
+        resolved_count = _resolve_agent_assignments(tasks, active_agency)
+        if resolved_count:
+            console.print(f"[dim]   ⚙ Asignación programática: {resolved_count} tarea(s) resueltas automáticamente por Python[/dim]")
 
         try:
             import json

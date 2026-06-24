@@ -55,6 +55,8 @@ from core.config import (
     RELEVANCE_THRESHOLD,
     EMBED_MODEL,
     ACTIVE_PROJECT,
+    DB_PATH,
+    PLUGINS_DIR,
 )
 from core.project_manager import *
 
@@ -67,8 +69,7 @@ for _folder in ["agents", "skills", "memory", "plugins"]:
     os.makedirs(os.path.join(AGENCY_DIR, _folder), exist_ok=True)
 
 # System constants
-DB_PATH = os.path.join(AGENCY_DIR, "code_vector_db")
-PLUGINS_DIR = os.path.join(AGENCY_DIR, "plugins")
+# DB_PATH y PLUGINS_DIR se importan desde core.config (single source of truth)
 
 _CHARS_PER_TOKEN = 4
 _MODEL_TOKEN_LIMIT = int(os.getenv("JELLYFISH_CONTEXT_LIMIT", "8192"))
@@ -197,6 +198,7 @@ class JellyfishState:
             "DATA_SCHEMA.md",         # Modelos de datos
             "SECURITY.md",            # Guardrails de seguridad
             "COMPONENT_INDEX.md",     # Componentes reutilizables
+            "DEVELOPMENT_LOG.md",     # Bitácora de desarrollo (coherencia)
             "DEPENDENCY_MANIFEST.md", # Librerías disponibles
             "BUSINESS_CONTEXT.md",    # Contexto de negocio
         ]
@@ -416,7 +418,20 @@ class JellyfishState:
             skill_name = os.path.basename(skill_path)[:-3].lower()
             
             if len(self.active_skills) <= 3 or not recent_text or skill_name in recent_text or "always" in skill_name:
-                content = _safe_read(skill_path)
+                content = ""
+                # Si es un archivo Python, instanciar a través del registry y obtener instrucciones
+                if skill_path.endswith(".py"):
+                    skill_inst = SkillRegistry.get(skill_name)
+                    if skill_inst:
+                        try:
+                            content = skill_inst.get_instructions()
+                        except Exception as e:
+                            logger.warning("Error al obtener instrucciones de la skill %s: %s", skill_name, e)
+                
+                # Fallback o si es .md
+                if not content:
+                    content = _safe_read(skill_path)
+                    
                 if content:
                     self.static_history.append({
                         "role": "system",
@@ -455,7 +470,7 @@ class JellyfishState:
             # Documentos de inteligencia técnica + mínimo Scrum
             _intelligence_files = [
                 "DESIGN_TOKENS.md", "DATA_SCHEMA.md", "SECURITY.md",
-                "COMPONENT_INDEX.md", "DEPENDENCY_MANIFEST.md",
+                "COMPONENT_INDEX.md", "DEVELOPMENT_LOG.md", "DEPENDENCY_MANIFEST.md",
                 "PLAYBOOK.md", "BUSINESS_CONTEXT.md", "PROJECT_TREE.md",
             ]
             if methodology == "cascada":

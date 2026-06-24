@@ -255,6 +255,7 @@ class TestTokenBudget:
         try:
             state = JellyfishState()
             state.active_project = temp_dir
+            state.history.clear()  # Limpiar cualquier historial residual del host de desarrollo
             
             # Append something to history
             state.history.append({"role": "user", "content": "Hola test"})
@@ -294,6 +295,7 @@ class TestProviderConfig:
         assert normalize_provider("dashscope") == "qwen"
         assert normalize_provider("moonshot") == "kimi"
         assert normalize_provider("glm") == "zhipu"
+        assert normalize_provider("claude") == "claude"
 
     def test_openai_compatible_url_for_gemini(self):
         from core.llm_engine import _get_provider_config
@@ -310,6 +312,18 @@ class TestProviderConfig:
         assert url == "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
         assert headers["Authorization"] == "Bearer GeminiKeyABC"
 
+    def test_prepare_payload_gemini_translation(self):
+        from core.llm_engine import _prepare_payload
+        messages = [{"role": "user", "content": "Hola."}]
+        
+        # Test translation of gemini-3.1-pro-low to gemini-3.1-pro
+        payload1 = _prepare_payload("gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.1-pro-low", messages, 1)
+        assert payload1["model"] == "gemini-3.1-pro"
+
+        # Test translation of gemini-3.5-flash-medium to gemini-3.5-flash
+        payload2 = _prepare_payload("gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.5-flash-medium", messages, 1)
+        assert payload2["model"] == "gemini-3.5-flash"
+
     def test_config_key_preserves_case(self):
         from core.crud import _handle_config
 
@@ -322,6 +336,66 @@ class TestProviderConfig:
         state = DummyState()
         _handle_config("key openai Sk-ABC_def-123", state, lambda: None)
         assert state.saved["openai_key"] == "Sk-ABC_def-123"
+
+    def test_get_provider_config_native_claude(self):
+        from core.llm_engine import _get_provider_config
+
+        class DummyState:
+            provider = "claude"
+            base_urls = {"claude": "https://api.anthropic.com/v1"}
+            api_keys = {"claude": "ClaudeKey123"}
+            claude_base_url = base_urls["claude"]
+            claude_api_key = api_keys["claude"]
+
+        url, headers = _get_provider_config(DummyState(), "claude")
+        assert url == "https://api.anthropic.com/v1/messages"
+        assert headers["x-api-key"] == "ClaudeKey123"
+        assert headers["anthropic-version"] == "2023-06-01"
+
+    def test_prepare_payload_claude(self):
+        from core.llm_engine import _prepare_payload
+        
+        messages = [
+            {"role": "system", "content": "Eres un programador experto."},
+            {"role": "user", "content": "Hola Claude."}
+        ]
+        
+        # Test native Claude payload preparation
+        payload = _prepare_payload("claude", "https://api.anthropic.com/v1/messages", "claude-3-5-sonnet", messages, 1)
+        assert payload["model"] == "claude-3-5-sonnet"
+        assert payload["system"] == "Eres un programador experto."
+        assert len(payload["messages"]) == 1
+        assert payload["messages"][0]["role"] == "user"
+        assert payload["messages"][0]["content"] == "Hola Claude."
+        assert payload["max_tokens"] == 4096
+        assert payload["temperature"] == 0.2
+        
+        # Test OpenAI compatible Claude payload (no native api.anthropic.com base url)
+        payload_openai = _prepare_payload("claude", "https://api.openrouter.ai", "claude-3-5-sonnet", messages, 1)
+        assert payload_openai["model"] == "claude-3-5-sonnet"
+        assert "system" not in payload_openai
+        assert len(payload_openai["messages"]) == 2
+        assert payload_openai["messages"][0]["role"] == "system"
+        assert "max_tokens" not in payload_openai
+
+    def test_prepare_payload_ollama(self):
+        from core.llm_engine import _prepare_payload
+        
+        messages = [
+            {"role": "system", "content": "Eres un programador experto."},
+            {"role": "user", "content": "Hola Ollama."}
+        ]
+        
+        payload = _prepare_payload("ollama", "http://localhost:11434/api/chat", "qwen2.5-coder", messages, 1)
+        assert payload["model"] == "qwen2.5-coder"
+        assert "system" not in payload
+        assert "max_tokens" not in payload
+        assert "temperature" not in payload
+        assert len(payload["messages"]) == 2
+        assert payload["messages"][0]["role"] == "system"
+        assert payload["messages"][0]["content"] == "Eres un programador experto."
+        assert payload["messages"][1]["role"] == "user"
+        assert payload["messages"][1]["content"] == "Hola Ollama."
 
 
 # ---------------------------------------------------------------------------
@@ -824,6 +898,8 @@ class TestJellyfishV7Features:
         state.active_project = str(project_dir)
         
         orchestrator = ProjectOrchestrator(state)
+        # Bypasar el auto-healing para evitar llamadas LLM/Ollama reales durante el test
+        orchestrator._auto_heal_build_error = lambda cmd, code, out: (code, out)
         
         # Mock run_terminal_command to simulate build failure
         with patch("core.terminal.run_terminal_command") as mock_run:

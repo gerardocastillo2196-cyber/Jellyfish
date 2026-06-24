@@ -36,16 +36,10 @@ def _handle_add(arg: str, state, rag, display_header_func):
 
     if os.path.isdir(path):
         console.print()
-        result = {"count": 0}
-
-        def _index_worker():
-            result["count"] = rag.index_codebase(path)
-
-        thread = threading.Thread(target=_index_worker, daemon=True)
-        thread.start()
-
-        with TaskProgress(tui_engine, "rag_index", "Indexando código con RAG..."):
-            thread.join()
+        try:
+            rag.index_codebase(path)
+        except KeyboardInterrupt:
+            console.print("\n[bold yellow]⚠ Indexación cancelada por el usuario.[/bold yellow]")
     else:
         state.add_context_file(path)
 
