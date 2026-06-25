@@ -9,6 +9,7 @@ from rich.panel import Panel
 from rich.console import Console
 from prompt_toolkit import PromptSession
 from prompt_toolkit.validation import Validator, ValidationError
+from prompt_toolkit.key_binding import KeyBindings
 
 logger = logging.getLogger("jellyfish.terminal")
 console = Console()
@@ -457,3 +458,68 @@ def run_terminal_command(
         if return_code_dict is not None:
             return_code_dict['returncode'] = -1
         return str(e)
+
+
+from prompt_toolkit.key_binding.defaults import load_key_bindings
+from prompt_toolkit.key_binding import merge_key_bindings
+
+def get_global_keybindings(state) -> KeyBindings:
+    """Configura y retorna atajos de teclado globales para la TUI de Jellyfish (FASE 1)."""
+    kb = KeyBindings()
+
+    @kb.add('c-a')
+    def _agent_status_view(event):
+        """Ctrl+A — Muestra estado detallado de los agentes en el panel de logs."""
+        from core.tui import tui_engine
+        tui_engine.append_log("\n📋 [VISTA DE AGENTES] Estado detallado de los agentes:\n")
+        agent_statuses = getattr(state, "agent_statuses", {})
+        for name, status in agent_statuses.items():
+            tui_engine.append_log(f"  - @{name:<20}: {status}\n")
+        tui_engine.append_log("\n")
+
+    @kb.add('c-r')
+    def _force_rag_reload(event):
+        """Ctrl+R — Fuerza recarga/reindexación del motor RAG."""
+        from core.tui import tui_engine
+        tui_engine.append_log("\n🔄 [RAG] Forzando reindexación del motor RAG...\n")
+        if getattr(state, "rag", None):
+            try:
+                state.rag.reindex()
+                tui_engine.append_log("✓ [RAG] Motor reindexado con éxito.\n")
+            except Exception as e:
+                tui_engine.append_log(f"❌ [RAG] Error al reindexar: {e}\n")
+        else:
+            tui_engine.append_log("⚠️ [RAG] Motor RAG no activo en el estado.\n")
+
+    @kb.add('c-l')
+    def _clear_logs(event):
+        """Ctrl+L — Limpia la pantalla de logs de la TUI."""
+        from core.tui import tui_engine
+        tui_engine.clear_scroll_region()
+        tui_engine.append_log("✓ Pantalla de logs limpia.\n")
+
+    @kb.add('c-s')
+    def _save_chat(event):
+        """Ctrl+S — Guarda el chat actual en un archivo Markdown."""
+        from core.tui import tui_engine
+        import time as _time
+        base_dir = state.active_project if getattr(state, "active_project", None) else os.getcwd()
+        chat_dir = os.path.join(base_dir, "memory")
+        os.makedirs(chat_dir, exist_ok=True)
+        filename = f"chat_{_time.strftime('%Y%m%d_%H%M%S')}.md"
+        filepath = os.path.join(chat_dir, filename)
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(f"# Chat Jellyfish — {_time.strftime('%Y-%m-%d %H:%M')}\n\n")
+                f.write(f"**Agente:** @{state.active_agent}\n")
+                f.write(f"**Modelo:** {state.model} ({state.provider})\n\n---\n\n")
+                for msg in state.history:
+                    role = msg.get('role', 'unknown').upper()
+                    content = msg.get('content', '')
+                    f.write(f"### {role}\n\n{content}\n\n---\n\n")
+            tui_engine.append_log(f"✓ Chat guardado: {filepath}\n")
+        except OSError as e:
+            tui_engine.append_log(f"Error guardando chat: {e}\n")
+
+    return merge_key_bindings([load_key_bindings(), kb])
+

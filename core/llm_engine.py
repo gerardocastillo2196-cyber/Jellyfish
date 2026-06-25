@@ -213,11 +213,11 @@ def _prepare_payload(provider_name: str, url: str, model_name: str, messages: li
     # Mapeo de modelos locales/antigravity de Gemini a IDs oficiales de la API de Google
     if provider_name == "gemini":
         gemini_mapping = {
-            "gemini-3.5-flash-medium": "gemini-3.5-flash",
-            "gemini-3.5-flash-high": "gemini-3.5-flash",
-            "gemini-3.5-flash-low": "gemini-3.5-flash",
-            "gemini-3.1-pro-low": "gemini-3.1-pro",
-            "gemini-3.1-pro-high": "gemini-3.1-pro",
+            "gemini-2.5-flash": "gemini-2.5-flash",
+            "gemini-2.5-pro": "gemini-2.5-pro",
+            "gemini-2.0-flash": "gemini-2.0-flash",
+            "gemini-1.5-flash": "gemini-1.5-flash",
+            "gemini-1.5-pro": "gemini-1.5-pro",
         }
         model_name = gemini_mapping.get(model_name, model_name)
 
@@ -254,6 +254,7 @@ def _call_llm_silent(
     messages: list,
     provider: str | None = None,
     model: str | None = None,
+    timeout: float | None = None,
 ) -> str | None:
     """Llama al LLM sin mostrar streaming en pantalla (para subagentes internos).
 
@@ -297,7 +298,7 @@ def _call_llm_silent(
             # el status code, y luego procesamos el stream solo si es 200.
             # Esto evita el bug donde `continue` no escapaba del context manager.
             should_retry = False
-            with client.stream("POST", url, headers=headers, json=payload) as response:
+            with client.stream("POST", url, headers=headers, json=payload, timeout=timeout) as response:
                 if response.status_code == 429 or (500 <= response.status_code < 600):
                     should_retry = True
                     # Consumir el body para liberar la conexión

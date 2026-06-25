@@ -18,11 +18,24 @@ logger = logging.getLogger("jellyfish.ui")
 # --- CONFIGURACIÓN DE APARIENCIA ---
 console = Console()
 
+# Código de Colores Estricto para el estado global (FASE 1)
+GLOBAL_STATUS_COLORS = {
+    "OK": "green",              # Verde (OK)
+    "PROCESS": "yellow",        # Amarillo (Proceso/RAG activo)
+    "ERROR": "red",             # Rojo (Error/Bloqueo)
+    "INPUT_REQUIRED": "blue"    # Azul (Input humano requerido)
+}
+
 # Estilo para el autocompletado (Púrpura Profundo)
 claude_style = Style.from_dict({
     'completion-menu': 'bg:#2d004d #ffffff',
     'completion-menu.completion': 'bg:#2d004d #bbbbbb',
     'completion-menu.completion.current': 'bg:#5e008b #ffffff',
+    # Estilos del estado global
+    'status-ok': 'bg:#22c55e #ffffff bold',
+    'status-process': 'bg:#eab308 #000000 bold',
+    'status-error': 'bg:#ef4444 #ffffff bold',
+    'status-input': 'bg:#3b82f6 #ffffff bold',
 })
 
 # Consola global con ancho controlado
@@ -240,6 +253,14 @@ def interactive_picker(title: str, options: list, add_back: bool = True,
     if add_back:
         options = list(options) + [".. VOLVER"]
 
+    # Integración TUI: Si la TUI está activa, usamos el menú de autocompletado en el prompt
+    from core.tui import tui_engine
+    if getattr(tui_engine, "_initialized", False) and tui_engine.active_tui_app:
+        selected = tui_engine.prompt_menu(title, options)
+        if selected is None or selected == ".. VOLVER":
+            return None
+        return selected
+
     current_index = 0
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
@@ -443,7 +464,7 @@ def handle_exit_flow(state) -> None:
     analysis = None
     try:
         with TaskProgress(tui_engine, "error_diagnose", "Generando diagnóstico de errores..."):
-            analysis = _call_llm_silent(state, messages)
+            analysis = _call_llm_silent(state, messages, timeout=12.0)
     except Exception as le:
         logger.error("Error al invocar LLM para diagnóstico: %s", le)
 

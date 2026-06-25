@@ -125,6 +125,25 @@ class BaseAgent(BaseModel):
 
         return "\n".join(parts)
 
+    # ── Suscripción a Eventos (FASE 3 Blackboard) ───────────────
+
+    def subscribe_to_blackboard(self, state) -> None:
+        """Suscribe el agente a variables de interés en el Blackboard global."""
+        if hasattr(state, "blackboard"):
+            for var in self.get_subscribed_variables():
+                state.blackboard.subscribe(var, self.handle_blackboard_update)
+
+    def get_subscribed_variables(self) -> List[str]:
+        """Define qué variables del Blackboard le interesan a este agente.
+        
+        Por ejemplo, retornar ['technical_decision'] para reaccionar a ella.
+        """
+        return []
+
+    def handle_blackboard_update(self, key: str, value: Any) -> None:
+        """Callback invocado automáticamente cuando cambia una variable suscrita."""
+        pass
+
     # ── Hooks de Ciclo de Vida ─────────────────────────────────
 
     def pre_execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> None:
