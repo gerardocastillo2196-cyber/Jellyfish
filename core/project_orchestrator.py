@@ -208,13 +208,21 @@ def _parse_sprint_tasks(board_content: str) -> list[dict]:
         estimate = "M"
         output_file = "src/output.md"
         
+        dependencies = []
         if len(cells) == 4:
             # La columna de estimación fue omitida: ID, Tarea, Agente, Entregable
             output_file = cells[3].replace("`", "").replace("*", "").strip()
-        elif len(cells) >= 5:
+        elif len(cells) == 5:
             # Estructura estándar: ID, Tarea, Agente, Estimación, Entregable
             estimate = cells[3].replace("`", "").replace("*", "").strip()
             output_file = cells[4].replace("`", "").replace("*", "").strip()
+        elif len(cells) >= 6:
+            # Estructura estándar con dependencias: ID, Tarea, Agente, Estimación, Entregable, Dependencias
+            estimate = cells[3].replace("`", "").replace("*", "").strip()
+            output_file = cells[4].replace("`", "").replace("*", "").strip()
+            dep_cell = cells[5].replace("`", "").replace("*", "").strip()
+            if dep_cell and dep_cell.lower() not in ("ninguna", "ninguno", "-", "none", ""):
+                dependencies = [d.strip().upper() for d in dep_cell.split(",") if d.strip()]
             
         # Detección inteligente si se cruzaron o desplazaron las columnas de Estimación y Entregable
         if estimate and ("." in estimate or "/" in estimate or "\\" in estimate) and (not output_file or output_file == "src/output.md"):
@@ -233,7 +241,8 @@ def _parse_sprint_tasks(board_content: str) -> list[dict]:
                 "task": task_desc,
                 "agent": agent_name,
                 "estimate": estimate,
-                "output_file": output_file
+                "output_file": output_file,
+                "dependencies": dependencies
             })
 
     return tasks

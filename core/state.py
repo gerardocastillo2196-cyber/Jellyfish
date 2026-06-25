@@ -13,7 +13,10 @@ try:
     def _patched_parse_color(text: str) -> str:
         if text == "ansibrightwhite":
             return "ansiwhite"
-        return _orig_parse_color(text)
+        try:
+            return _orig_parse_color(text)
+        except ValueError:
+            return ""
         
     pt_style.parse_color = _patched_parse_color
     if hasattr(pt_styles_mod, 'parse_color'):
@@ -22,6 +25,47 @@ except ImportError:
     pass
 
 logger = logging.getLogger("jellyfish.state")
+
+class Blackboard:
+    """Registro centralizado inmutable (Blackboard) para comunicación desacoplada.
+    
+    FASE 3: Los agentes no se comunican directamente sino escribiendo y leyendo de aquí.
+    Soporta eventos reactivos mediante suscripciones.
+    """
+    def __init__(self):
+        self._variables = {}
+        self._subscribers = {}
+
+    def get(self, key: str, default=None):
+        """Retorna el último valor registrado para una variable."""
+        values = self._variables.get(key)
+        if values:
+            return values[-1]  # Inmutable: el histórico se preserva, retornamos el último
+        return default
+
+    def get_history(self, key: str) -> list:
+        """Retorna el historial completo de cambios de una variable."""
+        return list(self._variables.get(key, []))
+
+    def set(self, key: str, value) -> None:
+        """Registra un nuevo valor para una variable (historial inmutable)."""
+        if key not in self._variables:
+            self._variables[key] = []
+        self._variables[key].append(value)
+        
+        # Notificar a suscriptores reactivos
+        if key in self._subscribers:
+            for callback in self._subscribers[key]:
+                try:
+                    callback(key, value)
+                except Exception as e:
+                    logger.error("Error al notificar al suscriptor de la variable %s: %s", key, e)
+
+    def subscribe(self, key: str, callback) -> None:
+        """Registra una función callback para reaccionar a cambios en una variable."""
+        if key not in self._subscribers:
+            self._subscribers[key] = []
+        self._subscribers[key].append(callback)
 
 # Import config constants, variables and functions
 from core.config import (
@@ -179,6 +223,18 @@ class JellyfishState:
         self.history_summary: str = ""
         self.summarized_message_count: int = 0
         self._summarizing: bool = False
+        
+        # Blackboard y Estado Global (FASE 3)
+        self.blackboard = Blackboard()
+        self.global_status: str = "OK"  # OK, PROCESS, ERROR, INPUT_REQUIRED
+        self.agent_statuses: dict[str, str] = {
+            "product_owner": "Inactivo",
+            "scrum_master": "Inactivo",
+            "developer": "Inactivo",
+            "qa_engineer": "Inactivo",
+            "arquitecto_software": "Inactivo",
+            "devops": "Inactivo"
+        }
         
         # Cargar configuración dinámica
         self.load_config()

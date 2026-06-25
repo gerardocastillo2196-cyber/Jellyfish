@@ -316,13 +316,13 @@ class TestProviderConfig:
         from core.llm_engine import _prepare_payload
         messages = [{"role": "user", "content": "Hola."}]
         
-        # Test translation of gemini-3.1-pro-low to gemini-3.1-pro
-        payload1 = _prepare_payload("gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.1-pro-low", messages, 1)
-        assert payload1["model"] == "gemini-3.1-pro"
+        # Test translation of gemini-1.5-flash to gemini-1.5-flash
+        payload1 = _prepare_payload("gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-1.5-flash", messages, 1)
+        assert payload1["model"] == "gemini-1.5-flash"
 
-        # Test translation of gemini-3.5-flash-medium to gemini-3.5-flash
-        payload2 = _prepare_payload("gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.5-flash-medium", messages, 1)
-        assert payload2["model"] == "gemini-3.5-flash"
+        # Test translation of gemini-2.5-flash to gemini-2.5-flash
+        payload2 = _prepare_payload("gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-flash", messages, 1)
+        assert payload2["model"] == "gemini-2.5-flash"
 
     def test_config_key_preserves_case(self):
         from core.crud import _handle_config

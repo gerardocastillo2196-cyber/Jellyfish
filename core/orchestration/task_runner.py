@@ -14,6 +14,40 @@ from core.skills.registry import SkillRegistry
 logger = logging.getLogger("jellyfish.orchestration.task_runner")
 console = Console()
 
+MAX_RETRIES = 3  # FASE 4: Límite de escalada para reintentos automáticos
+
+def topological_sort(tasks: list[dict]) -> list[dict]:
+    """Ordena las tareas del sprint respetando sus dependencias declaradas (DAG)."""
+    task_map = {t["id"]: t for t in tasks}
+    adj = {t["id"]: [] for t in tasks}
+    in_degree = {t["id"]: 0 for t in tasks}
+    
+    for t in tasks:
+        deps = t.get("dependencies", [])
+        for dep in deps:
+            if dep in task_map:
+                adj[dep].append(t["id"])
+                in_degree[t["id"]] += 1
+                
+    from collections import deque
+    queue = deque([t["id"] for t in tasks if in_degree[t["id"]] == 0])
+    
+    sorted_ids = []
+    while queue:
+        u = queue.popleft()
+        sorted_ids.append(u)
+        for v in adj[u]:
+            in_degree[v] -= 1
+            if in_degree[v] == 0:
+                queue.append(v)
+                
+    if len(sorted_ids) != len(tasks):
+        logger.warning("Ciclo detectado en dependencias de tareas, usando orden original.")
+        return tasks
+        
+    return [task_map[tid] for tid in sorted_ids]
+
+
 class TaskRunnerPhase:
     """Fase 3 del desarrollo autónomo: Task Runner, ReAct loop y control transaccional."""
 
@@ -22,7 +56,6 @@ class TaskRunnerPhase:
 
     def run(self, user_idea: str) -> None:
         """Parsea el tablero de la agencia y ejecuta cada tarea con su agente asignado."""
-        # Cargar tareas prioritariamente desde JSON estructurado, con fallback a Markdown (Mejora 11)
         tasks = []
         try:
             import json
@@ -44,19 +77,34 @@ class TaskRunnerPhase:
             console.print(f"⚠ No se encontraron tareas en el tablero {self.orchestrator.board_filename}.")
             return
 
+        # FASE 2: Ordenamiento topológico del Grafo Dirigido (DAG)
+        tasks = topological_sort(tasks)
+
         console.print(
-            f"\n━━━ FASE 3: 🚀 Task Runner — {len(tasks)} tareas ━━━\n"
+            f"\n━━━ FASE 3: 🚀 Task Runner — {len(tasks)} tareas ordenadas por dependencias (DAG) ━━━\n"
         )
 
         for i, task in enumerate(tasks):
             task_num = i + 1
             agent_name = task["agent"].replace("`", "").strip()
-            task_desc = task["task"]
+            original_task_desc = task["task"]
+            task_desc = original_task_desc
             output_file = task.get("output_file", "").strip().replace("`", "")
             task_id_str = task.get("id", f"T-{task_num:03d}").replace("*", "").replace("`", "").strip()
 
             if not output_file or output_file == "—":
                 output_file = f"TASK_{task_id_str.replace('-', '_')}.md"
+
+            # FASE 2 / FASE 3: Verificar que las dependencias de la tarea estén completadas en el Blackboard
+            deps_ok = True
+            for dep_id in task.get("dependencies", []):
+                dep_status = self.orchestrator.state.blackboard.get(f"task_status_{dep_id}")
+                if dep_status != "completed":
+                    deps_ok = False
+                    break
+            if not deps_ok:
+                console.print(f"       ⚠️ Tarea {task_id_str} bloqueada/saltada esperando a que sus dependencias se completen.")
+                continue
 
             # Omitir tareas completadas si estamos reanudando
             if task.get("status") in ("DONE", "HECHO") or task.get("state") in ("DONE", "HECHO"):
@@ -64,568 +112,489 @@ class TaskRunnerPhase:
                     f"[bold green]  [{task_num}/{len(tasks)}] {task_id_str}:[/bold green] "
                     f"[dim]YA COMPLETADO (Saltando ejecución)[/dim]"
                 )
+                self.orchestrator.state.blackboard.set(f"task_status_{task_id_str}", "completed")
                 continue
 
-            console.print(
-                f"[bold white]  [{task_num}/{len(tasks)}] {task_id_str}:[/bold white] "
-                f"{task_desc[:60]}{'...' if len(task_desc) > 60 else ''}"
-            )
-            console.print(f"[dim]       → @{agent_name} → {output_file}[/dim]")
-
-            # Realizar git snapshot de transaccionalidad via micro-branching (Mejora 41)
-            use_microbranch = False
-            original_branch = ""
-            if self.orchestrator._is_git_repo():
-                use_microbranch, original_branch = self.orchestrator._git_start_task_branch(task_id_str)
-                snapshot_created = not use_microbranch
-            else:
-                snapshot_created = self.orchestrator._git_commit_snapshot(task_id_str)
-
-            t0 = time.perf_counter()
-
-            agent_prompt = self.orchestrator._load_agent_prompt(agent_name)
-            if not agent_prompt:
-                agent_prompt = f"Eres @{agent_name}, un especialista técnico del equipo de desarrollo."
-
-            # Sprint 12 — Resolver agente Python para hooks de ciclo de vida
-            py_agent = AgentRegistry.get(agent_name)
-            task_context = {
-                "project_path": self.orchestrator.project_path,
-                "output_file": output_file,
-                "task_id": task_id_str,
-                "agent_name": agent_name,
-            }
-
-            # Sprint 12 — Hook pre_execute (inyectar datos dinámicos, validar precondiciones)
-            if py_agent:
-                try:
-                    py_agent.pre_execute(task, task_context)
-                except Exception as pre_err:
-                    logger.warning("pre_execute de @%s falló: %s", agent_name, pre_err)
-
-            # Sprint 12 — Inyección selectiva de skills por keywords (ahorro de tokens)
-            skills_context = ""
-            relevant_skills = SkillRegistry.get_skills_for_task(
-                task_desc,
-                agency=getattr(self.orchestrator.state, "active_agency", "")
-            )
-            if relevant_skills:
-                skill_blocks = []
-                for sk in relevant_skills:
-                    try:
-                        skill_blocks.append(f"### SKILL: {sk.name}\n{sk.get_instructions()}")
-                    except Exception as sk_err:
-                        logger.warning("Skill '%s' falló en get_instructions: %s", sk.name, sk_err)
-                if skill_blocks:
-                    skills_context = (
-                        "\n\n[SKILLS RELEVANTES PARA ESTA TAREA]\n"
-                        + "\n\n".join(skill_blocks)
-                        + "\n"
-                    )
-
-            accumulated = self.orchestrator._build_intelligent_context(task_desc, output_file)
-
-            system = (
-                f"{agent_prompt}\n\n"
-                f"{skills_context}"
-                f"[TAREA ASIGNADA POR EL SCRUM MASTER]\n"
-                f"ID: {task_id_str}\n"
-                f"Descripción: {task_desc}\n"
-                f"Tu entregable: Genera el contenido COMPLETO del archivo {output_file}.\n"
-                f"REGLA CRÍTICA DE RESPUESTA: NO des explicaciones verbales, saludos ni conclusiones. Sé extremadamente conciso y directo.\n"
-                f"REGLA CRÍTICA DE COMPLETITUD: NO trunques el código. Si el archivo es grande y necesitas más espacio, no te preocupes, el sistema te pedirá que continúes. "
-                f"Sin embargo, si has terminado de generar TODO el archivo y código correspondiente de forma exitosa, tu última línea debe ser exactamente la cadena de texto: [TAREA_COMPLETADA]\n\n"
-                f"[CAPACIDAD DE EJECUCIÓN DIRECTA (ReAct - Mejora 31)]\n"
-                f"Tienes la capacidad de ejecutar comandos en el terminal de forma autónoma durante esta tarea. "
-                f"Si necesitas verificar si un archivo existe, ver su contenido, verificar versiones, "
-                f"ejecutar un script de prueba o verificar la compilación antes de entregar, puedes hacerlo respondiendo únicamente con el comando envuelto en la etiqueta <run_command>.\n"
-                f"Ejemplo: <run_command>npm test</run_command> o <run_command>python3 -c \"import os; print(os.listdir('.'))\"</run_command>.\n"
-                f"El sistema ejecutará el comando y te devolverá el output. Después de recibir la respuesta, podrás continuar redactando el entregable o solicitar más comandos.\n\n"
-                f"[REGLAS DE AUTO-CORRECCIÓN DOD]\n"
-                f"Si el entregable es rechazado por control de calidad (DoD), recibirás retroalimentación específica. "
-                f"Deberás corregir los problemas indicados inmediatamente sin dejar placeholders, TODOs vacíos o secciones incompletas.\n\n"
-                f"[REGLA CRÍTICA DE SEPARACIÓN DE CÓDIGO Y DOCUMENTACIÓN]\n"
-                f"Si la tarea requiere crear o modificar archivos de código real, scripts, andamiajes o configuraciones en el disco del proyecto, "
-                f"debes especificar cada uno de ellos dentro de tu entregable utilizando etiquetas con la ruta del archivo. "
-                f"Puedes usar cualquiera de los siguientes dos formatos:\n\n"
-                f"Formato 1 (Estructura XML):\n"
-                f"<write_file path=\"ruta/relativa/archivo.ext\">\n"
-                f"contenido del archivo real aquí...\n"
-                f"</write_file>\n\n"
-                f"Formato 2 (Anotación Markdown):\n"
-                f"[WRITE_FILE: ruta/relativa/archivo.ext]\n"
-                f"```lenguaje\n"
-                f"contenido del archivo real aquí...\n"
-                f"```\n\n"
-                f"Puedes incluir múltiples archivos si es necesario. El Task Runner los extraerá y creará automáticamente en el disco. "
-                f"Asegúrate de que las rutas relativas sean correctas a partir de la raíz del proyecto.\n\n"
-                f"[REGLA DE DECISIÓN TECNOLÓGICA]\n"
-                f"REGLA DE DECISIÓN TECNOLÓGICA: Si el usuario no ha especificado explícitamente el stack tecnológico (lenguajes, bases de datos, frameworks, librerías principales) en su requerimiento, ESTÁ ESTRICTAMENTE PROHIBIDO que lo inventes o asumas. Debes detenerte y emitir la etiqueta `[ASK_USER: <tu pregunta detallada con opciones sugeridas>]`. No generes código ni diagramas de arquitectura hasta que el usuario responda.\n\n"
-                f"[REGLAS DE INFRAESTRUCTURA]\n"
-                f"REGLA ESTRUCTURAL ESTRICTA: NUNCA referencies un directorio, archivo o contexto de compilación (ej. en docker-compose) sin haber verificado primero que existe usando comandos de consola. Si configuras un servicio que requiere compilación (build), ESTÁS OBLIGADO a crear el `Dockerfile` correspondiente en la ruta exacta que especificaste y a generar el `package.json` o `requirements.txt` base si no existen. NO puedes dar una tarea de DevOps por terminada si faltan los archivos de construcción."
-            )
-
-            user_prompt = (
-                f"IDEA ORIGINAL DEL USUARIO:\n{user_idea}\n\n"
-                f"DOCUMENTOS PREVIOS DEL PROYECTO:\n{accumulated}\n\n"
-                f"TAREA: {task_desc}\n"
-                f"Genera el contenido completo de {output_file}."
-            )
-
-            # Cargar capacidades del entorno
-            capabilities_str = ""
-            cap_path = os.path.join(self.orchestrator.project_path, "env_capabilities.json")
-            if os.path.isfile(cap_path):
-                capabilities_str = _safe_read(cap_path)
-
-            env_capabilities_prompt = ""
-            if capabilities_str:
-                env_capabilities_prompt = (
-                    f"\n\n[ENTORNO REAL DEL HOST / CONTENEDORES]\n"
-                    f"Tu código debe ser 100% compatible con las siguientes herramientas y versiones reales del entorno:\n"
-                    f"```json\n{capabilities_str}\n```\n"
-                    f"Asegúrate de alinear las versiones de Gradle, Kotlin, Python, Room, etc., a estas capacidades. "
-                    f"No propongas herramientas ni configuraciones incompatibles con estas versiones."
-                )
-
-            system = system + env_capabilities_prompt
-
-            # Auto-Validación Obligatoria en el Bucle ReAct (Requirement 2)
-            task_desc_lower = task_desc.lower()
-            if any(kw in task_desc_lower for kw in ["docker", "compose", "servidor", "despliegue"]):
-                infra_validation_prompt = (
-                    "\n\n[INSTRUCCIÓN DE AUTO-VALIDACIÓN DE INFRAESTRUCTURA]\n"
-                    "Dado que esta tarea involucra docker, compose, servidor o despliegue, ESTÁS OBLIGADO "
-                    "a ejecutar obligatoriamente 'docker compose config' o 'docker compose build --no-cache' "
-                    "usando la etiqueta <run_command> como un paso ReAct para validar la configuración o compilación "
-                    "de los contenedores ANTES de emitir tu entregable final y finalizar la tarea con [TAREA_COMPLETADA]."
-                )
-                system = system + infra_validation_prompt
-
-            # Lazo de compilación y depuración (Compile & Debug Loop) - Sprint 12
-            max_attempts = 5
-            build_cmd = self.orchestrator._detect_compile_command()
-
-            # Definir la estructura base de los mensajes de forma inmutable para la tarea actual
-            base_messages = [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user_prompt}
-            ]
-
-            last_task_result = ""
+            # FASE 4: Bucle de Retroalimentación Autónoma (Auto-Retry)
+            task_retries = 0
+            last_error_log = ""
             success_task = False
-            task_elapsed = 0.0
-            task_result = None
+            task_result = ""
             created_files = []
 
-            short_desc = f"Tarea {task_id_str}: {task_desc[:50]}..."
-            feedback = ""
-            try:
-                with TaskProgress(tui_engine, f"auto_task_{i}", short_desc, agent=agent_name) as progress:
-                    for attempt in range(1, max_attempts + 1):
-                        attempt_t0 = time.perf_counter()
+            while task_retries < MAX_RETRIES:
+                # FASE 1 & FASE 3: Actualizar estados de agente y TUI global
+                if agent_name in self.orchestrator.state.agent_statuses:
+                    self.orchestrator.state.agent_statuses[agent_name] = "Ejecutando"
+                self.orchestrator.state.global_status = "PROCESS"
 
-                        # Clonar la lista base en una variable temporal para evitar contaminación de contexto
-                        current_messages = list(base_messages)
-                        if attempt > 1:
-                            current_messages.append({"role": "assistant", "content": last_task_result})
-                            if feedback:
-                                current_messages.append({"role": "user", "content": feedback})
+                console.print(
+                    f"[bold white]  [{task_num}/{len(tasks)}] {task_id_str} (Intento {task_retries + 1}/{MAX_RETRIES}):[/bold white] "
+                    f"{task_desc[:60]}{'...' if len(task_desc) > 60 else ''}"
+                )
+                console.print(f"[dim]       → @{agent_name} → {output_file}[/dim]")
 
-                        # Bucle de Continuación de Tarea + ReAct Loop (Mejora 31)
-                        task_result = ""
-                        react_messages = list(current_messages)
-                        max_react_steps = 15
-                        
-                        for step in range(1, max_react_steps + 1):
-                            response_chunk = _call_llm_silent(
-                                self.orchestrator.state, react_messages,
-                                provider=self.orchestrator.state.provider,
-                                model=self.orchestrator.state.model
-                            )
+                # Realizar git snapshot de transaccionalidad via micro-branching
+                use_microbranch = False
+                original_branch = ""
+                if self.orchestrator._is_git_repo():
+                    use_microbranch, original_branch = self.orchestrator._git_start_task_branch(task_id_str)
+                    snapshot_created = not use_microbranch
+                else:
+                    snapshot_created = self.orchestrator._git_commit_snapshot(task_id_str)
+
+                t0 = time.perf_counter()
+
+                agent_prompt = self.orchestrator._load_agent_prompt(agent_name)
+                if not agent_prompt:
+                    agent_prompt = f"Eres @{agent_name}, un especialista técnico del equipo de desarrollo."
+
+                # Sprint 12 — Resolver agente Python para hooks de ciclo de vida
+                py_agent = AgentRegistry.get(agent_name)
+                task_context = {
+                    "project_path": self.orchestrator.project_path,
+                    "output_file": output_file,
+                    "task_id": task_id_str,
+                    "agent_name": agent_name,
+                }
+
+                # Sprint 12 — Hook pre_execute
+                if py_agent:
+                    try:
+                        py_agent.pre_execute(task, task_context)
+                    except Exception as pre_err:
+                        logger.warning("pre_execute de @%s falló: %s", agent_name, pre_err)
+
+                # Sprint 12 — Inyección selectiva de skills
+                skills_context = ""
+                relevant_skills = SkillRegistry.get_skills_for_task(
+                    task_desc,
+                    agency=getattr(self.orchestrator.state, "active_agency", "")
+                )
+                if relevant_skills:
+                    skill_blocks = []
+                    for sk in relevant_skills:
+                        try:
+                            skill_blocks.append(f"### SKILL: {sk.name}\n{sk.get_instructions()}")
+                        except Exception as sk_err:
+                            logger.warning("Skill '%s' falló en get_instructions: %s", sk.name, sk_err)
+                    if skill_blocks:
+                        skills_context = (
+                            "\n\n[SKILLS RELEVANTES PARA ESTA TAREA]\n"
+                            + "\n\n".join(skill_blocks)
+                            + "\n"
+                        )
+
+                accumulated = self.orchestrator._build_intelligent_context(task_desc, output_file)
+
+                system = (
+                    f"{agent_prompt}\n\n"
+                    f"{skills_context}"
+                    f"[TAREA ASIGNADA POR EL SCRUM MASTER]\n"
+                    f"ID: {task_id_str}\n"
+                    f"Descripción: {task_desc}\n"
+                    f"Tu entregable: Genera el contenido COMPLETO del archivo {output_file}.\n"
+                    f"REGLA CRÍTICA DE RESPUESTA: NO des explicaciones verbales, saludos ni conclusiones. Sé extremadamente conciso y directo.\n"
+                    f"REGLA CRÍTICA DE COMPLETITUD: NO trunques el código. Si el archivo es grande y necesitas más espacio, no te preocupes, el sistema te pedirá que continúes. "
+                    f"Sin embargo, si has terminado de generar TODO el archivo y código correspondiente de forma exitosa, tu última línea debe ser exactamente la cadena de texto: [TAREA_COMPLETADA]\n\n"
+                    f"[CAPACIDAD DE EJECUCIÓN DIRECTA (ReAct - Mejora 31)]\n"
+                    f"Tienes la capacidad de ejecutar comandos en el terminal de forma autónoma durante esta tarea. "
+                    f"Si necesitas verificar si un archivo existe, ver su contenido, verificar versiones, "
+                    f"ejecutar un script de prueba o verificar la compilación antes de entregar, puedes hacerlo respondiendo únicamente con el comando envuelto en la etiqueta <run_command>.\n"
+                    f"Ejemplo: <run_command>npm test</run_command> o <run_command>python3 -c \"import os; print(os.listdir('.'))\"</run_command>.\n"
+                    f"El sistema ejecutará el comando y te devolverá el output. Después de recibir la respuesta, podrás continuar redactando el entregable o solicitar más comandos.\n\n"
+                    f"[REGLAS DE AUTO-CORRECCIÓN DOD]\n"
+                    f"Si el entregable es rechazado por control de calidad (DoD), recibirás retroalimentación específica. "
+                    f"Deberás corregir los problemas indicados inmediatamente sin dejar placeholders, TODOs vacíos o secciones incompletas.\n\n"
+                    f"[REGLA CRÍTICA DE SEPARACIÓN DE CÓDIGO Y DOCUMENTACIÓN]\n"
+                    f"Si la tarea requiere crear o modificar archivos de código real, scripts, andamiajes o configuraciones en el disco del proyecto, "
+                    f"debes especificar cada uno de ellos dentro de tu entregable utilizando etiquetas con la ruta del archivo. "
+                    f"Puedes usar cualquiera de los siguientes dos formatos:\n\n"
+                    f"Formato 1 (Estructura XML):\n"
+                    f"<write_file path=\"ruta/relativa/archivo.ext\">\n"
+                    f"contenido del archivo real aquí...\n"
+                    f"</write_file>\n\n"
+                    f"Formato 2 (Anotación Markdown):\n"
+                    f"[WRITE_FILE: ruta/relativa/archivo.ext]\n"
+                    f"```lenguaje\n"
+                    f"contenido del archivo real aquí...\n"
+                    f"```\n\n"
+                    f"Puedes incluir múltiples archivos si es necesario. El Task Runner los extraerá y creará automáticamente en el disco. "
+                    f"Asegúrate de que las rutas relativas sean correctas a partir de la raíz del proyecto.\n\n"
+                    f"[REGLA DE DECISIÓN TECNOLÓGICA]\n"
+                    f"REGLA DE DECISIÓN TECNOLÓGICA: Si el usuario no ha especificado explícitamente el stack tecnológico (lenguajes, bases de datos, frameworks, librerías principales) en su requerimiento, ESTÁ ESTRICTAMENTE PROHIBIDO que lo inventes o asumas. Debes detenerte y emitir la etiqueta `[ASK_USER: <tu pregunta detallada con opciones sugeridas>]`. No generes código ni diagramas de arquitectura hasta que el usuario responda.\n\n"
+                    f"[REGLAS DE INFRAESTRUCTURA]\n"
+                    f"REGLA ESTRUCTURAL ESTRICTA: NUNCA referencies un directorio, archivo o contexto de compilación (ej. en docker-compose) sin haber verificado primero que existe usando comandos de consola. Si configuras un servicio que requiere compilación (build), ESTÁS OBLIGADO a crear el `Dockerfile` correspondiente en la ruta exacta que especificaste y a generar el `package.json` o `requirements.txt` base si no existen. NO puedes dar una tarea de DevOps por terminada si faltan los archivos de construcción."
+                )
+
+                user_prompt = (
+                    f"IDEA ORIGINAL DEL USUARIO:\n{user_idea}\n\n"
+                    f"DOCUMENTOS PREVIOS DEL PROYECTO:\n{accumulated}\n\n"
+                    f"TAREA: {task_desc}\n"
+                    f"Genera el contenido completo de {output_file}."
+                )
+
+                # Cargar capacidades del entorno
+                capabilities_str = ""
+                cap_path = os.path.join(self.orchestrator.project_path, "env_capabilities.json")
+                if os.path.isfile(cap_path):
+                    capabilities_str = _safe_read(cap_path)
+
+                env_capabilities_prompt = ""
+                if capabilities_str:
+                    env_capabilities_prompt = (
+                        f"\n\n[ENTORNO REAL DEL HOST / CONTENEDORES]\n"
+                        f"Tu código debe ser 100% compatible con las siguientes herramientas y versiones reales del entorno:\n"
+                        f"```json\n{capabilities_str}\n```\n"
+                        f"Asegúrate de alinear las versiones de Gradle, Kotlin, Python, Room, etc., a estas capacidades. "
+                        f"No propongas herramientas ni configuraciones incompatibles con estas versiones."
+                    )
+
+                system = system + env_capabilities_prompt
+
+                # Auto-Validación de Infraestructura
+                task_desc_lower = task_desc.lower()
+                if any(kw in task_desc_lower for kw in ["docker", "compose", "servidor", "despliegue"]):
+                    infra_validation_prompt = (
+                        "\n\n[INSTRUCCIÓN DE AUTO-VALIDACIÓN DE INFRAESTRUCTURA]\n"
+                        "Dado que esta tarea involucra docker, compose, servidor o despliegue, ESTÁS OBLIGADO "
+                        "a ejecutar obligatoriamente 'docker compose config' o 'docker compose build --no-cache' "
+                        "usando la etiqueta <run_command> como un paso ReAct para validar la configuración o compilación "
+                        "de los contenedores ANTES de emitir tu entregable final y finalizar la tarea con [TAREA_COMPLETADA]."
+                    )
+                    system = system + infra_validation_prompt
+
+                # Lazo de compilación y depuración
+                max_attempts = 5
+                build_cmd = self.orchestrator._detect_compile_command()
+
+                base_messages = [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user_prompt}
+                ]
+
+                last_task_result = ""
+                task_elapsed = 0.0
+                feedback = ""
+                
+                short_desc = f"Tarea {task_id_str}: {task_desc[:40]}..."
+
+                try:
+                    with TaskProgress(tui_engine, f"auto_task_{i}", short_desc, agent=agent_name) as progress:
+                        for attempt in range(1, max_attempts + 1):
+                            attempt_t0 = time.perf_counter()
+
+                            current_messages = list(base_messages)
+                            if attempt > 1:
+                                current_messages.append({"role": "assistant", "content": last_task_result})
+                                if feedback:
+                                    current_messages.append({"role": "user", "content": feedback})
+
+                            task_result = ""
+                            react_messages = list(current_messages)
+                            max_react_steps = 15
                             
-                            if not response_chunk:
-                                break
-                                
-                            # Interceptor HITL (Requirement 2 & 3)
-                            if "[ASK_USER:" in response_chunk:
-                                ask_match = re.search(r'\[ASK_USER:\s*(.*?)\]', response_chunk, re.DOTALL)
-                                if ask_match:
-                                    question = ask_match.group(1).strip()
-                                else:
-                                    question = response_chunk.split("[ASK_USER:")[1].strip()
-                                
-                                console.print("\n[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
-                                console.print(f"[bold yellow]🤔 CONSULTA HITL DE @{agent_name}:[/bold yellow]")
-                                console.print(f"[yellow]{question}[/yellow]")
-                                console.print("[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
-                                
-                                user_response = input("✍ Escribe tu respuesta: ")
-                                
-                                react_messages.append({"role": "assistant", "content": response_chunk})
-                                user_msg = {"role": "user", "content": f"Respuesta del usuario a tu consulta: {user_response}"}
-                                react_messages.append(user_msg)
-                                current_messages.append({"role": "assistant", "content": response_chunk})
-                                current_messages.append(user_msg)
-                                continue
-                                
-                            # Detectar si solicita ejecutar comando
-                            cmd_match = re.search(r'<run_command>(.*?)</run_command>', response_chunk, re.DOTALL)
-                            if cmd_match:
-                                cmd_to_run = cmd_match.group(1).strip()
-                                console.print(f"       ⚙ Agente @{agent_name} ejecutando comando ReAct: {cmd_to_run}")
-                                
-                                ret_dict = {'returncode': 0}
-                                cmd_output = run_terminal_command(
-                                    cmd_to_run,
-                                    self.orchestrator.state,
-                                    silent_history=True,
-                                    timeout=120,
-                                    force_confirm=False, # Auto-aprobado en sandbox para fluidez del bucle ReAct
-                                    return_code_dict=ret_dict
+                            for step in range(1, max_react_steps + 1):
+                                response_chunk = _call_llm_silent(
+                                    self.orchestrator.state, react_messages,
+                                    provider=self.orchestrator.state.provider,
+                                    model=self.orchestrator.state.model
                                 )
                                 
-                                if step >= max_react_steps - 3:
-                                    urgency_prompt = (
-                                        f"⚠️ ALERTA CRÍTICA: Te quedan solo {max_react_steps - step} pasos ReAct. "
-                                        f"ESTÁ ESTRICTAMENTE PROHIBIDO SEGUIR EXPLORANDO O LANZANDO COMANDOS. "
-                                        f"Con la información que tienes, DEBES generar el entregable final AHORA MISMO utilizando las etiquetas [WRITE_FILE: ...] o <write_file>. Si no lo haces, el sistema colapsará."
+                                if not response_chunk:
+                                    break
+                                    
+                                # Interceptor HITL
+                                if "[ASK_USER:" in response_chunk:
+                                    ask_match = re.search(r'\[ASK_USER:\s*(.*?)\]', response_chunk, re.DOTALL)
+                                    question = ask_match.group(1).strip() if ask_match else response_chunk.split("[ASK_USER:")[1].strip()
+                                    
+                                    console.print("\n[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
+                                    console.print(f"[bold yellow]🤔 CONSULTA HITL DE @{agent_name}:[/bold yellow]")
+                                    console.print(f"[yellow]{question}[/yellow]")
+                                    console.print("[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
+                                    
+                                    user_response = input("✍ Escribe tu respuesta: ")
+                                    
+                                    react_messages.append({"role": "assistant", "content": response_chunk})
+                                    user_msg = {"role": "user", "content": f"Respuesta del usuario a tu consulta: {user_response}"}
+                                    react_messages.append(user_msg)
+                                    current_messages.append({"role": "assistant", "content": response_chunk})
+                                    current_messages.append(user_msg)
+                                    continue
+                                    
+                                # Detectar comandos
+                                cmd_match = re.search(r'<run_command>(.*?)</run_command>', response_chunk, re.DOTALL)
+                                if cmd_match:
+                                    cmd_to_run = cmd_match.group(1).strip()
+                                    console.print(f"       ⚙ Agente @{agent_name} ejecutando comando ReAct: {cmd_to_run}")
+                                    
+                                    ret_dict = {'returncode': 0}
+                                    cmd_output = run_terminal_command(
+                                        cmd_to_run,
+                                        self.orchestrator.state,
+                                        silent_history=True,
+                                        timeout=120,
+                                        force_confirm=False,
+                                        return_code_dict=ret_dict
                                     )
-                                else:
+                                    
                                     urgency_prompt = "Analiza el resultado y continúa redactando el archivo o solicita más comandos si es necesario."
+                                    if step >= max_react_steps - 3:
+                                        urgency_prompt = "Te quedan pocos pasos ReAct. Genera el entregable final AHORA usando etiquetas."
 
-                                react_messages.append({"role": "assistant", "content": response_chunk})
-                                react_messages.append({
-                                    "role": "user",
-                                    "content": (
-                                        f"Resultado de ejecución (Código {ret_dict['returncode']}):\n"
-                                        f"```\n{cmd_output[:3000]}\n```\n"
-                                        f"{urgency_prompt}"
-                                    )
-                                })
-                                continue
-                            
-                            task_result += response_chunk
-                            
-                            if "[TAREA_COMPLETADA]" in response_chunk or "[TAREA_COMPLETADA]" in task_result:
-                                task_result = task_result.replace("[TAREA_COMPLETADA]", "").strip()
-                                break
+                                    react_messages.append({"role": "assistant", "content": response_chunk})
+                                    react_messages.append({
+                                        "role": "user",
+                                        "content": f"Resultado de ejecución (Código {ret_dict['returncode']}):\n```\n{cmd_output[:3000]}\n```\n{urgency_prompt}"
+                                    })
+                                    continue
                                 
-                            if step < max_react_steps:
-                                react_messages.append({"role": "assistant", "content": response_chunk})
-                                react_messages.append({
-                                    "role": "user",
-                                    "content": "Tu respuesta anterior se cortó. Por favor, continúa exactamente desde donde te quedaste. Si terminaste, finaliza con la etiqueta: [TAREA_COMPLETADA]"
-                                })
+                                task_result += response_chunk
+                                
+                                if "[TAREA_COMPLETADA]" in response_chunk or "[TAREA_COMPLETADA]" in task_result:
+                                    task_result = task_result.replace("[TAREA_COMPLETADA]", "").strip()
+                                    break
+                                    
+                                if step < max_react_steps:
+                                    react_messages.append({"role": "assistant", "content": response_chunk})
+                                    react_messages.append({
+                                        "role": "user",
+                                        "content": "Tu respuesta anterior se cortó. Continúa exactamente desde donde te quedaste. Si terminaste, finaliza con: [TAREA_COMPLETADA]"
+                                    })
 
-                        attempt_elapsed = time.perf_counter() - attempt_t0
-                        task_elapsed += attempt_elapsed
+                            attempt_elapsed = time.perf_counter() - attempt_t0
+                            task_elapsed += attempt_elapsed
 
-                        if not task_result:
-                            feedback = "Tu entregable anterior estuvo vacío. Por favor, genera el código o contenido solicitado utilizando las etiquetas [WRITE_FILE: ...]."
-                            if attempt == max_attempts:
-                                progress.fail()
-                            continue
-
-                        # Preservar el último resultado por si la compilación vuelve a fallar
-                        last_task_result = task_result
-
-                        # Sprint 12 — Hook post_execute (validación, AST, tests en sandbox)
-                        if py_agent:
-                            try:
-                                task_result = py_agent.post_execute(task_result, task_context)
-                            except Exception as post_err:
-                                logger.warning("post_execute de @%s falló: %s", agent_name, post_err)
-
-                        # Guardar entregable en disco e interactuar con archivos reales
-                        self.orchestrator._write_project_file(output_file, task_result)
-                        created_files = self.orchestrator._extract_and_write_files(task_result)
-
-                        # Pre-chequeo de infraestructura DoD (Requirement 3)
-                        infra_ok = True
-                        infra_error_msg = ""
-                        for path in created_files:
-                            if "docker-compose.yml" in path or "docker-compose.yaml" in path:
-                                abs_compose_path = os.path.join(self.orchestrator.project_path, path)
-                                try:
-                                    with open(abs_compose_path, "r", encoding="utf-8") as f:
-                                        content = f.read()
-                                    context_matches = re.findall(r'context:\s*[\'"]?([^\s\'"#]+)[\'"]?', content)
-                                    for rel_ctx in context_matches:
-                                        compose_dir = os.path.dirname(abs_compose_path)
-                                        abs_ctx_dir = os.path.abspath(os.path.join(compose_dir, rel_ctx))
-                                        dockerfile_path = os.path.join(abs_ctx_dir, "Dockerfile")
-                                        
-                                        if not os.path.exists(abs_ctx_dir) or not os.path.exists(dockerfile_path):
-                                            infra_ok = False
-                                            infra_error_msg = f"ERROR DE INFRAESTRUCTURA: El archivo docker-compose.yml apunta al contexto '{rel_ctx}', pero este directorio o su Dockerfile no existen. Debes crear los Dockerfiles necesarios o corregir la ruta antes de terminar."
-                                            break
-                                except Exception as e:
-                                    logger.error("Error al validar infraestructura en DoD: %s", e)
-                            if not infra_ok:
-                                break
-
-                        # Si no hay comando de compilación, podemos validar DoD directamente
-                        if not build_cmd:
-                            # Validar DoD (Mejora 15)
-                            if not infra_ok:
-                                dod_approved = False
-                                dod_reason = infra_error_msg
-                            else:
-                                file_content = self.orchestrator._read_project_file(output_file)
-                                dod_approved, dod_reason = self.orchestrator._run_dod_validation(
-                                    task_id_str, agent_name, task_desc, output_file, file_content
-                                )
-                            if dod_approved:
-                                console.print(f"       ✓ DoD Aprobado: {dod_reason}")
-                                success_task = True
-                                break
-                            else:
-                                console.print(f"       ❌ DoD Rechazado: {dod_reason}")
-                                if attempt < max_attempts:
-                                    feedback = (
-                                        f"Tu entregable fue RECHAZADO por control de calidad (DoD) por el siguiente motivo:\n"
-                                        f"```\n{dod_reason}\n```\n"
-                                        f"Por favor, corrige los archivos y vuelve a generarlos sin dejar ningún placeholder o comentario TODO incompleto."
-                                    )
-                                else:
-                                    success_task = False
+                            if not task_result:
+                                feedback = "Tu entregable estuvo vacío. Genera el código utilizando [WRITE_FILE: ...]."
+                                if attempt == max_attempts:
                                     progress.fail()
                                 continue
 
-                        returncode, build_output = self.orchestrator._run_build_command(build_cmd)
-                        if returncode == 0:
-                            # Validar DoD
-                            if not infra_ok:
-                                dod_approved = False
-                                dod_reason = infra_error_msg
-                            else:
-                                file_content = self.orchestrator._read_project_file(output_file)
-                                dod_approved, dod_reason = self.orchestrator._run_dod_validation(
-                                    task_id_str, agent_name, task_desc, output_file, file_content
-                                )
-                            if dod_approved:
-                                console.print(f"       ✓ DoD Aprobado: {dod_reason}")
-                                success_task = True
-                                break
-                            else:
-                                console.print(f"       ❌ DoD Rechazado: {dod_reason}")
-                                if attempt < max_attempts:
-                                    feedback = (
-                                        f"Tu entregable fue RECHAZADO por control de calidad (DoD) por el siguiente motivo:\n"
-                                        f"```\n{dod_reason}\n```\n"
-                                        f"Por favor, corrige los archivos y vuelve a generarlos sin dejar ningún placeholder o comentario TODO incompleto."
+                            last_task_result = task_result
+
+                            if py_agent:
+                                try:
+                                    task_result = py_agent.post_execute(task_result, task_context)
+                                except Exception as post_err:
+                                    logger.warning("post_execute de @%s falló: %s", agent_name, post_err)
+
+                            # Escribir a disco
+                            self.orchestrator._write_project_file(output_file, task_result)
+                            created_files = self.orchestrator._extract_and_write_files(task_result)
+
+                            # Pre-chequeo de infraestructura DoD
+                            infra_ok = True
+                            infra_error_msg = ""
+                            for path in created_files:
+                                if "docker-compose.yml" in path or "docker-compose.yaml" in path:
+                                    abs_compose_path = os.path.join(self.orchestrator.project_path, path)
+                                    try:
+                                        with open(abs_compose_path, "r", encoding="utf-8") as f:
+                                            content = f.read()
+                                        context_matches = re.findall(r'context:\s*[\'"]?([^\s\'"#]+)[\'"]?', content)
+                                        for rel_ctx in context_matches:
+                                            compose_dir = os.path.dirname(abs_compose_path)
+                                            abs_ctx_dir = os.path.abspath(os.path.join(compose_dir, rel_ctx))
+                                            dockerfile_path = os.path.join(abs_ctx_dir, "Dockerfile")
+                                            
+                                            if not os.path.exists(abs_ctx_dir) or not os.path.exists(dockerfile_path):
+                                                infra_ok = False
+                                                infra_error_msg = f"ERROR DE INFRAESTRUCTURA: El archivo docker-compose.yml apunta al contexto '{rel_ctx}', pero no existe su Dockerfile."
+                                                break
+                                    except Exception as e:
+                                        logger.error("Error al validar infraestructura en DoD: %s", e)
+                                if not infra_ok:
+                                    break
+
+                            # Validación de sintaxis estática (FASE 4)
+                            syntax_ok = True
+                            syntax_error_msg = ""
+                            from core.orchestration.code_analyzer import validate_syntax
+                            for f_created in created_files:
+                                abs_f_path = os.path.join(self.orchestrator.project_path, f_created)
+                                if os.path.isfile(abs_f_path):
+                                    s_ok, s_err = validate_syntax(abs_f_path)
+                                    if not s_ok:
+                                        syntax_ok = False
+                                        syntax_error_msg = s_err
+                                        break
+
+                            # DoD Check sin compilación
+                            if not build_cmd:
+                                if not infra_ok:
+                                    dod_approved = False
+                                    dod_reason = infra_error_msg
+                                elif not syntax_ok:
+                                    dod_approved = False
+                                    dod_reason = f"Error de sintaxis estática detectado por el analizador: {syntax_error_msg}"
+                                else:
+                                    file_content = self.orchestrator._read_project_file(output_file)
+                                    dod_approved, dod_reason = self.orchestrator._run_dod_validation(
+                                        task_id_str, agent_name, task_desc, output_file, file_content
                                     )
+                                if dod_approved:
+                                    console.print(f"       ✓ DoD Aprobado: {dod_reason}")
+                                    success_task = True
+                                    break
+                                else:
+                                    console.print(f"       ❌ DoD Rechazado: {dod_reason}")
+                                    last_error_log = f"DoD rechazado: {dod_reason}"
+                                    if attempt < max_attempts:
+                                        feedback = f"Rechazado por DoD: {dod_reason}. Corrige e intenta de nuevo."
+                                    else:
+                                        success_task = False
+                                        progress.fail()
+                                    continue
+
+                            # DoD Check con compilación
+                            returncode, build_output = self.orchestrator._run_build_command(build_cmd)
+                            if returncode == 0:
+                                if not infra_ok:
+                                    dod_approved = False
+                                    dod_reason = infra_error_msg
+                                elif not syntax_ok:
+                                    dod_approved = False
+                                    dod_reason = f"Error de sintaxis estática detectado por el analizador: {syntax_error_msg}"
+                                else:
+                                    file_content = self.orchestrator._read_project_file(output_file)
+                                    dod_approved, dod_reason = self.orchestrator._run_dod_validation(
+                                        task_id_str, agent_name, task_desc, output_file, file_content
+                                    )
+                                if dod_approved:
+                                    console.print(f"       ✓ DoD Aprobado: {dod_reason}")
+                                    success_task = True
+                                    break
+                                else:
+                                    console.print(f"       ❌ DoD Rechazado: {dod_reason}")
+                                    last_error_log = f"DoD rechazado tras compilar con éxito: {dod_reason}"
+                                    if attempt < max_attempts:
+                                        feedback = f"Rechazado por DoD: {dod_reason}. Corrige e intenta de nuevo."
+                                    else:
+                                        success_task = False
+                                        progress.fail()
+                            else:
+                                last_error_log = f"Error de compilación: {build_output}"
+                                if attempt < max_attempts:
+                                    error_lines = self.orchestrator._extract_relevant_errors(build_output)
+                                    feedback = f"Error de compilación:\n```\n{error_lines}\n```\nCorrige y vuelve a generar."
                                 else:
                                     success_task = False
                                     progress.fail()
-                        else:
-                            if attempt < max_attempts:
-                                error_lines = self.orchestrator._extract_relevant_errors(build_output)
-                                feedback = (
-                                    f"Tu código falló en la compilación con el siguiente error. Analiza las dependencias, corrígelo e itera:\n"
-                                    f"```\n{error_lines}\n```\n"
-                                    f"Corrige los archivos correspondientes y vuelve a generarlos utilizando las etiquetas <write_file> o [WRITE_FILE: ...]."
-                                )
-                            else:
-                                success_task = False
-                                progress.fail()
 
-                    if success_task and task_result:
-                        tokens = estimate_tokens(task_result)
-                        progress.set_tokens(tokens)
+                        if success_task and task_result:
+                            tokens = estimate_tokens(task_result)
+                            progress.set_tokens(tokens)
 
-                if not task_result or not success_task:
+                except Exception as ex:
+                    logger.error("Excepción durante intento de ejecución de tarea: %s", ex, exc_info=True)
+                    success_task = False
+                    last_error_log = f"Excepción interna del runner: {ex}"
+
+                if success_task:
+                    # Tarea completada con éxito. Romper el bucle de Auto-Retry
+                    self.orchestrator.state.blackboard.set(f"task_status_{task_id_str}", "completed")
+                    break
+                else:
+                    task_retries += 1
+                    # Rollback git
                     if use_microbranch:
                         self.orchestrator._git_end_task_branch(task_id_str, original_branch, success=False)
                     else:
                         self.orchestrator._git_rollback(task_id_str, snapshot_created)
                     
-                    # ── Agente de Recuperación ──────────────────────────────────────
-                    # En lugar de silenciosamente saltar la tarea, Jellyfish analiza el
-                    # fallo, propone un plan correctivo y requiere aprobación del usuario.
-                    console.print(f"\n[bold yellow]⚠ TAREA FALLIDA:[/bold yellow] {task_id_str} — @{agent_name}")
-                    console.print(f"[dim]  Motivo: agotados {max_attempts} intentos sin pasar el DoD.[/dim]")
-                    console.print("[bold white]🔍 Activando Agente de Recuperación...[/bold white]")
+                    if task_retries < MAX_RETRIES:
+                        # Auto-Retry: reasignar con FIX REQUIRED y el log del error (FASE 4)
+                        task_desc = f"FIX REQUIRED: [Log del error: {last_error_log}]\nOriginal task description: {original_task_desc}"
+                        console.print(f"       🔄 [Auto-Retry] Reintentando tarea {task_id_str} (Reintento {task_retries}/{MAX_RETRIES})...")
+                    else:
+                        # FASE 4: Límite de escalada MAX_RETRIES alcanzado. Bloquear la TUI
+                        self.orchestrator.state.global_status = "ERROR"
+                        if agent_name in self.orchestrator.state.agent_statuses:
+                            self.orchestrator.state.agent_statuses[agent_name] = "Inactivo"
+                        
+                        console.print(f"\n❌ [BLOQUEADO] La tarea {task_id_str} ha fallado {MAX_RETRIES} veces consecutivas.")
+                        console.print(f"       Último error registrado: {last_error_log}")
+                        
+                        # Solicitar intervención manual
+                        input("\n⚠️ Flujo autónomo bloqueado. Presiona Enter para intervención manual en la TUI...")
+                        return
 
-                    # Recopilar contexto del fallo para el agente recuperador
-                    failure_context = (
-                        f"TAREA FALLIDA:\n"
-                        f"  ID: {task_id_str}\n"
-                        f"  Agente asignado: @{agent_name}\n"
-                        f"  Descripción: {task_desc}\n"
-                        f"  Archivo esperado: {output_file}\n"
-                        f"  Intentos realizados: {max_attempts}\n"
-                        f"  Último resultado generado (fragmento):\n{(last_task_result or 'Sin resultado')[:1500]}\n"
-                    )
-                    remaining_tasks = [
-                        f"  - [{t.get('id','?')}] {t.get('task','?')[:60]} → @{t.get('agent','?')}"
-                        for t in tasks[i+1:]
-                    ]
-                    remaining_str = "\n".join(remaining_tasks) if remaining_tasks else "  (ninguna)"
+            if use_microbranch and success_task:
+                self.orchestrator._git_end_task_branch(task_id_str, original_branch, success=True)
 
-                    recovery_system = (
-                        "Eres el Agente de Recuperación de Jellyfish OS. Tu rol es EXCLUSIVAMENTE analítico y ejecutivo.\n"
-                        "Un agente del pipeline autónomo ha fallado tras múltiples intentos. Tu misión es:\n"
-                        "1. Identificar la causa raíz del fallo con precisión técnica (1-3 oraciones).\n"
-                        "2. Proponer un plan de acción concreto y numerado para resolver el problema.\n"
-                        "3. Indicar si las tareas restantes del pipeline se ven afectadas por este fallo.\n"
-                        "4. Ser BREVE y EJECUTIVO. Máximo 15 líneas en total. Sin introducciones ni despedidas."
-                    )
-                    recovery_prompt = (
-                        f"{failure_context}\n"
-                        f"TAREAS RESTANTES EN EL PIPELINE:\n{remaining_str}\n\n"
-                        f"Analiza el fallo y genera el plan de acción correctivo."
-                    )
+            tokens = estimate_tokens(task_result) if task_result else 0
+            status_symbol = "✅" if success_task else "⚠"
+            status_text = "Completado con éxito" if success_task else "Completado con advertencias"
 
-                    recovery_response = _call_llm_silent(
+            self.orchestrator.metrics.append({
+                "fase": f"@{agent_name} ({task_id_str})",
+                "detalle": f"~{tokens:,} tokens → {output_file}",
+                "tiempo": task_elapsed,
+                "status": status_symbol,
+            })
+
+            # Actualizar DAILY.md
+            self.orchestrator._write_task_handoff_with_status(task_id_str, agent_name, task_desc, output_file, status_text)
+
+            # Actualizar DEVELOPMENT_LOG.md
+            try:
+                from core.orchestration.code_analyzer import format_analysis_for_log
+                
+                semantic_summary = ""
+                summary_sys = "Eres el Escritor de Bitácoras de Jellyfish. Genera un resumen semántico de 1 sola oración y muy breve (máximo 15 palabras) de los cambios realizados en esta tarea."
+                summary_user = f"Tarea: {task_desc}\nCódigo generado:\n{task_result[:1500] if task_result else 'Sin código'}"
+                try:
+                    summary_res = _call_llm_silent(
                         self.orchestrator.state,
                         [
-                            {"role": "system", "content": recovery_system},
-                            {"role": "user", "content": recovery_prompt},
+                            {"role": "system", "content": summary_sys},
+                            {"role": "user", "content": summary_user}
                         ],
                         provider=self.orchestrator.state.provider,
-                        model=self.orchestrator.state.model,
+                        model=self.orchestrator.state.model
                     )
+                    if summary_res:
+                        semantic_summary = summary_res.strip().replace("\n", " ")
+                except Exception as llm_err:
+                    logger.warning("No se pudo generar el resumen semántico con LLM: %s", llm_err)
+                
+                if not semantic_summary:
+                    semantic_summary = f"Completó la tarea: {task_desc[:60]}..."
 
-                    if recovery_response:
-                        console.print("\n[bold white]📋 PLAN DE RECUPERACIÓN:[/bold white]")
-                        console.print(recovery_response.strip())
-                    else:
-                        console.print("[dim]  El agente de recuperación no pudo generar un plan.[/dim]")
-
-                    # Escribir plan de recuperación en disco para trazabilidad
-                    try:
-                        recovery_path = os.path.join(
-                            self.orchestrator.project_path,
-                            f"RECOVERY_{task_id_str}.md"
-                        )
-                        with open(recovery_path, "w", encoding="utf-8") as rf:
-                            rf.write(f"# Plan de Recuperación — {task_id_str}\n\n")
-                            rf.write(f"**Agente:** @{agent_name}  \n")
-                            rf.write(f"**Tarea:** {task_desc}  \n\n")
-                            rf.write("## Análisis del Fallo\n\n")
-                            rf.write(recovery_response or "Sin análisis disponible.")
-                            rf.write("\n")
-                        console.print(f"[dim]  ✓ Plan guardado en {recovery_path}[/dim]")
-                    except Exception as rw_err:
-                        logger.warning("No se pudo guardar el plan de recuperación: %s", rw_err)
-
-                    # Solicitar aprobación del usuario
-                    console.print()
-                    try:
-                        skip_approved = Confirm.ask(
-                            "¿Continuar el pipeline saltando esta tarea? [y=continuar / n=detener pipeline]",
-                            default=True
-                        )
-                    except (EOFError, KeyboardInterrupt):
-                        skip_approved = True  # En modo no interactivo, continuar
-
-                    self.orchestrator.metrics.append({
-                        "fase": f"@{agent_name} ({task_id_str})",
-                        "detalle": f"FALLIDO — Plan en RECOVERY_{task_id_str}.md",
-                        "tiempo": task_elapsed,
-                        "status": "❌",
-                    })
-
-                    if not skip_approved:
-                        console.print("[bold red]Pipeline detenido por el usuario.[/bold red]")
-                        return
-                    continue
-
-                if use_microbranch:
-                    self.orchestrator._git_end_task_branch(task_id_str, original_branch, success=True)
-
-                tokens = estimate_tokens(task_result)
-                status_symbol = "✅" if success_task else "⚠"
-                status_text = "Completado con éxito" if success_task else "Completado con advertencias (fallo de compilación)"
-
-                self.orchestrator.metrics.append({
-                    "fase": f"@{agent_name} ({task_id_str})",
-                    "detalle": f"~{tokens:,} tokens → {output_file}",
-                    "tiempo": task_elapsed,
-                    "status": status_symbol,
-                })
-
-                # Actualizar DAILY.md con handoff
-                self.orchestrator._write_task_handoff_with_status(task_id_str, agent_name, task_desc, output_file, status_text)
-
-                # Actualizar DEVELOPMENT_LOG.md (Sprint 13 — Bitácora de Coherencia sin LLM pesado)
-                try:
-                    from core.orchestration.code_analyzer import format_analysis_for_log
-                    
-                    # Generar resumen semántico ultra-corto (máximo 15 palabras)
-                    semantic_summary = ""
-                    summary_sys = "Eres el Escritor de Bitácoras de Jellyfish. Genera un resumen semántico de 1 sola oración y muy breve (máximo 15 palabras) de los cambios realizados en esta tarea."
-                    summary_user = f"Tarea: {task_desc}\nCódigo generado:\n{task_result[:1500] if task_result else 'Sin código'}"
-                    try:
-                        summary_res = _call_llm_silent(
-                            self.orchestrator.state,
-                            [
-                                {"role": "system", "content": summary_sys},
-                                {"role": "user", "content": summary_user}
-                            ],
-                            provider=self.orchestrator.state.provider,
-                            model=self.orchestrator.state.model
-                        )
-                        if summary_res:
-                            semantic_summary = summary_res.strip().replace("\n", " ")
-                    except Exception as llm_err:
-                        logger.warning("No se pudo generar el resumen semántico con LLM: %s", llm_err)
-                    
-                    if not semantic_summary:
-                        semantic_summary = f"Completó la tarea: {task_desc[:60]}..."
-
-                    log_entry = format_analysis_for_log(
-                        task_id=task_id_str,
-                        agent_name=agent_name,
-                        task_desc=task_desc,
-                        created_files=created_files,
-                        project_path=self.orchestrator.project_path,
-                        semantic_summary=semantic_summary
-                    )
-
-                    log_filename = "DEVELOPMENT_LOG.md"
-                    existing_log = self.orchestrator._read_project_file(log_filename) or ""
-                    
-                    if not existing_log.strip():
-                        existing_log = (
-                            "# Jellyfish OS — Bitácora de Desarrollo Coherente\n\n"
-                            "Este archivo documenta las modificaciones realizadas por cada agente en el pipeline.\n\n"
-                        )
-                    
-                    updated_log = existing_log.rstrip() + "\n\n" + log_entry
-                    self.orchestrator._write_project_file(log_filename, updated_log)
-                    console.print("       [dim]✓ Bitácora de desarrollo actualizada (DEVELOPMENT_LOG.md)[/dim]")
-                except Exception as log_err:
-                    logger.warning("No se pudo escribir en DEVELOPMENT_LOG.md: %s", log_err)
-
-                # Actualizar estado de tarea individual y guardar tablero
-                from datetime import datetime
-                task["status"] = "DONE"
-                task["state"] = "DONE"
-                task["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-                self.orchestrator._save_board(tasks)
-
-            except Exception as ex:
-                if use_microbranch:
-                    self.orchestrator._git_end_task_branch(task_id_str, original_branch, success=False)
-                else:
-                    self.orchestrator._git_rollback(task_id_str, snapshot_created)
-                import traceback
-                error_trace = traceback.format_exc()
-                if not hasattr(self.orchestrator.state, "captured_errors"):
-                    self.orchestrator.state.captured_errors = []
-                self.orchestrator.state.captured_errors.append(
-                    f"Error crítico en la ejecución de la tarea {task_id_str} por el agente @{agent_name}:\n"
-                    f"{error_trace}"
+                log_entry = format_analysis_for_log(
+                    task_id=task_id_str,
+                    agent_name=agent_name,
+                    task_desc=task_desc,
+                    created_files=created_files,
+                    project_path=self.orchestrator.project_path,
+                    semantic_summary=semantic_summary
                 )
-                logger.error(f"Error crítico en tarea {task_id_str}: {ex}", exc_info=True)
-                self.orchestrator.metrics.append({
-                    "fase": f"@{agent_name} ({task_id_str})",
-                    "detalle": f"FALLIDO — Error interno: {str(ex)[:40]}",
-                    "tiempo": task_elapsed,
-                    "status": "❌",
-                })
 
-        # Fin de ejecución de tareas
+                log_filename = "DEVELOPMENT_LOG.md"
+                existing_log = self.orchestrator._read_project_file(log_filename) or ""
+                
+                if not existing_log.strip():
+                    existing_log = (
+                        "# Jellyfish OS — Bitácora de Desarrollo Coherente\n\n"
+                        "Este archivo documenta las modificaciones realizadas por cada agente en el pipeline.\n\n"
+                    )
+                
+                updated_log = existing_log.rstrip() + "\n\n" + log_entry
+                self.orchestrator._write_project_file(log_filename, updated_log)
+                console.print("       [dim]✓ Bitácora de desarrollo actualizada (DEVELOPMENT_LOG.md)[/dim]")
+            except Exception as log_err:
+                logger.warning("No se pudo escribir en DEVELOPMENT_LOG.md: %s", log_err)
+
+            # Actualizar estado del agente a Inactivo y global status a OK
+            if agent_name in self.orchestrator.state.agent_statuses:
+                self.orchestrator.state.agent_statuses[agent_name] = "Inactivo"
+            self.orchestrator.state.global_status = "OK"
+
+            # Actualizar estado de tarea individual y guardar tablero
+            from datetime import datetime
+            task["status"] = "DONE"
+            task["state"] = "DONE"
+            task["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            self.orchestrator._save_board(tasks)

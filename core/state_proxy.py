@@ -85,6 +85,17 @@ class StateProxy:
         except (OSError, IOError):
             return ""
 
+    def get_blackboard_variable(self, key: str, default=None):
+        """Obtiene una variable del Blackboard (registro central)."""
+        if hasattr(self._state, "blackboard"):
+            return self._state.blackboard.get(key, default)
+        return default
+
+    def set_blackboard_variable(self, key: str, value) -> None:
+        """Registra una variable en el Blackboard de forma segura."""
+        if hasattr(self._state, "blackboard"):
+            self._state.blackboard.set(key, value)
+
     # ── Mutaciones controladas ────────────────────────────────
 
     def update_board_status(self, task_id: str, new_status: str) -> bool:

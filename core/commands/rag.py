@@ -167,8 +167,10 @@ def _handle_rag(arg: str, rag, display_header_func):
             )
 
     input("\nPresiona Enter para continuar...")
-    os.system("cls" if os.name == "nt" else "clear")
     if getattr(tui_engine, "_initialized", False):
+        tui_engine.clear_scroll_region()
+    else:
+        os.system("cls" if os.name == "nt" else "clear")
         tui_engine.print_welcome_logo()
     display_header_func()
 

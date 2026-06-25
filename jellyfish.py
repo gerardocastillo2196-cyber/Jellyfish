@@ -56,21 +56,6 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.lexers import Lexer
 from prompt_toolkit.document import Document
 
-# --- MONKEY PATCH PARA DESPLEGAR AUTOCOMPLETADO SIEMPRE HACIA ARRIBA ---
-try:
-    import prompt_toolkit.layout.containers as pt_containers
-    _orig_float_init = pt_containers.Float.__init__
-    def _patched_float_init(self, content, *args, **kwargs):
-        content_name = type(content).__name__
-        if "Completion" in content_name or "Menu" in content_name:
-            kwargs["bottom"] = 1
-            kwargs["top"] = None
-            # [MODIFICACIÓN] Evitar superposición destructiva sobre el prompt interactivo del usuario
-            kwargs["hide_when_covering_content"] = True
-        _orig_float_init(self, content, *args, **kwargs)
-    pt_containers.Float.__init__ = _patched_float_init
-except Exception:
-    pass
 
 
 # --- AUTOCOMPLETADO ---
@@ -231,6 +216,12 @@ class JellyfishLexer(Lexer):
 # --- INICIALIZACIÓN ---
 state = JellyfishState()
 
+# Auto-migración de modelos obsoletos de Gemini
+if state.provider == "gemini" and (not state.model or "gemini-3.5" in state.model or "gemini-3.1" in state.model):
+    from core.config import save_config_to_env
+    console.print(f"[yellow]⚠️  Modelo obsoleto '{state.model}' detectado. Migrando automáticamente a 'gemini-2.5-flash'...[/yellow]")
+    save_config_to_env(state, model="gemini-2.5-flash")
+
 # Verificar API Key si el proveedor no es Ollama
 if state.provider != "ollama":
     from core.state import PROVIDER_CONFIGS
@@ -304,135 +295,87 @@ def main():
     # Sprint 11 — Aislamiento y Control de Ejecución Seguro
     console.print("[dim cyan]🛡  Modo de Aislamiento de Proyecto y Control de Ejecución Seguro Activo.[/dim cyan]")
 
-    # Sprint 8.0 — Key bindings globales
-    kb = KeyBindings()
+    # Sprint 8.0 — Key bindings globales (FASE 1)
+    from core.terminal import get_global_keybindings
+    kb = get_global_keybindings(state)
 
-    @kb.add('c-l')
-    def _clear_screen(event):
-        """Ctrl+L — Limpia la pantalla sin perder historial."""
-        tui_engine.clear_scroll_region()
-        refresh_header(force=True)
+    def process_command(user_input):
+        user_input = user_input.strip()
+        if not user_input:
+            return
 
-    @kb.add('c-s')
-    def _save_chat(event):
-        """Ctrl+S — Guarda el chat actual en un archivo Markdown."""
-        import time as _time
-        base_dir = state.active_project if getattr(state, "active_project", None) else os.getcwd()
-        chat_dir = os.path.join(base_dir, "memory")
-        os.makedirs(chat_dir, exist_ok=True)
-        filename = f"chat_{_time.strftime('%Y%m%d_%H%M%S')}.md"
-        filepath = os.path.join(chat_dir, filename)
         try:
-            with open(filepath, "w", encoding="utf-8") as f:
-                f.write(f"# Chat Jellyfish — {_time.strftime('%Y-%m-%d %H:%M')}\n\n")
-                f.write(f"**Agente:** @{state.active_agent}\n")
-                f.write(f"**Modelo:** {state.model} ({state.provider})\n\n---\n\n")
-                for msg in state.history:
-                    role = msg.get('role', 'unknown').upper()
-                    content = msg.get('content', '')
-                    f.write(f"### {role}\n\n{content}\n\n---\n\n")
-            console.print(f"[green]✓ Chat guardado: {filepath}[/green]")
-        except OSError as e:
-            console.print(f"[red]Error guardando chat: {e}[/red]")
+            # --- Cambio de agente con @ ---
+            if user_input.startswith("@"):
+                if user_input.lower() == "@exit":
+                    state.load_agent("default")
+                    refresh_header()
+                    return
+                name = user_input[1:].lower().strip()
+                agent_file = os.path.join(AGENCY_DIR, "agents", f"{name}.md")
+                if os.path.exists(agent_file):
+                    state.load_agent(name)
+                    refresh_header()
+                    console.print(f"[green]✓ Agente cambiado a @{name}[/green]")
+                else:
+                    console.print(f"[yellow]Agente @{name} no encontrado.[/yellow]")
+                return
 
-    session = PromptSession(
-        completer=JellyfishCompleter(),
-        style=claude_style,
-        auto_suggest=AutoSuggestFromHistory(),
-        key_bindings=kb,
-        lexer=JellyfishLexer(),
-    )
+            # --- Comandos slash ---
+            if user_input.startswith("/"):
+                if user_input.startswith("/research "):
+                    from core.orchestrator import ResearchOrchestrator
+                    orchestrator = ResearchOrchestrator(state, rag)
+                    query = user_input[10:].strip()
+                    if query:
+                        with TaskProgress(tui_engine, "research", "Investigación multi-agente..."):
+                            final_report = orchestrator.execute_task(query)
+                        state.history.append({"role": "user", "content": user_input})
+                        state.history.append({"role": "assistant", "content": final_report})
+                    else:
+                        console.print("[yellow]Uso: /research <consulta_compleja>[/yellow]")
+                    refresh_header(force=True)
+                    return
 
-    # Manejar SIGWINCH (cambio de tamaño de ventana) para forzar un redraw
-    def _handle_resize(signum, frame):
-        if hasattr(session, 'app'):
-            session.app.invalidate()
-            
-    signal.signal(signal.SIGWINCH, _handle_resize)
+                handle_slash_command(
+                    user_input, state, rag, plugins, refresh_header
+                )
+                return
+
+            # --- RAG: Siempre buscar contexto relevante ---
+            rag_context = ""
+            if rag.is_active:
+                rag_context = rag.query_code(user_input)
+
+            # --- Agregar mensaje del usuario al historial ---
+            state.history.append({"role": "user", "content": user_input})
+
+            # --- Invocar LLM con contexto RAG ---
+            result = stream_ollama(state, rag_context=rag_context)
+
+            if result:
+                state.history.append({"role": "assistant", "content": result})
+
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            if not hasattr(state, "captured_errors"):
+                state.captured_errors = []
+            state.captured_errors.append(error_trace)
+            console.print(f"[red]Error inesperado: {e}[/red]")
+            logging.getLogger("jellyfish").error("Error en ejecución de comando: %s", e, exc_info=True)
+
+    tui_engine.command_handler = process_command
 
     try:
-        while True:
-            try:
-                # Prompt dinámico con nombre del agente y proveedor en tiempo real
-                provider_tag = f":{state.provider}" if state.provider != "ollama" else ""
-                prompt_html = (
-                    f"<b><ansigreen>@{state.active_agent}</ansigreen>"
-                    f"<ansigray>{provider_tag}</ansigray>"
-                    f" <ansiblue>&gt; </ansiblue></b>"
-                )
-                user_input = session.prompt(HTML(prompt_html)).strip()
-
-                if not user_input:
-                    continue
-
-                # --- Cambio de agente con @ ---
-                if user_input.startswith("@"):
-                    if user_input.lower() == "@exit":
-                        state.load_agent("default")
-                        refresh_header()
-                        continue
-                    name = user_input[1:].lower().strip()
-                    agent_file = os.path.join(AGENCY_DIR, "agents", f"{name}.md")
-                    if os.path.exists(agent_file):
-                        state.load_agent(name)
-                        refresh_header()
-                        console.print(f"[green]✓ Agente cambiado a @{name}[/green]")
-                    else:
-                        console.print(f"[yellow]Agente @{name} no encontrado.[/yellow]")
-                    continue
-
-                # --- Comandos slash ---
-                if user_input.startswith("/"):
-                    if user_input.startswith("/research "):
-                        from core.orchestrator import ResearchOrchestrator
-                        orchestrator = ResearchOrchestrator(state, rag)
-                        query = user_input[10:].strip()
-                        if query:
-                            with TaskProgress(tui_engine, "research", "Investigación multi-agente..."):
-                                final_report = orchestrator.execute_task(query)
-                            state.history.append({"role": "user", "content": user_input})
-                            state.history.append({"role": "assistant", "content": final_report})
-                        else:
-                            console.print("[yellow]Uso: /research <consulta_compleja>[/yellow]")
-                        refresh_header(force=True)
-                        continue
-
-                    handle_slash_command(
-                        user_input, state, rag, plugins, refresh_header
-                    )
-                    
-                    continue
-
-                # --- RAG: Siempre buscar contexto relevante ---
-                rag_context = ""
-                if rag.is_active:
-                    rag_context = rag.query_code(user_input)
-
-                # --- Agregar mensaje del usuario al historial ---
-                state.history.append({"role": "user", "content": user_input})
-
-                # --- Invocar LLM con contexto RAG ---
-                result = stream_ollama(state, rag_context=rag_context)
-
-                if result:
-                    state.history.append({"role": "assistant", "content": result})
-
-            except KeyboardInterrupt:
-                console.print("\n[dim]Ctrl+C — Usa /exit para salir.[/dim]")
-                continue
-
-            except EOFError:
-                break
-
-            except Exception as e:
-                import traceback
-                error_trace = traceback.format_exc()
-                if not hasattr(state, "captured_errors"):
-                    state.captured_errors = []
-                state.captured_errors.append(error_trace)
-                console.print(f"[red]Error inesperado: {e}[/red]")
-                logging.getLogger("jellyfish").error("Error en main loop: %s", e, exc_info=True)
-
+        tui_engine.get_user_input(
+            state,
+            JellyfishCompleter(),
+            kb,
+            JellyfishLexer()
+        )
+    except KeyboardInterrupt:
+        pass
     finally:
         # Restaurar la terminal al salir
         tui_engine.restore_terminal()

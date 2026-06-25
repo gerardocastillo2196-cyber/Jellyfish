@@ -354,3 +354,15 @@ def format_analysis_for_log(
 
     parts.append("")  # línea vacía al final
     return "\n".join(parts)
+
+
+def validate_syntax(filepath: str) -> tuple[bool, str]:
+    """Valida la sintaxis del archivo de código de forma estática (FASE 4).
+    
+    Retorna (True, "OK") o (False, "Detalle del error de sintaxis").
+    """
+    analysis = analyze_file(filepath)
+    if analysis.get("error"):
+        return False, analysis["error"]
+    return True, "OK"
+

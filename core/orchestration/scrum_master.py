@@ -74,7 +74,10 @@ class ScrumMasterPhase:
         agents_catalog = "\n".join(agent_lines)
         console.print(f"[dim]   Agentes disponibles en la agencia '{self.orchestrator.state.active_agency}': {len(available_agents)}[/dim]")
 
-        backlog = self.orchestrator._read_project_file("BACKLOG.md")
+        # FASE 2: Leer BACKLOG.json si existe, si no, caer a BACKLOG.md
+        backlog_json = self.orchestrator._read_project_file("BACKLOG.json")
+        backlog = backlog_json if backlog_json else self.orchestrator._read_project_file("BACKLOG.md")
+        
         agent_prompt = self.orchestrator._load_agent_prompt("scrum_master")
         
         last_exit = self.orchestrator._get_last_exit_code()
@@ -91,26 +94,27 @@ class ScrumMasterPhase:
             "EQUIPO DISPONIBLE (solo puedes asignar tareas a estos agentes):\n"
             f"{agents_catalog}\n\n"
             "REGLAS DE ASIGNACIÓN:\n"
-            "1. Analiza las historias del BACKLOG.md y decide qué agentes se necesitan.\n"
+            "1. Analiza las historias de BACKLOG.json y decide qué agentes se necesitan.\n"
             "2. Desglosa cada historia en tareas técnicas concretas.\n"
             "3. Asigna cada tarea al agente más adecuado usando EXACTAMENTE su @nombre.\n"
             "4. Define un archivo de código fuente real para el entregable de la tarea (ej: src/main.dart, app/server.js, lib/database.py). Usa extensión .md SOLO si la tarea es puramente de documentación, investigación o arquitectura.\n"
-            f"5. TRASPASOS INTER-AGENCIA (HANDOFFS): Si una tarea técnica excede las capacidades de tu agencia actual (agencia activa: '{self.orchestrator.state.active_agency}'), "
-            "puedes definir como 'Entregable' un archivo que servirá de insumo para otra agencia (ej: un COPY_LANDING.md generado por MKT para que DEV lo consuma).\n\n"
+            "5. TRASPASOS INTER-AGENCIA (HANDOFFS): Si una tarea técnica excede las capacidades de tu agencia actual (agencia activa: '{self.orchestrator.state.active_agency}'), "
+            "puedes definir como 'Entregable' un archivo que servirá de insumo para otra agencia (ej: un COPY_LANDING.md generado por MKT para que DEV lo consuma).\n"
+            "6. DEFINICIÓN DE DEPENDENCIAS (DAG): En la sexta columna, especifica los IDs de las tareas predecesoras que deben completarse antes de iniciar esta tarea, separados por coma (ej. 'T-001' o 'T-001, T-002'). Si no tiene dependencias, escribe 'Ninguna'.\n\n"
             "REQUISITOS DE CALIDAD Y RIQUEZA DE CONTENIDO:\n"
             "Queremos un tablero de sprint extremadamente rico en detalles técnicos. Sigue estas directrices:\n"
             "- Las descripciones de las tareas en la tabla deben ser detalladas y explícitas sobre qué construir (no usar resúmenes vagos).\n"
             "- Abajo de la tabla de tareas, debes incluir obligatoriamente una sección titulada '### 📋 Especificaciones de Tareas y Criterios de Aceptación Técnicos'.\n"
             "- En esta sección, desglosa cada ID de tarea (T-001, T-002, etc.) y detalla paso a paso qué debe implementar el agente, qué APIs o controladores usar, qué validaciones hacer, y los entregables esperados en el archivo destino.\n"
             "- Asegúrate de incluir las secciones de '## ⏳ EN PROCESO (IN PROGRESS)' y '## ✅ HECHO (DONE)' vacías como marcadores.\n\n"
-            f"FORMATO OBLIGATORIO del tablero (la tabla TODO DEBE tener exactamente 5 columnas en {self.orchestrator.board_filename}):\n"
+            f"FORMATO OBLIGATORIO del tablero (la tabla TODO DEBE tener exactamente 6 columnas en {self.orchestrator.board_filename}):\n"
             "```\n"
             "## 📋 POR HACER (TODO)\n"
-            "| ID | Tarea | Asignado | Estimación | Entregable |\n"
-            "|---|---|---|---|---|\n"
-            "| T-001 | Diseñar la arquitectura del sistema | @arquitecto_software | M | ARCHITECTURE.md |\n"
-            "| T-002 | Implementar modelos de datos | @backend_dev | L | src/database/models.js |\n"
-            "| T-003 | Crear componente de Login | @frontend_dev | S | lib/components/Login.tsx |\n"
+            "| ID | Tarea | Asignado | Estimación | Entregable | Dependencias |\n"
+            "|---|---|---|---|---|---|\n"
+            "| T-001 | Diseñar la arquitectura del sistema | @arquitecto_software | M | ARCHITECTURE.md | Ninguna |\n"
+            "| T-002 | Implementar modelos de datos | @backend_dev | L | src/database/models.js | T-001 |\n"
+            "| T-003 | Crear componente de Login | @frontend_dev | S | lib/components/Login.tsx | T-002 |\n"
             "```\n\n"
             "IMPORTANTE:\n"
             "- La columna 'Asignado' DEBE ser exactamente un @nombre de la lista de agentes. "

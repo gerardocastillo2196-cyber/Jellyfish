@@ -272,7 +272,6 @@ def handle_system_command(command: str, arg: str, state, plugins, display_header
 
 def _handle_errors_command(state, display_header_func) -> None:
     """Muestra y diagnostica los errores capturados en la sesión."""
-    from core.tui import tui_engine
     from core.ui import handle_exit_flow
     
     errors = getattr(state, "captured_errors", [])
@@ -280,30 +279,11 @@ def _handle_errors_command(state, display_header_func) -> None:
         console.print("✓ No se han capturado errores en esta sesión.")
         return
 
-    if tui_engine._initialized:
-        tui_engine.restore_terminal()
-        handle_exit_flow(state)
-        tui_engine.init_terminal()
-        display_header_func()
-    else:
-        handle_exit_flow(state)
+    handle_exit_flow(state)
 
 def _show_help(display_header_func):
     """Muestra la guía de comandos y manual completo."""
-    from core.tui import tui_engine
-    if tui_engine._initialized:
-        tui_engine.restore_terminal()
-        import pydoc
-        from io import StringIO
-        buf = StringIO()
-        temp_console = Console(file=buf, force_terminal=True, width=min(60, get_term_width()))
-        temp_console.print(Panel(Markdown(_MANUAL), border_style="dim white"))
-        pydoc.pager(buf.getvalue())
-        tui_engine.init_terminal()
-        display_header_func()
-        tui_engine.move_cursor_to_scroll_region()
-    else:
-        console.print(Panel(Markdown(_MANUAL), border_style="dim white"))
+    console.print(Panel(Markdown(_MANUAL), border_style="dim white"))
 
 def _handle_plugin(arg: str, plugins, state):
     """Procesa el comando /plugin."""

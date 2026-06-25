@@ -48,18 +48,35 @@ class ProductOwnerPhase:
             f"{alert_prefix}"
             f"{agent_prompt}\n\n"
             "[INSTRUCCIONES ESPECÍFICAS]\n"
-            "Tu ÚNICO entregable es el contenido completo del archivo BACKLOG.md. "
-            "Genera SOLAMENTE Markdown listo para guardar. NO incluyas explicaciones externas.\n\n"
-            "REQUISITOS DE CALIDAD Y RIQUEZA DE CONTENIDO:\n"
-            "Queremos un backlog extremadamente detallado, profesional y exhaustivo para guiar al equipo de desarrollo de forma precisa. Evita descripciones cortas u omitir detalles cruciales. Cumple obligatoriamente con:\n"
-            "1. Título del proyecto, visión general detallada, alcance del producto, arquitectura de alto nivel recomendada y stack tecnológico sugerido.\n"
-            "2. Al menos 5 historias de usuario completas. Cada historia debe usar el formato: 'Como [rol], quiero [acción] para [beneficio]'.\n"
-            "3. Cada historia debe incluir una descripción detallada que explique el contexto del negocio y los beneficios de la característica.\n"
-            "4. Cada historia de usuario debe tener al menos 2 criterios de aceptación detallados y exhaustivos en formato Gherkin (Dado que... Cuando... Entonces...) cubriendo tanto caminos felices como flujos alternativos o de error.\n"
-            "5. Clasifica prioridades usando la metodología MoSCoW (Must-have, Should-have, Could-have, Won't-have) y estimación de esfuerzo en T-shirt sizing (XS, S, M, L, XL).\n"
-            "6. Agrega una sección de 'Notas Técnicas Generales y Restricciones' que cubra seguridad, rendimiento, consistencia de datos y lineamientos técnicos.\n"
+            "Tu ÚNICO entregable es una especificación estructurada en formato JSON puro. "
+            "NO generes texto conversacional, ni explicaciones, ni bloques de código adicionales fuera del JSON.\n\n"
+            "El JSON debe tener exactamente la siguiente estructura:\n"
+            "{\n"
+            '  "proyecto": "Nombre del proyecto",\n'
+            '  "vision": "Visión general del producto y arquitectura recomendada",\n'
+            '  "user_stories": [\n'
+            "    {\n"
+            '      "id": "US-001",\n'
+            '      "titulo": "Título de la Historia",\n'
+            '      "como": "Rol del usuario",\n'
+            '      "quiero": "Acción deseada",\n'
+            '      "para": "Beneficio esperado",\n'
+            '      "criterios_aceptacion": [\n'
+            '        "Dado que..., cuando..., entonces..."\n'
+            "      ],\n"
+            '      "contexto_rag_necesario": [\n'
+            '        "Ruta sugerida de archivo o componente de referencia"\n'
+            "      ],\n"
+            '      "definition_of_done": [\n'
+            '        "Criterio de DoD 1 (ej: compila con éxito)",\n'
+            '        "Criterio de DoD 2 (ej: cumple guardrails de seguridad)"\n'
+            "      ]\n"
+            "    }\n"
+            "  ]\n"
+            "}\n"
         )
-        with TaskProgress(tui_engine, "auto_po", "Product Owner: Redactando backlog..."):
+        
+        with TaskProgress(tui_engine, "auto_po", "Product Owner: Redactando backlog estructurado (JSON)..."):
             result = self.orchestrator._call_agent(system, f"IDEA DEL PROYECTO:\n{user_idea}")
 
         elapsed = time.perf_counter() - t0
@@ -69,14 +86,48 @@ class ProductOwnerPhase:
             console.print("✗ Product Owner no produjo resultado.")
             return False
 
-        self.orchestrator._write_project_file("BACKLOG.md", result)
+        # Extraer JSON del bloque de código si está envuelto en ```json ... ```
+        json_clean = result.strip()
+        match = re.search(r'\{.*\}', json_clean, re.DOTALL)
+        if match:
+            json_clean = match.group(0)
+
+        # Validar y escribir BACKLOG.json
+        try:
+            parsed_backlog = json.loads(json_clean)
+            self.orchestrator._write_project_file("BACKLOG.json", json.dumps(parsed_backlog, indent=2, ensure_ascii=False))
+            # Crear un BACKLOG.md legible para compatibilidad visual con humanos
+            md_backlog = f"# Backlog: {parsed_backlog.get('proyecto', 'Proyecto Jellyfish')}\n\n"
+            md_backlog += f"**Visión:** {parsed_backlog.get('vision', '')}\n\n"
+            md_backlog += "## Historias de Usuario\n\n"
+            for us in parsed_backlog.get("user_stories", []):
+                md_backlog += f"### {us.get('id')}: {us.get('titulo')}\n"
+                md_backlog += f"- **Como:** {us.get('como')}\n"
+                md_backlog += f"- **Quiero:** {us.get('quiero')}\n"
+                md_backlog += f"- **Para:** {us.get('para')}\n\n"
+                md_backlog += "#### Criterios de Aceptación\n"
+                for ca in us.get("criterios_aceptacion", []):
+                    md_backlog += f"- {ca}\n"
+                md_backlog += "\n#### Contexto RAG\n"
+                for rag_ctx in us.get("contexto_rag_necesario", []):
+                    md_backlog += f"- `{rag_ctx}`\n"
+                md_backlog += "\n#### Definition of Done\n"
+                for dod in us.get("definition_of_done", []):
+                    md_backlog += f"- {dod}\n"
+                md_backlog += "\n---\n\n"
+            self.orchestrator._write_project_file("BACKLOG.md", md_backlog)
+        except Exception as e:
+            logger.error("Error al parsear el JSON de BACKLOG: %s. Contenido: %s", e, result)
+            console.print("❌ Error al parsear backlog JSON generado por el PO. Guardando salida cruda.")
+            self.orchestrator._write_project_file("BACKLOG.json", json.dumps({"error": "Falló el parsing del LLM", "raw_output": result}))
+            self.orchestrator._write_project_file("BACKLOG.md", result)
+
         tokens = estimate_tokens(result)
-        console.print(f"✓ BACKLOG.md [dim]({tokens:,} tokens · {elapsed:.1f}s)[/dim]")
-        self.orchestrator.metrics.append({"fase": "📝 Product Owner", "detalle": f"~{tokens:,} tokens → BACKLOG.md", "tiempo": elapsed, "status": "✅"})
+        console.print(f"✓ BACKLOG.json generado [dim]({tokens:,} tokens · {elapsed:.1f}s)[/dim]")
+        self.orchestrator.metrics.append({"fase": "📝 Product Owner", "detalle": f"~{tokens:,} tokens → BACKLOG.json", "tiempo": elapsed, "status": "✅"})
 
         # Checkpoint (Resumen mínimo sin preview largo)
-        num_lines = len(result.splitlines())
-        console.print(f"📋 BACKLOG.md generado con éxito. ({num_lines} líneas · ~{tokens:,} tokens)")
+        console.print(f"📋 BACKLOG.json validado y guardado.")
 
         try:
             approved = Confirm.ask("\n¿Aprobar backlog y continuar?", default=True)
@@ -84,7 +135,7 @@ class ProductOwnerPhase:
             approved = False
 
         if not approved:
-            console.print("Pipeline detenido. Edita BACKLOG.md y re-ejecuta /auto.")
+            console.print("Pipeline detenido. Edita BACKLOG.json y re-ejecuta /auto.")
             return False
 
         console.print("✓ Backlog aprobado.\n")
