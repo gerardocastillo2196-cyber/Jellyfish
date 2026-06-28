@@ -28,6 +28,78 @@ MAX_REACT_LOOPS = 3
 # Se limpia al inicio de cada turno con clear_llm_cache().
 _llm_call_cache: dict[str, str] = {}
 
+# Control de procesos para limpiar Ollama al salir
+_ollama_process = None
+
+def _cleanup_ollama():
+    global _ollama_process
+    import subprocess
+    # 1. Terminar el subproceso directo que levantamos nosotros
+    if _ollama_process is not None:
+        try:
+            logger.info("Terminando proceso Ollama iniciado por Jellyfish (PID: %d)", _ollama_process.pid)
+            _ollama_process.terminate()
+            _ollama_process.wait(timeout=2)
+        except Exception:
+            try:
+                _ollama_process.kill()
+            except Exception:
+                pass
+    # 2. Asegurar que no quedan huérfanos del usuario actual
+    try:
+        user = os.getenv("USER", "")
+        if user:
+            subprocess.run(["pkill", "-u", user, "-f", "ollama serve"], capture_output=True)
+    except Exception:
+        pass
+
+import atexit
+atexit.register(_cleanup_ollama)
+
+
+class LocalLLMTimeoutError(RuntimeError):
+    """Excepción lanzada cuando el modelo local (Ollama) sufre un timeout de GPU/memoria saturada."""
+    pass
+
+
+def _truncate_messages_to_budget(messages: list, limit: int) -> list:
+    """Trunca el historial de mensajes de forma segura para no exceder el límite de tokens.
+
+    Mantiene siempre el mensaje de sistema original (si existe) y va agregando los
+    mensajes más recientes de atrás hacia adelante hasta agotar el presupuesto de tokens.
+    """
+    if not messages:
+        return []
+
+    # Dejar un margen de seguridad de 1000 tokens para la respuesta del modelo
+    safety_margin = 1000
+    budget = max(1024, limit - safety_margin)
+
+    system_msgs = [m for m in messages if m.get("role") == "system"]
+    other_msgs = [m for m in messages if m.get("role") != "system"]
+
+    system_tokens = sum(estimate_tokens(m.get("content", "")) for m in system_msgs)
+    available_budget = budget - system_tokens
+
+    if available_budget <= 0:
+        # Si el prompt de sistema ya consume todo el presupuesto, lo recortamos a la fuerza
+        # pero es extremadamente raro. Al menos retornamos solo el prompt del sistema.
+        return system_msgs
+
+    selected_other = []
+    other_tokens_sum = 0
+    # Recorrer del más nuevo al más viejo
+    for msg in reversed(other_msgs):
+        msg_tokens = estimate_tokens(msg.get("content", ""))
+        if other_tokens_sum + msg_tokens <= available_budget:
+            selected_other.insert(0, msg)
+            other_tokens_sum += msg_tokens
+        else:
+            # Si no cabe, paramos de agregar mensajes más antiguos
+            break
+
+    return system_msgs + selected_other
+
 def clear_llm_cache() -> None:
     """Limpia la caché L1 de llamadas LLM. Llamar al inicio de cada turno."""
     _llm_call_cache.clear()
@@ -94,7 +166,8 @@ def ensure_ollama_running(ollama_url: str = "http://localhost:11434") -> bool:
     
     try:
         # Ejecutar ollama serve en segundo plano
-        subprocess.Popen(
+        global _ollama_process
+        _ollama_process = subprocess.Popen(
             ["ollama", "serve"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -206,7 +279,7 @@ def _parse_ollama_line(line_bytes: bytes) -> str:
     return ""
 
 
-def _prepare_payload(provider_name: str, url: str, model_name: str, messages: list, attempt: int = 1) -> dict:
+def _prepare_payload(provider_name: str, url: str, model_name: str, messages: list, attempt: int = 1, state = None) -> dict:
     is_cloud = provider_name != "ollama"
     is_native_anthropic = (provider_name == "claude" and "api.anthropic.com" in url)
 
@@ -221,12 +294,26 @@ def _prepare_payload(provider_name: str, url: str, model_name: str, messages: li
         }
         model_name = gemini_mapping.get(model_name, model_name)
 
+    if provider_name == "ollama":
+        limit = getattr(state, "local_context_limit", 4096) if state is not None else 4096
+        if not isinstance(limit, int):
+            limit = 4096
+        messages = _truncate_messages_to_budget(messages, limit)
+
     payload = {
         "model": model_name,
         "stream": True,
     }
     if is_cloud:
         payload["temperature"] = max(0.0, 0.2 - 0.05 * (attempt - 1))
+    else:
+        limit = getattr(state, "local_context_limit", 4096) if state is not None else 4096
+        if not isinstance(limit, int):
+            limit = 4096
+        payload["options"] = {
+            "num_ctx": limit,
+            "temperature": max(0.0, 0.2 - 0.05 * (attempt - 1)),
+        }
 
     if is_native_anthropic:
         payload["max_tokens"] = 4096
@@ -283,8 +370,16 @@ def _call_llm_silent(
     initial_delay = 2.0
     backoff_factor = 2.0
 
+    if provider_name == "ollama":
+        actual_timeout = timeout if isinstance(timeout, httpx.Timeout) else (
+            httpx.Timeout(timeout, connect=10.0) if timeout is not None
+            else httpx.Timeout(180.0, connect=10.0)
+        )
+    else:
+        actual_timeout = timeout
+
     for attempt in range(1, max_attempts + 1):
-        payload = _prepare_payload(provider_name, url, model_name, messages, attempt)
+        payload = _prepare_payload(provider_name, url, model_name, messages, attempt, state=state)
         try:
             full = ""
             parse_fn = (
@@ -298,7 +393,7 @@ def _call_llm_silent(
             # el status code, y luego procesamos el stream solo si es 200.
             # Esto evita el bug donde `continue` no escapaba del context manager.
             should_retry = False
-            with client.stream("POST", url, headers=headers, json=payload, timeout=timeout) as response:
+            with client.stream("POST", url, headers=headers, json=payload, timeout=actual_timeout) as response:
                 if response.status_code == 429 or (500 <= response.status_code < 600):
                     should_retry = True
                     # Consumir el body para liberar la conexión
@@ -352,6 +447,11 @@ def _call_llm_silent(
                 return None
 
         except (httpx.ConnectError, httpx.TimeoutException, httpx.RequestError) as e:
+            if provider_name == "ollama" and isinstance(e, httpx.TimeoutException):
+                console.print("\n[red]⚠ El modelo local superó el tiempo de espera (Timeout). Memoria saturada.[/red]\n")
+                logger.error("Timeout del modelo local (GPU saturada) en _call_llm_silent: %s", e)
+                raise LocalLLMTimeoutError("El modelo local superó el tiempo de espera (Timeout). Memoria saturada.") from e
+
             if attempt < max_attempts:
                 delay = initial_delay * (backoff_factor ** (attempt - 1))
                 logger.warning(
@@ -364,6 +464,169 @@ def _call_llm_silent(
                 return None
 
     return None
+
+
+def _get_models_list_url_and_headers(state, provider_name: str) -> tuple[str, dict]:
+    """Retorna (url, headers) para consultar la lista de modelos del proveedor."""
+    provider_name = normalize_provider(provider_name)
+    if provider_name == "ollama":
+        from urllib.parse import urlparse
+        parsed = urlparse(state.ollama_base_url)
+        if parsed.scheme and parsed.netloc:
+            base_url = f"{parsed.scheme}://{parsed.netloc}"
+        else:
+            base_url = state.ollama_base_url.rstrip("/")
+        return f"{base_url}/api/tags", {"Content-Type": "application/json"}
+
+    base_url = state.base_urls.get(provider_name) or getattr(state, f"{provider_name}_base_url", "")
+    if not base_url:
+        from core.config import PROVIDER_CONFIGS
+        base_url = PROVIDER_CONFIGS.get(provider_name, {}).get("default_base_url", "")
+        if not base_url:
+            raise ValueError(f"Proveedor '{provider_name}' no tiene base_url configurado.")
+
+    api_key = state.api_keys.get(provider_name) or getattr(state, f"{provider_name}_api_key", "")
+
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        if provider_name == "claude" and "api.anthropic.com" in base_url:
+            headers = {
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            }
+        else:
+            headers["Authorization"] = f"Bearer {api_key}"
+
+    if provider_name == "openrouter":
+        headers["HTTP-Referer"] = "https://github.com/jellyfish-os"
+        headers["X-Title"] = "Jellyfish OS"
+
+    url = base_url.rstrip("/")
+    return f"{url}/models", headers
+
+
+def _fetch_provider_models_dynamic(state, provider_name: str) -> list[str]:
+    """Obtiene la lista de modelos de un endpoint compatible con OpenAI o de la API de Gemini."""
+    provider_name = normalize_provider(provider_name)
+    url, headers = _get_provider_config(state, provider_name)
+    base_url = state.base_urls.get(provider_name) or getattr(state, f"{provider_name}_base_url", "")
+    api_key = state.api_keys.get(provider_name) or getattr(state, f"{provider_name}_api_key", "")
+    
+    models = []
+    if not base_url:
+        return models
+    try:
+        base_url_lower = base_url.lower()
+        if "generativelanguage.googleapis.com" in base_url_lower or "gemini" in base_url_lower:
+            models_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+            client = _get_sync_client()
+            resp = client.get(models_url, timeout=5.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, dict) and "models" in data:
+                    for item in data["models"]:
+                        if isinstance(item, dict) and "name" in item:
+                            name = item["name"]
+                            if name.startswith("models/"):
+                                name = name[len("models/"):]
+                            models.append(name)
+        else:
+            models_url = f"{base_url.rstrip('/')}/models"
+            client = _get_sync_client()
+            resp = client.get(models_url, headers=headers, timeout=5.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, dict) and "data" in data:
+                    for item in data["data"]:
+                        if isinstance(item, dict) and "id" in item:
+                            models.append(item["id"])
+    except Exception as e:
+        logger.warning("Error fetching models dynamically from %s: %s", provider_name, e)
+        raise e
+    return sorted(list(set(models)))
+
+
+def _fetch_ollama_models_local(state) -> list[str]:
+    base_url = state.ollama_base_url
+    from urllib.parse import urlparse
+    parsed = urlparse(base_url or "http://localhost:11434")
+    tags_url = f"{parsed.scheme}://{parsed.netloc}/api/tags" if parsed.netloc else "http://localhost:11434/api/tags"
+    try:
+        client = _get_sync_client()
+        resp = client.get(tags_url, timeout=3.0)
+        if resp.status_code == 200:
+            data = resp.json()
+            return [m["name"] for m in data.get("models", [])]
+    except Exception:
+        pass
+    return ["llama3", "mistral", "codellama", "qwen2.5-coder"]
+
+
+def _select_fallback_model(provider_name: str, available_models: list[str], failed_models: set[str]) -> str | None:
+    priorities = {
+        "gemini": ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+        "claude": ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"],
+        "openai": ["gpt-4o", "gpt-4o-mini", "o1-preview", "o1-mini"],
+        "deepseek": ["deepseek-coder", "deepseek-chat"],
+        "qwen": ["qwen-max", "qwen-plus", "qwen-turbo"],
+        "kimi": ["moonshot-v1-32k", "moonshot-v1-8k"],
+        "zhipu": ["glm-4", "glm-4-flash"],
+    }
+    
+    provider_priorities = priorities.get(provider_name, [])
+    
+    clean_avail = [m.lower() for m in available_models]
+    clean_failed = [m.lower() for m in failed_models]
+    
+    for model_name in provider_priorities:
+        if model_name.lower() in clean_avail and model_name.lower() not in clean_failed:
+            idx = clean_avail.index(model_name.lower())
+            return available_models[idx]
+            
+    for m in available_models:
+        m_lower = m.lower()
+        if m_lower not in clean_failed:
+            if not any(k in m_lower for k in ["embed", "moderation", "similarity", "whisper", "tts", "dall-e"]):
+                return m
+                
+    for m in available_models:
+        if m.lower() not in clean_failed:
+            return m
+            
+    return None
+
+
+def _fallback_to_local_ollama(state) -> tuple[str, str]:
+    new_provider = "ollama"
+    ensure_ollama_running(state.ollama_base_url)
+    
+    local_models = _fetch_ollama_models_local(state)
+    local_priorities = [
+        "qwen2.5-coder:7b",
+        "qwen2.5-coder",
+        "llama3.1",
+        "llama3",
+        "mistral",
+        "codellama"
+    ]
+    
+    new_model = "llama3"
+    clean_local = [m.lower() for m in local_models]
+    
+    for p_model in local_priorities:
+        for idx, m in enumerate(clean_local):
+            if p_model in m or m in p_model:
+                new_model = local_models[idx]
+                break
+        if new_model != "llama3":
+            break
+            
+    if new_model == "llama3" and local_models:
+        new_model = local_models[0]
+        
+    state.save_config(provider=new_provider, model=new_model)
+    return new_provider, new_model
 
 
 def _stream_request(
@@ -379,119 +642,165 @@ def _stream_request(
     Sprint 3.1 — Migrado de requests a httpx (mejor soporte para cancelación).
     Sprint 3.3 — Soporta interrupción grácil via Ctrl+C: aborta solo el stream
                   HTTP sin matar el proceso completo. Señal via lista _aborted mutable.
-
-    Args:
-        state: Instancia del estado.
-        messages: Lista de mensajes en formato Chat Completions.
-        agent_name: Nombre del agente (para el título del panel).
-        _aborted: Lista mutable [False] para señalizar cancelación desde fuera.
-
-    Returns:
-        La respuesta completa del modelo, o None si hay error / cancelación.
+    Sprint 13  — Fallback y auto-switching resiliente de modelos y proveedores.
     """
-    provider_name = normalize_provider(provider or state.provider)
-    model_name = model or state.model
-    url, headers = _get_provider_config(state, provider_name)
-    is_cloud = provider_name != "ollama"
+    failed_models = set()
+    max_fallbacks = 3
 
-    payload = _prepare_payload(provider_name, url, model_name, messages)
+    for fallback_attempt in range(max_fallbacks + 1):
+        provider_name = normalize_provider(provider or state.provider)
+        model_name = model or state.model
+        url, headers = _get_provider_config(state, provider_name)
+        is_cloud = provider_name != "ollama"
 
-    full = ""
-    provider_label = f"{provider_name}:{model_name}" if is_cloud else f"@{agent_name}"
-    parse_fn = (
-        (lambda line: _parse_sse_line(line, provider_name))
-        if is_cloud
-        else _parse_ollama_line
-    )
+        payload = _prepare_payload(provider_name, url, model_name, messages, state=state)
 
-    try:
-        import asyncio
+        full = ""
+        parse_fn = (
+            (lambda line: _parse_sse_line(line, provider_name))
+            if is_cloud
+            else _parse_ollama_line
+        )
 
-        async def _run_stream():
-            nonlocal full
-            async with httpx.AsyncClient(
-                timeout=httpx.Timeout(300.0, connect=30.0),
-                limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
-                follow_redirects=True,
-            ) as client:
-                status = console.status(f"[cyan]Pensando ({provider_name})...[/cyan]")
-                status.start()
-                try:
-                    async with client.stream("POST", url, headers=headers, json=payload) as response:
-                        status.stop()
-                        if response.status_code != 200:
-                            error_body = (await response.aread())[:500].decode("utf-8", errors="replace")
-                            console.print(
-                                f"Error HTTP {response.status_code} de {provider_name}:\n"
-                                f"[dim]{error_body}[/dim]"
-                            )
-                            return
-    
-                        with Live(
-                            "",
-                            refresh_per_second=12,
-                            console=console,
-                        ) as live:
-                            try:
-                                async for line in response.aiter_lines():
-                                    if _aborted and _aborted[0]:
+        status_code = None
+        error_msg = ""
+
+        actual_timeout = (
+            httpx.Timeout(180.0, connect=15.0)
+            if provider_name == "ollama"
+            else httpx.Timeout(300.0, connect=30.0)
+        )
+
+        try:
+            import asyncio
+
+            async def _run_stream():
+                nonlocal full, status_code, error_msg
+                async with httpx.AsyncClient(
+                    timeout=actual_timeout,
+                    limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+                    follow_redirects=True,
+                ) as client:
+                    status = console.status(f"[cyan]Pensando ({provider_name})...[/cyan]")
+                    status.start()
+                    try:
+                        async with client.stream("POST", url, headers=headers, json=payload) as response:
+                            status.stop()
+                            if response.status_code != 200:
+                                status_code = response.status_code
+                                error_body = (await response.aread())[:500].decode("utf-8", errors="replace")
+                                error_msg = error_body
+                                response.raise_for_status()
+                                return
+        
+                            import sys
+                            from core.tui import tui_engine
+                            tui_active = getattr(tui_engine, "_initialized", False) and tui_engine.active_tui_app is not None
+
+                            if tui_active:
+                                try:
+                                    async for line in response.aiter_lines():
+                                        if _aborted and _aborted[0]:
+                                            print("\n⚡ Stream interrumpido — respuesta parcial conservada.")
+                                            break
+                                        if not line:
+                                            continue
+                                        chunk = parse_fn(line.encode("utf-8"))
+                                        if chunk:
+                                            full += chunk
+                                            sys.stdout.write(chunk)
+                                            sys.stdout.flush()
+                                except KeyboardInterrupt:
+                                    print("\n⚡ Stream interrumpido — respuesta parcial conservada.")
+                                    if _aborted is not None:
+                                        _aborted[0] = True
+                            else:
+                                with Live(
+                                    "",
+                                    refresh_per_second=12,
+                                    console=console,
+                                ) as live:
+                                    try:
+                                        async for line in response.aiter_lines():
+                                            if _aborted and _aborted[0]:
+                                                print("\n⚡ Stream interrumpido — respuesta parcial conservada.")
+                                                break
+                                            if not line:
+                                                continue
+                                            chunk = parse_fn(line.encode("utf-8"))
+                                            if chunk:
+                                                full += chunk
+                                                live.update(Markdown(full))
+                                    except KeyboardInterrupt:
                                         print("\n⚡ Stream interrumpido — respuesta parcial conservada.")
-                                        break
-    
-                                    if not line:
-                                        continue
-    
-                                    chunk = parse_fn(line.encode("utf-8"))
-                                    if chunk:
-                                        full += chunk
-                                        live.update(Markdown(full))
-                            except KeyboardInterrupt:
-                                print("\n⚡ Stream interrumpido — respuesta parcial conservada.")
-                                if _aborted is not None:
-                                    _aborted[0] = True
-                finally:
-                    status.stop()
+                                        if _aborted is not None:
+                                            _aborted[0] = True
+                    finally:
+                        status.stop()
 
-        asyncio.run(_run_stream())
+            asyncio.run(_run_stream())
 
-        if full:
-            tokens_input = sum(estimate_tokens(m.get("content", "")) for m in messages)
-            tokens_output = estimate_tokens(full)
-            total_tokens = tokens_input + tokens_output
-            if hasattr(state, "add_session_tokens"):
-                state.add_session_tokens(total_tokens)
+            if full:
+                tokens_input = sum(estimate_tokens(m.get("content", "")) for m in messages)
+                tokens_output = estimate_tokens(full)
+                total_tokens = tokens_input + tokens_output
+                if hasattr(state, "add_session_tokens"):
+                    state.add_session_tokens(total_tokens)
+                
+                if not hasattr(state, "_turn_stats"):
+                    state._turn_stats = []
+                state._turn_stats.append({
+                    "input": tokens_input,
+                    "output": tokens_output,
+                    "total": total_tokens
+                })
+                logger.info("Respuesta: %d tokens (Input: %d | Output: %d)", total_tokens, tokens_input, tokens_output)
+                return full
+            else:
+                return None
+
+        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException, httpx.RequestError) as e:
+            if provider_name == "ollama" and isinstance(e, httpx.TimeoutException):
+                console.print("\n[red]⚠ El modelo local superó el tiempo de espera (Timeout). Memoria saturada.[/red]\n")
+                logger.error("Timeout del modelo local (GPU saturada) en _stream_request: %s", e)
+                raise LocalLLMTimeoutError("El modelo local superó el tiempo de espera (Timeout). Memoria saturada.") from e
+
+            code = status_code or (e.response.status_code if hasattr(e, "response") and e.response else None)
+            failed_models.add(model_name)
+
+            if code in (429, 503):
+                console.print(f"[yellow]⚠ El modelo {model_name} está saturado (Error {code}). Buscando alternativas...[/yellow]")
+            else:
+                console.print(f"[yellow]⚠ Error de conexión/red al invocar {model_name} (Error: {e}). Buscando alternativas...[/yellow]")
             
-            if not hasattr(state, "_turn_stats"):
-                state._turn_stats = []
-            state._turn_stats.append({
-                "input": tokens_input,
-                "output": tokens_output,
-                "total": total_tokens
-            })
-            logger.info("Respuesta: %d tokens (Input: %d | Output: %d)", total_tokens, tokens_input, tokens_output)
-        return full if full else None
+            logger.warning("Fallo en _stream_request: %s (status_code=%s) con modelo %s. Iniciando fallback...", e, code, model_name)
 
-    except httpx.ConnectError:
-        if provider_name == "ollama":
-            console.print(
-                "Error: No se puede conectar a Ollama.\n"
-                "[dim]Asegúrate de que Ollama esté ejecutándose: ollama serve[/dim]"
-            )
-        else:
-            console.print(
-                f"Error: No se puede conectar al proveedor {provider_name}.\n"
-                "[dim]Verifica tu conexión a internet y la URL del API.[/dim]"
-            )
-        return None
+            if fallback_attempt >= max_fallbacks:
+                console.print(f"[red]❌ Se excedió el límite de fallbacks ({max_fallbacks}).[/red]")
+                return None
 
-    except httpx.TimeoutException:
-        console.print("Error: Timeout en la conexión (>300s).")
-        return None
-
-    except Exception as e:
-        console.print(f"Error LLM ({provider_name}): {e}")
-        logger.error("Error en _stream_request: %s", e, exc_info=True)
-        return None
+            # Intentar fallback dinámico
+            try:
+                available_models = _fetch_provider_models_dynamic(state, provider_name)
+                new_model = _select_fallback_model(provider_name, available_models, failed_models)
+                
+                if new_model:
+                    state.save_config(model=new_model)
+                    console.print(f"[green]✓ Cambiando a modelo de respaldo dinámico: {new_model}[/green]")
+                    continue
+                else:
+                    raise ValueError("No se encontraron modelos de respaldo viables en este proveedor.")
+            except Exception as fe:
+                logger.warning("Fallo al obtener modelos dinámicos de %s: %s. Ejecutando Plan C (Ollama)...", provider_name, fe)
+                console.print(f"[yellow]⚠ Proveedor {provider_name} no disponible o sin modelos. Ejecutando Plan C (Fallback a Local)...[/yellow]")
+                
+                try:
+                    new_prov, new_model = _fallback_to_local_ollama(state)
+                    console.print(f"[green]✓ Cambiando a proveedor local: {new_prov} (Modelo: {new_model})[/green]")
+                    continue
+                except Exception as local_err:
+                    console.print(f"[red]❌ Falló el fallback local a Ollama: {local_err}[/red]")
+                    return None
 
 
 def stream_ollama(state, rag_context: str = "") -> str | None:

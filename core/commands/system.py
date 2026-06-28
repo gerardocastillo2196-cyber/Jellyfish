@@ -12,7 +12,7 @@ from core.terminal import run_terminal_command
 
 # Manual content from core/crud.py
 _MANUAL = """
-# 🪼 Jellyfish OS v5.1 — Manual del Usuario
+# 🪼 Jellyfish OS v6.8 — Manual del Usuario
 
 Jellyfish es un framework de agentes técnicos impulsados por IA. Combina modelos locales o en la nube (Ollama, OpenAI, DeepSeek, OpenRouter) con ejecución autónoma (Auto-ReAct), recuperación de código vectorial (RAG) y un **Orquestador Multi-Agente** para investigaciones complejas.
 
@@ -41,8 +41,8 @@ Un sistema de 4 fases para consultas complejas: **Planificación → Búsqueda e
 
 ## ⚙️ 2. CONFIGURACIÓN DEL SISTEMA
 
-### `/model` — Selector Interactivo de Modelos
-*   `/model` (o `/m`): Abre un selector interactivo en TUI para elegir rápidamente el proveedor (Ollama, Gemini, Claude) y el modelo específico a utilizar.
+### `/model` (alias: `/m`) — Selector Interactivo de Modelos
+*   Abre un selector interactivo en TUI para elegir rápidamente el proveedor (Ollama, Gemini, Claude) y el modelo específico a utilizar.
 
 ### `/config` — Panel de Configuración Hot-Reload
 *   `/config` (o `/config menu`): Menú interactivo para ver/cambiar proveedor, modelo y API Keys.
@@ -190,23 +190,25 @@ Las Skills enseñan al agente comandos Bash pre-configurados con manejo de error
 
 | Comando | Alias | Función |
 |---|---|---|
-| `/research <consulta>` | — | Orquestador multi-agente |
-| `/add [ruta]` | — | Añadir archivo o carpeta al contexto/RAG |
+| `/model` | `/m` | Selector interactivo de modelos |
+| `/config` | — | Configurar proveedor, modelo o API keys |
+| `/add` | — | Añadir archivo o carpeta al contexto/RAG |
 | `/context` | `/c` | Gestionar contexto activo |
-| `/rag <status|reindex|remove|clear>` | — | Control del índice vectorial |
-| `/project <ruta>` | — | Cargar/Crear un proyecto Scrum o Cascada |
-| `/compile` | — | Compilar y validar el proyecto activo |
-| `/gon` | — | Activar guías del proyecto (Guides On) |
-| `/goff` | — | Desactivar guías del proyecto (Guides Off) |
-| `/purge` | — | Borrar todo contexto y RAG |
+| `/rag` | — | Control del índice vectorial |
+| `/project` | `/p` | Cargar/Crear un proyecto |
+| `/auto` | `/build` | Agencia autónoma de desarrollo |
+| `/research` | — | Orquestador multi-agente |
 | `/agent` | `/a` | Gestionar agentes |
 | `/skill` | `/s` | Gestionar habilidades |
-| `/run <cmd>` | `/r` | Ejecutar comando en terminal |
-| `/plugin [nombre]` | — | Ejecutar plugin en sandbox |
-| `/config [opción]` | — | Configurar proveedor/modelo/keys |
-| `/ignore [opción]` | — | Registrar .jellyfishignore |
-| `/errors` | `/debug`, `/d` | Ver y diagnosticar errores de la sesión con IA |
+| `/run` | `/r` | Ejecutar comando en terminal |
+| `/compile` | — | Compilar el proyecto activo |
+| `/gon` | — | Activar guías de construcción |
+| `/goff` | — | Desactivar guías de construcción |
+| `/plugin` | — | Ejecutar plugin en sandbox |
+| `/ignore` | — | Gestionar .jellyfishignore |
+| `/errors` | `/d` | Ver errores de la sesión |
 | `/provider` | — | Ver proveedor activo |
+| `/purge` | — | Borrar todo contexto y RAG |
 | `/clear` | — | Limpiar historial de chat |
 | `/help` | `/h` | Este manual |
 | `/exit` | — | Cerrar Jellyfish |
@@ -224,7 +226,7 @@ def handle_system_command(command: str, arg: str, state, plugins, display_header
             os.system("cls" if os.name == "nt" else "clear")
             tui_engine.print_welcome_logo()
         display_header_func()
-        console.print("🪼 Guías del proyecto DESACTIVADAS. Escribe /Gon para volver a activarlas.")
+        console.print("🪼 Guías del proyecto DESACTIVADAS. Escribe /gon para volver a activarlas.")
 
     elif command == "/gon":
         state.show_guides = True

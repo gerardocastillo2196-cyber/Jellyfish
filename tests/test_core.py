@@ -391,6 +391,7 @@ class TestProviderConfig:
         assert "system" not in payload
         assert "max_tokens" not in payload
         assert "temperature" not in payload
+        assert payload["options"]["temperature"] == 0.2
         assert len(payload["messages"]) == 2
         assert payload["messages"][0]["role"] == "system"
         assert payload["messages"][0]["content"] == "Eres un programador experto."
@@ -478,6 +479,28 @@ class TestRAGCloseAndReindex:
             assert count2 > 0
 
             # Validar que funciona correctamente
+            assert kb.indexed_chunk_count > 0
+
+    def test_reindex_method(self, tmp_path):
+        from core.rag_coder import CodeKnowledgeBase
+        from unittest.mock import patch
+
+        db_dir = tmp_path / "test_rag_db_method"
+        db_path_str = str(db_dir)
+
+        with patch("core.rag_coder.OllamaEmbeddings", return_value=DummyEmbeddings()):
+            kb = CodeKnowledgeBase(db_path_str)
+
+            code_dir = tmp_path / "user_code_method"
+            code_dir.mkdir()
+            (code_dir / "app.py").write_text("def run():\n    pass\n")
+
+            # Indexar codebase por primera vez
+            kb.index_codebase(str(code_dir))
+            assert kb.indexed_chunk_count > 0
+
+            # Probar método reindex()
+            kb.reindex()
             assert kb.indexed_chunk_count > 0
 
 
@@ -915,5 +938,308 @@ class TestJellyfishV7Features:
             assert len(state.captured_errors) > 0
             assert "Fallo de compilación" in state.captured_errors[-1]
             assert "make failed" in state.captured_errors[-1]
+
+
+from unittest.mock import patch, MagicMock
+
+class TestResilientLLMFallback:
+    def test_select_fallback_model(self):
+        from core.llm_engine import _select_fallback_model
+
+        # Caso 1: Hay un modelo preferido disponible que no ha fallado
+        available = ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-2.5-pro"]
+        failed = {"gemini-2.5-pro"}
+        selected = _select_fallback_model("gemini", available, failed)
+        assert selected == "gemini-2.5-flash"
+
+        # Caso 2: Ninguno de la lista de prioridades coincide, pero hay otro disponible
+        available = ["some-random-model-v2", "another-custom-model"]
+        failed = {"some-random-model-v2"}
+        selected = _select_fallback_model("openai", available, failed)
+        assert selected == "another-custom-model"
+
+        # Caso 3: Todos han fallado, retorna None
+        available = ["gpt-4o", "gpt-4o-mini"]
+        failed = {"gpt-4o", "gpt-4o-mini"}
+        selected = _select_fallback_model("openai", available, failed)
+        assert selected is None
+
+    @patch("core.llm_engine._fetch_ollama_models_local")
+    @patch("core.llm_engine.ensure_ollama_running")
+    def test_fallback_to_local_ollama(self, mock_ensure, mock_fetch):
+        from core.llm_engine import _fallback_to_local_ollama
+        from core.state import JellyfishState
+        from unittest.mock import patch
+
+        state = JellyfishState()
+        mock_fetch.return_value = ["qwen2.5-coder:7b", "llama3:latest"]
+        
+        with patch.object(state, "save_config") as mock_save:
+            provider, model = _fallback_to_local_ollama(state)
+            assert provider == "ollama"
+            assert model == "qwen2.5-coder:7b"
+            mock_save.assert_called_once_with(provider="ollama", model="qwen2.5-coder:7b")
+
+    @patch("core.llm_engine._fetch_provider_models_dynamic")
+    @patch("httpx.AsyncClient")
+    def test_stream_request_fallback_success(self, mock_client_cls, mock_fetch):
+        from core.llm_engine import _stream_request
+        from core.state import JellyfishState
+        import httpx
+        from unittest.mock import MagicMock
+
+        state = JellyfishState()
+        state.provider = "gemini"
+        state.model = "gemini-2.5-pro"
+        state.base_urls["gemini"] = "https://generativelanguage.googleapis.com/v1beta/openai"
+
+        def mock_save_config(**kwargs):
+            if "provider" in kwargs:
+                state.provider = kwargs["provider"]
+            if "model" in kwargs:
+                state.model = kwargs["model"]
+        state.save_config = mock_save_config
+
+        mock_fetch.return_value = ["gemini-2.5-pro", "gemini-2.5-flash"]
+
+        class MockResponse:
+            def __init__(self, status_code, body):
+                self.status_code = status_code
+                self._body = body
+                self.request = MagicMock()
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+            async def aread(self):
+                return self._body
+
+            def raise_for_status(self):
+                if self.status_code != 200:
+                    raise httpx.HTTPStatusError("503 error", request=self.request, response=self)
+
+            async def aiter_lines(self):
+                yield self._body.decode("utf-8")
+
+        resp_503 = MockResponse(503, b"Service saturated")
+        resp_200 = MockResponse(200, b'data: {"choices": [{"delta": {"content": "Resilience works!"}}]}')
+
+        class MockClientInstance:
+            def __init__(self):
+                self.responses = [resp_503, resp_200]
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+            def stream(self, method, url, **kwargs):
+                return self.responses.pop(0)
+
+        mock_client_cls.return_value = MockClientInstance()
+
+        res = _stream_request(state, [{"role": "user", "content": "hi"}], "test_agent")
+
+        assert res == "Resilience works!"
+        assert state.model == "gemini-2.5-flash"
+
+    @patch("core.llm_engine._fallback_to_local_ollama")
+    @patch("core.llm_engine._fetch_provider_models_dynamic")
+    @patch("httpx.AsyncClient")
+    def test_stream_request_fallback_plan_c(self, mock_client_cls, mock_fetch, mock_fallback_ollama):
+        from core.llm_engine import _stream_request
+        from core.state import JellyfishState
+        import httpx
+        from unittest.mock import MagicMock
+
+        state = JellyfishState()
+        state.provider = "gemini"
+        state.model = "gemini-2.5-pro"
+        state.base_urls["gemini"] = "https://generativelanguage.googleapis.com/v1beta/openai"
+
+        def mock_save_config(**kwargs):
+            if "provider" in kwargs:
+                state.provider = kwargs["provider"]
+            if "model" in kwargs:
+                state.model = kwargs["model"]
+        state.save_config = mock_save_config
+
+        mock_fetch.side_effect = RuntimeError("API down completely")
+        
+        def fallback_side_effect(s):
+            s.provider = "ollama"
+            s.model = "llama3"
+            return "ollama", "llama3"
+        mock_fallback_ollama.side_effect = fallback_side_effect
+
+        class MockResponse:
+            def __init__(self, status_code, body):
+                self.status_code = status_code
+                self._body = body
+                self.request = MagicMock()
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+            async def aread(self):
+                return self._body
+
+            def raise_for_status(self):
+                if self.status_code != 200:
+                    raise httpx.HTTPStatusError("503 error", request=self.request, response=self)
+
+            async def aiter_lines(self):
+                yield self._body.decode("utf-8")
+
+        resp_503 = MockResponse(503, b"Service saturated")
+        resp_200 = MockResponse(200, b'{"message": {"content": "Local Ollama works!"}}')
+
+        class MockClientInstance:
+            def __init__(self):
+                self.responses = [resp_503, resp_200]
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+            def stream(self, method, url, **kwargs):
+                return self.responses.pop(0)
+
+        mock_client_cls.return_value = MockClientInstance()
+
+        res = _stream_request(state, [{"role": "user", "content": "hi"}], "test_agent")
+
+        assert res == "Local Ollama works!"
+        mock_fallback_ollama.assert_called_once()
+
+    def test_message_truncation(self):
+        from core.llm_engine import _truncate_messages_to_budget
+        
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "A very long message " * 1000},
+            {"role": "assistant", "content": "Short reply"},
+            {"role": "user", "content": "Recent message"},
+        ]
+        
+        truncated = _truncate_messages_to_budget(messages, 8192)
+        assert len(truncated) == 4
+        
+        truncated = _truncate_messages_to_budget(messages, 1100)
+        assert len(truncated) < 4
+        assert truncated[0]["role"] == "system"
+        assert truncated[-1]["content"] == "Recent message"
+
+    @patch("core.llm_engine._get_sync_client")
+    def test_ollama_timeout_raises_local_llm_timeout_error(self, mock_get_sync_client):
+        from core.llm_engine import _call_llm_silent, LocalLLMTimeoutError
+        import httpx
+        from unittest.mock import MagicMock
+        
+        state = MagicMock()
+        state.provider = "ollama"
+        state.ollama_base_url = "http://localhost:11434"
+        state.model = "llama3"
+        state.context_limit = 8192
+        
+        mock_client = MagicMock()
+        mock_client.stream.side_effect = httpx.TimeoutException("Ollama read timeout")
+        mock_get_sync_client.return_value = mock_client
+        
+        with pytest.raises(LocalLLMTimeoutError) as exc_info:
+            _call_llm_silent(state, [{"role": "user", "content": "hi"}])
+            
+        assert "superó el tiempo de espera" in str(exc_info.value)
+
+    @patch("httpx.AsyncClient")
+    def test_stream_request_ollama_timeout(self, mock_client_cls):
+        from core.llm_engine import _stream_request, LocalLLMTimeoutError
+        from core.state import JellyfishState
+        import httpx
+        from unittest.mock import MagicMock
+        
+        state = JellyfishState()
+        state.provider = "ollama"
+        state.ollama_base_url = "http://localhost:11434"
+        state.model = "llama3"
+        state.context_limit = 8192
+        
+        class MockClientInstance:
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+            def stream(self, method, url, **kwargs):
+                raise httpx.TimeoutException("Ollama async timeout")
+                
+        mock_client_cls.return_value = MockClientInstance()
+        
+        with pytest.raises(LocalLLMTimeoutError) as exc_info:
+            _stream_request(state, [{"role": "user", "content": "hi"}], "test_agent")
+            
+        assert "superó el tiempo de espera" in str(exc_info.value)
+
+    def test_local_context_limit_loading(self):
+        from core.state import JellyfishState
+        from unittest.mock import patch
+        import os
+
+        orig_getenv = os.getenv
+        def mock_getenv(key, default=None):
+            if key == "JELLYFISH_LOCAL_CONTEXT_LIMIT":
+                return "2048"
+            return orig_getenv(key, default)
+
+        with patch("os.getenv", side_effect=mock_getenv):
+            state = JellyfishState()
+            assert state.local_context_limit == 2048
+
+    def test_prepare_payload_local_context_limit(self):
+        from core.llm_engine import _prepare_payload
+        from unittest.mock import MagicMock
+
+        state = MagicMock()
+        state.local_context_limit = 2048
+        state.context_limit = 8192
+
+        # Ollama payload should use local_context_limit
+        payload = _prepare_payload("ollama", "http://localhost:11434/api/chat", "llama3", [{"role": "user", "content": "hi"}], state=state)
+        assert payload["options"]["num_ctx"] == 2048
+
+        # Other providers (cloud) should not have option num_ctx in their payload
+        payload_cloud = _prepare_payload("gemini", "https://api.gemini.com/v1", "gemini-2.5-flash", [{"role": "user", "content": "hi"}], state=state)
+        assert "options" not in payload_cloud
+
+    def test_global_keybindings_ctrl_c(self):
+        from core.terminal import get_global_keybindings
+        from core.state import JellyfishState
+        from unittest.mock import MagicMock
+
+        state = JellyfishState()
+        kb = get_global_keybindings(state)
+
+        # Buscar nuestro atajo específico para Ctrl+C por el nombre de su handler
+        target_binding = None
+        for b in kb.bindings:
+            if getattr(b.handler, "__name__", "") == "_exit_on_ctrl_c":
+                target_binding = b
+                break
+
+        assert target_binding is not None, "No se encontró el atajo para Ctrl+C (_exit_on_ctrl_c)"
+
+        # Simular que se presiona Ctrl+C invocando el handler con un evento mockeado
+        mock_event = MagicMock()
+        target_binding.handler(mock_event)
+        mock_event.app.exit.assert_called_once_with(result="/exit")
+
 
 

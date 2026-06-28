@@ -9,7 +9,7 @@ from core.state import (
     PROVIDER_CONFIGS, normalize_provider, supported_provider_names,
 )
 from core.rag_coder import CodeKnowledgeBase
-from core.llm_engine import stream_ollama
+from core.llm_engine import stream_ollama, LocalLLMTimeoutError
 from core.terminal import run_terminal_command
 from core.plugin_manager import PluginManager
 from core.ui import (
@@ -30,7 +30,7 @@ __all__ = [
     # RAG
     "CodeKnowledgeBase",
     # LLM
-    "stream_ollama",
+    "stream_ollama", "LocalLLMTimeoutError",
     # Terminal
     "run_terminal_command",
     # Plugins

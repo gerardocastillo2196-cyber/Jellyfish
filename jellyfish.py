@@ -21,7 +21,7 @@ import logging
 # --- Imports del Core ---
 from core.state import JellyfishState, DB_PATH, PLUGINS_DIR, AGENCY_DIR
 from core.rag_coder import CodeKnowledgeBase
-from core.llm_engine import stream_ollama
+from core.llm_engine import stream_ollama, LocalLLMTimeoutError
 from core.plugin_manager import PluginManager
 from core.crud import handle_slash_command
 from core.ui import display_header, claude_style, console
@@ -64,34 +64,28 @@ class JellyfishCompleter(Completer):
 
     COMMANDS = {
         "/add": "Vincular archivos al contexto + RAG",
-        "/context": "Gestionar archivos vinculados",
+        "/context": "Gestionar archivos vinculados (/c)",
         "/purge": "Purgar todo el contexto y el índice RAG",
         "/rag": "Control del motor RAG",
-        "/agent": "Gestión de agentes (Personalidades)",
-        "/skill": "Gestión de habilidades (Funciones)",
-        "/run": "Ejecutar comando en la terminal",
+        "/agent": "Gestión de agentes (/a)",
+        "/skill": "Gestión de habilidades (/s)",
+        "/run": "Ejecutar comando en la terminal (/r)",
         "/plugin": "Ejecutar plugin local",
+        "/model": "Selector interactivo de modelos (/m)",
         "/provider": "Info del proveedor de IA activo",
         "/config": "Configurar proveedor, modelo o API keys",
         "/ignore": "Gestionar exclusiones (.jellyfishignore)",
-        "/project": "Gestión de proyectos con metodología Scrum",
-        "/agency": "Gestión y cambio de agencias de Jellyfish OS v6",
+        "/project": "Gestión de proyectos Scrum (/p)",
+        "/agency": "Gestión y cambio de agencias",
         "/clear": "Limpiar historial de chat",
         "/research": "Ejecutar agente investigador multi-pasos",
-        "/auto": "Ejecutar agencia autónoma de desarrollo completa",
-        "/build": "→ /auto (alias)",
-        "/compile": "Compilar el proyecto activo usando detección dinámica de comandos",
-        "/help": "Ver guía de comandos",
+        "/auto": "Agencia autónoma de desarrollo (/build)",
+        "/compile": "Compilar el proyecto activo",
+        "/gon": "Activar guías de construcción",
+        "/goff": "Desactivar guías de construcción",
+        "/errors": "Ver y diagnosticar errores de la sesión (/d)",
+        "/help": "Ver guía de comandos (/h)",
         "/exit": "Cerrar Jellyfish",
-        "/Goff": "Desactivar guías de construcción del proyecto",
-        "/Gon": "Activar guías de construcción del proyecto",
-        # Aliases
-        "/a": "→ /agent",
-        "/s": "→ /skill",
-        "/c": "→ /context",
-        "/r": "→ /run",
-        "/p": "→ /project",
-        "/h": "→ /help",
     }
 
     def get_completions(self, document, complete_event):
@@ -115,7 +109,8 @@ class JellyfishCompleter(Completer):
             sub = text[8:]
             for opt in [
                 "show", "providers", "provider", "model", "key", "endpoint",
-                "subagent_provider", "subagent_model", "context_limit", "menu"
+                "subagent_provider", "subagent_model", "context_limit",
+                "local_context_limit", "menu"
             ]:
                 if opt.startswith(sub):
                     yield Completion(f"/config {opt}", start_position=-len(text))
@@ -356,6 +351,9 @@ def main():
             if result:
                 state.history.append({"role": "assistant", "content": result})
 
+        except LocalLLMTimeoutError as timeout_ex:
+            console.print(f"[red]⚠ El modelo local superó el tiempo de espera (Timeout). Memoria saturada.[/red]")
+            logging.getLogger("jellyfish").error("Timeout del modelo local (GPU saturada): %s", timeout_ex)
         except Exception as e:
             import traceback
             error_trace = traceback.format_exc()

@@ -588,6 +588,17 @@ class CodeKnowledgeBase:
             except Exception as e:
                 logger.error("Error eliminando índice RAG: %s", e)
 
+    def reindex(self) -> None:
+        """Reindexa el directorio actual de código fuente, limpiando previamente el índice."""
+        target = self.indexed_dir
+        if not target:
+            from core.state import ACTIVE_PROJECT
+            target = ACTIVE_PROJECT
+        if not target:
+            raise ValueError("No hay ningún proyecto o directorio activo para reindexar.")
+        self.clear_index()
+        self.index_codebase(target)
+
     @property
     def is_active(self) -> bool:
         """Indica si hay una base vectorial cargada y el RAG está habilitado."""

@@ -197,6 +197,14 @@ def load_config_from_env(state) -> None:
         else state.provider
     )
     state.agency_dir = AGENCY_DIR
+    try:
+        state.context_limit = int(os.getenv("JELLYFISH_CONTEXT_LIMIT", "8192"))
+    except ValueError:
+        state.context_limit = 8192
+    try:
+        state.local_context_limit = int(os.getenv("JELLYFISH_LOCAL_CONTEXT_LIMIT", "4096"))
+    except ValueError:
+        state.local_context_limit = 4096
 
     old_project = getattr(state, "active_project", "")
     state.active_project = os.getenv("JELLYFISH_ACTIVE_PROJECT", "")
@@ -259,6 +267,7 @@ def save_config_to_env(state, **kwargs) -> None:
         "subagent_model": "JELLYFISH_SUBAGENT_MODEL",
         "subagent_provider": "JELLYFISH_SUBAGENT_PROVIDER",
         "context_limit": "JELLYFISH_CONTEXT_LIMIT",
+        "local_context_limit": "JELLYFISH_LOCAL_CONTEXT_LIMIT",
         "active_project": "JELLYFISH_ACTIVE_PROJECT",
         "project_methodology": "JELLYFISH_PROJECT_METHODOLOGY",
         "show_guides": "JELLYFISH_SHOW_GUIDES",
@@ -331,6 +340,7 @@ ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY", os.getenv("CLAUDE_API_KEY",
 RELEVANCE_THRESHOLD = float(os.getenv("JELLYFISH_RAG_THRESHOLD", "1.2"))
 EMBED_MODEL         = os.getenv("JELLYFISH_EMBED_MODEL", "nomic-embed-text")
 ACTIVE_PROJECT      = os.getenv("JELLYFISH_ACTIVE_PROJECT", "")
+LOCAL_CONTEXT_LIMIT = int(os.getenv("JELLYFISH_LOCAL_CONTEXT_LIMIT", "4096"))
 
 # Rutas derivadas del AGENCY_DIR — single source of truth
 DB_PATH    = os.path.join(AGENCY_DIR, "code_vector_db")
