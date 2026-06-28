@@ -20,7 +20,7 @@ from io import StringIO
 from typing import Any, Dict, List, Optional
 
 from prompt_toolkit.application import Application
-from prompt_toolkit.layout.containers import HSplit, VSplit, Window, WindowAlign, Float, FloatContainer
+from prompt_toolkit.layout.containers import HSplit, VSplit, Window, WindowAlign, Float, FloatContainer, DynamicContainer
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.layout.menus import CompletionsMenu
@@ -29,6 +29,7 @@ from prompt_toolkit.document import Document
 from prompt_toolkit.formatted_text import ANSI, HTML
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
+from prompt_toolkit.layout.margins import ScrollbarMargin
 
 from core.state import get_term_width, get_term_height
 
@@ -36,6 +37,17 @@ logger = logging.getLogger("jellyfish.tui")
 
 # Expresión regular para limpiar secuencias ANSI de control de cursor y pantalla (evitando 25l, 25h, etc.)
 ANSI_CLEAN_RE = re.compile(r'\x1b\[[\d;?]*[a-ln-zABCDEFGJKHST]')
+
+class ScrollableFormattedTextControl(FormattedTextControl):
+    """Control de texto formateado que delega la gestión de eventos de ratón a un callback personalizado."""
+    def __init__(self, text, mouse_handler=None):
+        super().__init__(text)
+        self._custom_mouse_handler = mouse_handler
+
+    def mouse_handler(self, mouse_event):
+        if self._custom_mouse_handler:
+            return self._custom_mouse_handler(mouse_event)
+        return super().mouse_handler(mouse_event)
 
 # Estilo para el autocompletado y colores de la TUI
 claude_style = Style.from_dict({
@@ -57,6 +69,28 @@ claude_style = Style.from_dict({
     'left-panel': 'bg:#0f172a fg:#94a3b8',
     'log-panel': 'bg:#0f172a fg:#94a3b8',
 })
+
+# Mapeo de acrónimos descriptivos para que los agentes siempre quepan completos en el layout
+AGENT_ACRONYMS = {
+    "default": "PO",
+    "product_owner": "PO",
+    "scrum_master": "SM",
+    "developer": "DEV",
+    "backend_dev": "B-DEV",
+    "frontend_dev": "F-DEV",
+    "qa_engineer": "QA",
+    "arquitecto_software": "ARCH",
+    "devops": "DEVOPS",
+    "devops_engineer": "DEVOPS",
+    "copywriter": "COPY",
+    "designer": "DES",
+    "ui_designer": "UI",
+    "marketing_director": "MKT",
+    "data_scientist": "DATA",
+    "security_auditor": "SEC",
+    "seo_specialist": "SEO",
+    "researcher": "RES"
+}
 
 
 class TUIRedirector:
@@ -130,23 +164,18 @@ class JellyfishTUIApp:
             multiline=True,
         )
         
-        # Mapeo de Scroll Offset para panel central
-        self.scroll_offset = 0
+        # Posición de scroll vertical de los logs
+        self.log_scroll_pos = 0
         
         # Definición de ventanas
         # 1. Barra de estado superior (Header con branding compacto de Medusa y Color global)
         self.header_window = Window(
             content=FormattedTextControl(self.get_header_text),
-            height=1,
+            height=self.get_header_height,  # Altura dinámica (1 o 2 líneas)
             style="bg:#1e1b4b #ffffff",
         )
         
-        # 2. Panel Izquierdo (compacto): Estado de agentes
-        self.left_window = Window(
-            content=FormattedTextControl(self.get_left_panel_text),
-            width=10,
-            style="class:left-panel",
-        )
+        # Panel izquierdo removido por redundancia
         
         # 3. Prompt label (indicador visual)
         self.prompt_label = Window(
@@ -166,34 +195,50 @@ class JellyfishTUIApp:
             height=3,
         )
         
-        # 5. Panel Inferior: Logs, discusiones y diffs de código
+        # 5. Panel Inferior: Logs, discusiones y diffs de código (soporta scroll con rueda del ratón)
+        def log_mouse_handler(mouse_event):
+            from prompt_toolkit.mouse_events import MouseEventType
+            if not self.log_window:
+                return
+            with self.tui_engine._lock:
+                lines_count = len(self.tui_engine._log_text.splitlines())
+            win_height = 20
+            if self.log_window.render_info:
+                win_height = self.log_window.render_info.window_height
+            max_scroll = max(0, min(lines_count, 1000) - 2)
+
+            if mouse_event.event_type == MouseEventType.SCROLL_UP:
+                self.log_scroll_pos = max(0, self.log_scroll_pos - 3)
+                self.app.invalidate()
+            elif mouse_event.event_type == MouseEventType.SCROLL_DOWN:
+                self.log_scroll_pos = min(max_scroll, self.log_scroll_pos + 3)
+                self.app.invalidate()
+
         self.log_window = Window(
-            content=FormattedTextControl(self.get_log_text),
+            content=ScrollableFormattedTextControl(
+                self.get_log_text,
+                mouse_handler=log_mouse_handler
+            ),
             wrap_lines=True,
-            dont_extend_height=True,
             style="class:log-panel",
+            right_margins=[ScrollbarMargin(display_arrows=True)],
+            get_vertical_scroll=self.get_log_vertical_scroll,
         )
         
-        # Columna derecha: logs (arriba) y prompt (abajo)
-        right_column = HSplit([
-            self.log_window,
-            VSplit([
-                self.prompt_label,
-                self.prompt_window,
-            ]),
-            Window(),  # Spacer para absorber el resto de altura
-        ])
-        
-        # Cuerpo principal (header + panels)
-        body = HSplit([
-            self.header_window,
-            Window(height=1, char="━", style="class:line"),
-            VSplit([
-                self.left_window,
-                Window(width=1, char="┃", style="class:line"),
-                right_column,
-            ]),
-        ])
+        # Definición del layout responsivo
+        def get_body_layout():
+            return HSplit([
+                self.header_window,
+                Window(height=1, char="━", style="class:line"),
+                self.log_window,
+                Window(height=1, char="━", style="class:line"),
+                VSplit([
+                    self.prompt_label,
+                    self.prompt_window,
+                ]),
+            ])
+
+        body = DynamicContainer(get_body_layout)
         
         # Layout con FloatContainer para el menú de autocompletado
         self.layout = Layout(
@@ -218,7 +263,7 @@ class JellyfishTUIApp:
             style=claude_style,
             full_screen=True,
             key_bindings=self.key_bindings,
-            mouse_support=False,
+            mouse_support=True,
         )
 
     def setup_tui_keybindings(self):
@@ -228,13 +273,57 @@ class JellyfishTUIApp:
         
         @tui_kb.add('pageup')
         def _scroll_up(event):
-            self.scroll_offset = max(0, self.scroll_offset - 10)
-            self.app.invalidate()
+            if self.log_window:
+                self.log_scroll_pos = max(0, self.log_scroll_pos - 10)
+                self.app.invalidate()
 
         @tui_kb.add('pagedown')
         def _scroll_down(event):
-            self.scroll_offset += 10
-            self.app.invalidate()
+            if self.log_window:
+                with self.tui_engine._lock:
+                    lines_count = len(self.tui_engine._log_text.splitlines())
+                win_height = 20
+                if self.log_window.render_info:
+                    win_height = self.log_window.render_info.window_height
+                max_scroll = max(0, min(lines_count, 1000) - 2)
+                self.log_scroll_pos = min(max_scroll, self.log_scroll_pos + 10)
+                self.app.invalidate()
+
+        @tui_kb.add('c-up')
+        def _scroll_up_line(event):
+            if self.log_window:
+                self.log_scroll_pos = max(0, self.log_scroll_pos - 1)
+                self.app.invalidate()
+
+        @tui_kb.add('c-down')
+        def _scroll_down_line(event):
+            if self.log_window:
+                with self.tui_engine._lock:
+                    lines_count = len(self.tui_engine._log_text.splitlines())
+                win_height = 20
+                if self.log_window.render_info:
+                    win_height = self.log_window.render_info.window_height
+                max_scroll = max(0, min(lines_count, 1000) - 2)
+                self.log_scroll_pos = min(max_scroll, self.log_scroll_pos + 1)
+                self.app.invalidate()
+
+        @tui_kb.add('s-up')
+        def _scroll_up_shift(event):
+            if self.log_window:
+                self.log_scroll_pos = max(0, self.log_scroll_pos - 5)
+                self.app.invalidate()
+
+        @tui_kb.add('s-down')
+        def _scroll_down_shift(event):
+            if self.log_window:
+                with self.tui_engine._lock:
+                    lines_count = len(self.tui_engine._log_text.splitlines())
+                win_height = 20
+                if self.log_window.render_info:
+                    win_height = self.log_window.render_info.window_height
+                max_scroll = max(0, min(lines_count, 1000) - 2)
+                self.log_scroll_pos = min(max_scroll, self.log_scroll_pos + 5)
+                self.app.invalidate()
             
         @tui_kb.add('enter')
         def _submit(event):
@@ -244,6 +333,11 @@ class JellyfishTUIApp:
             buffer.validate_and_handle()
             
         self.key_bindings = merge_key_bindings([self.key_bindings, tui_kb])
+
+    def get_header_height(self) -> int:
+        """Determina la altura de la cabecera en función del ancho de la terminal."""
+        width = get_term_width()
+        return 2 if width < 120 else 1
 
     def get_prompt_label_text(self) -> List[Any]:
         label = getattr(self.tui_engine, "_current_prompt_label", " 🪼 > ")
@@ -261,30 +355,91 @@ class JellyfishTUIApp:
             status_style = "class:status-input"
             
         proj_name = os.path.basename(self.state.active_project) if self.state.active_project else "Ninguno"
+        model_name = getattr(self.state, "model", "Ninguno")
+        provider_name = getattr(self.state, "provider", "ollama").upper()
         
-        tokens = [
-            ("", " [🪼 Jellyfish 6.8]  |  ESTADO: "),
-            (status_style, f" {status} "),
-            ("", f"  |  PROYECTO: {proj_name}  |  AGENCIA: {self.state.active_agency.upper()}  |  Ctrl+A: Agentes  |  Ctrl+R: RAG"),
-        ]
+        active = getattr(self.state, "active_agent", "default")
+        active_display = AGENT_ACRONYMS.get(active.lower(), active.upper()[:6])
+        
+        width = get_term_width()
+        if width < 120:
+            # Cabecera en 2 filas para pantallas angostas
+            tokens = [
+                ("", " [🪼 Jellyfish 6.8]  |  ESTADO: "),
+                (status_style, f" {status} "),
+                ("", f"  |  AGENTE: @{active_display}\n"),
+                ("", f" MODELO: {model_name} ({provider_name})  |  PROYECTO: {proj_name}  |  Ctrl+A: Agentes"),
+            ]
+        else:
+            # Cabecera en 1 fila para pantallas anchas
+            tokens = [
+                ("", " [🪼 Jellyfish 6.8]  |  ESTADO: "),
+                (status_style, f" {status} "),
+                ("", f"  |  AGENTE: @{active_display}  |  MODELO: {model_name} ({provider_name})  |  PROYECTO: {proj_name}  |  AGENCIA: {self.state.active_agency.upper()}  |  Ctrl+A: Agentes"),
+            ]
         return tokens
 
     def get_left_panel_text(self) -> List[Any]:
-        """Genera el contenido del panel izquierdo compacto."""
-        tokens = [
-            ("class:agent-header", " AGENTES\n"),
-            ("class:line", " ━━━━━━━━━━\n"),
-        ]
+        """Genera el contenido del panel izquierdo/superior de agentes basándose en la agencia activa."""
+        active = getattr(self.state, "active_agent", "default")
+        active_agency = getattr(self.state, "active_agency", "default")
         
-        agent_statuses = getattr(self.state, "agent_statuses", {})
-        for name, status in agent_statuses.items():
-            short = name[:8]
-            if status == "Ejecutando":
-                tokens.append(("class:agent-active", f" ● {short}\n"))
-            elif status == "Pensando":
-                tokens.append(("class:agent-thinking", f" ◐ {short}\n"))
+        # Obtener los agentes de la agencia actual o caer a default
+        agency_agents = self.state.agency_catalog.get(active_agency, [])
+        if not agency_agents:
+            agency_agents = [active]
+        else:
+            agency_agents = list(agency_agents)
+            if active not in agency_agents:
+                agency_agents.append(active)
                 
-        return tokens
+        # Preparar listado con mapeo de nombre a acrónimo
+        display_agents = []
+        for name in sorted(list(set(agency_agents))):
+            disp_name = AGENT_ACRONYMS.get(name.lower(), name.upper()[:6])
+            display_agents.append((name, disp_name))
+            
+        width = get_term_width()
+        if width < 80:
+            # Layout Horizontal para terminal angosta
+            tokens = [("class:agent-header", " AGENTES: ")]
+            for name, disp in display_agents:
+                if name == active:
+                    tokens.append(("class:agent-active", f"● {disp}  "))
+                else:
+                    tokens.append(("class:agent-inactive", f"{disp}  "))
+            return tokens
+        else:
+            # Layout Vertical para terminal ancha
+            tokens = [
+                ("class:agent-header", " AGENTES\n"),
+                ("class:line", " ━━━━━━━━━━\n"),
+            ]
+            for name, disp in display_agents:
+                if name == active:
+                    tokens.append(("class:agent-active", f" ● {disp}\n"))
+                else:
+                    tokens.append(("class:agent-inactive", f"   {disp}\n"))
+            return tokens
+
+    def get_log_vertical_scroll(self) -> int:
+        """Callback usado por prompt-toolkit para determinar la posición del scroll de la ventana."""
+        return getattr(self, "log_scroll_pos", 0)
+
+    def scroll_to_bottom(self, force=False):
+        """Desplaza la ventana de logs al final si el usuario ya está al final o si se fuerza."""
+        if not self.log_window:
+            return
+        with self.tui_engine._lock:
+            lines_count = len(self.tui_engine._log_text.splitlines())
+        win_height = 20
+        if self.log_window.render_info:
+            win_height = self.log_window.render_info.window_height
+        
+        max_scroll = max(0, min(lines_count, 1000) - 2)
+        current_scroll = self.log_scroll_pos
+        if force or current_scroll >= max_scroll - 3:
+            self.log_scroll_pos = max_scroll
 
     def get_log_text(self) -> Any:
         """Retorna el buffer de logs procesando secuencias ANSI de color.
@@ -297,9 +452,10 @@ class JellyfishTUIApp:
             with self.tui_engine._lock:
                 log_content = self.tui_engine._log_text
             lines = log_content.splitlines()
-            if self.scroll_offset > 0:
-                lines = lines[:-self.scroll_offset]
-            viewport_text = "\n".join(lines[-100:])
+            
+            # Limitamos a las últimas 1000 líneas por rendimiento.
+            rendered_lines = lines[-1000:]
+            viewport_text = "\n".join(rendered_lines)
             return ANSI(viewport_text)
         except Exception:
             return [("", viewport_text)]
@@ -308,12 +464,19 @@ class JellyfishTUIApp:
         """Manejador cuando el usuario envía una línea de comando."""
         if getattr(self.tui_engine, "_waiting_for_input", False):
             self.tui_engine._input_result = buffer.text
+            prompt_label = getattr(self.tui_engine, "_current_prompt_label", " 🪼 > ")
+            self.tui_engine.append_log(f"\n\x1b[48;5;17m\x1b[38;5;15m {prompt_label}{buffer.text} \x1b[0m\n")
             buffer.reset()
             self.tui_engine._input_event.set()
             return
 
         user_input = buffer.text.strip()
+        if user_input:
+            prompt_label = getattr(self.tui_engine, "_current_prompt_label", " 🪼 > ")
+            self.tui_engine.append_log(f"\n\x1b[48;5;17m\x1b[38;5;15m {prompt_label}{user_input} \x1b[0m\n")
+            
         buffer.reset()
+        self.scroll_to_bottom(force=True)
         if not user_input:
             return
         
@@ -493,11 +656,11 @@ class TUIEngine:
         return None
 
     def clear_scroll_region(self):
-        """Limpia el área de logs de la TUI (compatibilidad con comandos v6.8)."""
+        """Limpia el área de logs de la TUI."""
         with self._lock:
             self._log_text = ""
-        if self.active_tui_app:
-            self.active_tui_app.scroll_offset = 0
+        if getattr(self, "active_tui_app", None):
+            self.active_tui_app.log_scroll_pos = 0
             self.active_tui_app.app.invalidate()
 
     def move_cursor_to_scroll_region(self):
@@ -534,9 +697,11 @@ class TUIEngine:
             if len(self._log_text) > 100_000:
                 self._log_text = self._log_text[-100_000:]
         
-        # Forzar redibujado si la app está activa
+        # Determinar si hacemos auto-scroll
         if getattr(self, "active_tui_app", None):
             try:
+                # Hacemos auto-scroll moviendo log_scroll_pos al final
+                self.active_tui_app.scroll_to_bottom(force=True)
                 self.active_tui_app.app.invalidate()
             except Exception:
                 pass

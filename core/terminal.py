@@ -521,5 +521,10 @@ def get_global_keybindings(state) -> KeyBindings:
         except OSError as e:
             tui_engine.append_log(f"Error guardando chat: {e}\n")
 
+    @kb.add('c-c')
+    def _exit_on_ctrl_c(event):
+        """Ctrl+C — Cierra de forma inmediata y segura la aplicación Jellyfish."""
+        event.app.exit(result="/exit")
+
     return merge_key_bindings([load_key_bindings(), kb])
 

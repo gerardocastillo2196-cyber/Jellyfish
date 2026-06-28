@@ -6,7 +6,7 @@ from rich.console import Console
 from rich.prompt import Confirm
 from core.tui import tui_engine, TaskProgress
 from core.state import estimate_tokens, _safe_read
-from core.llm_engine import _call_llm_silent
+from core.llm_engine import _call_llm_silent, LocalLLMTimeoutError
 from core.terminal import run_terminal_command
 from core.agents.registry import AgentRegistry
 from core.skills.registry import SkillRegistry
@@ -487,6 +487,11 @@ class TaskRunnerPhase:
                             tokens = estimate_tokens(task_result)
                             progress.set_tokens(tokens)
 
+                except LocalLLMTimeoutError as timeout_ex:
+                    logger.error("Timeout del modelo local (GPU saturada) en la tarea %s: %s", task_id_str, timeout_ex)
+                    success_task = False
+                    last_error_log = str(timeout_ex)
+                    task_retries = MAX_RETRIES  # Forzar abortar reintentos locales
                 except Exception as ex:
                     logger.error("Excepción durante intento de ejecución de tarea: %s", ex, exc_info=True)
                     success_task = False

@@ -218,65 +218,74 @@ def show_project_guide_if_needed(state) -> None:
     active_path = getattr(state, "active_project", None)
     methodology = getattr(state, "project_methodology", "scrum").upper()
     agency = getattr(state, "active_agency", "default").upper()
-    
+
     if active_path:
         project_status = f"VINCULADO ({active_path})"
     else:
         project_status = "NO VINCULADO (Escribe /project para crear o abrir uno)"
 
-    guide_text = (
-        f"ℹ️  ESTADO ACTUAL DEL PROYECTO: {project_status}\n"
-        f"  • Metodología activa: {methodology}  • Agencia activa: {agency}\n"
-        f"──────────────────────────────────────────────────────────────────────────────\n"
-        f"🪼 ARQUITECTURA MULTI-AGENCIA (JELLYFISH OS v6.0)\n"
-        f"Jellyfish OS ha evolucionado a un entorno corporativo Multi-Agencia. Los agentes\n"
-        f"están agrupados de forma lógica bajo diferentes departamentos especializados:\n"
-        f"  - DEVELOPMENT: Ingeniería de software, bugs, arquitectura y desarrollo.\n"
-        f"  - MARKETING: Estrategias de venta, SEO, redacción de copy y contenido.\n"
-        f"  - RESEARCH: Investigación profunda, análisis de mercado y ciencia de datos.\n"
-        f"  - MANAGEMENT: Orquestación, Scrum Master y Product Owner de proyectos.\n"
-        f"\n"
-        f"🤖 EL CEO CLASIFICADOR (AGENCY ORCHESTRATOR)\n"
-        f"Cuando ejecutas /auto <tu idea>, el **CEO invisible** de Jellyfish clasifica\n"
-        f"tu prompt y lo deriva a la agencia más calificada. La agencia seleccionada\n"
-        f"utilizará únicamente sus propios agentes especializados y generará su propio\n"
-        f"tablero de control para evitar interferencias.\n"
-        f"\n"
-        f"📋 TABLEROS DE TRABAJO DINÁMICOS\n"
-        f"Dependiendo de la agencia activa, Jellyfish orquesta el trabajo en tableros específicos:\n"
-        f"  - Desarrollo / Default -> DEV_BOARD.md (o SPRINT_BOARD.md por retrocompatibilidad)\n"
-        f"  - Marketing -> MKT_BOARD.md\n"
-        f"  - Investigación -> RESEARCH_BOARD.md\n"
-        f"\n"
-        f"🔄 HANDOFFS INTER-AGENCIA (TRASPASOS)\n"
-        f"Los Scrum Masters están entrenados para coordinar entregables cruzados. Si una tarea\n"
-        f"excede la agencia activa, puede planificar un entregable (ej. un `COPY_LANDING.md` en\n"
-        f"Marketing) para que sea consumido como insumo por la agencia de Desarrollo.\n"
-        f"\n"
-        f"🚀 GUÍA DE TRABAJO PASO A PASO\n"
-        f"  PASO 1: Vincular o Crear un Proyecto\n"
-        f"  • Ejecuta /project new ./mi-proyecto para inicializar tu espacio de trabajo.\n"
-        f"  \n"
-        f"  PASO 2: Navegar y Gestionar Agencias\n"
-        f"  • Ejecuta /agency para listar el catálogo de agencias y sus agentes.\n"
-        f"  • Ejecuta /agency switch <nombre> para cambiar manualmente de departamento.\n"
-        f"  • Al cambiar de agencia, el autocompletador de agentes @ solo sugerirá personalidades\n"
-        f"    pertinentes al departamento activo para mantener la estabilidad visual.\n"
-        f"  \n"
-        f"  PASO 3: Lanzar el Pipeline Autónomo\n"
-        f"  • Escribe: /auto [Tu idea de proyecto]\n"
-        f"    - Ejemplo: [italic]/auto Escribe una campaña publicitaria y diseña su landing page[/italic]\n"
-        f"  • [bold]Fase 1 (PO)[/bold]: Diseña el `BACKLOG.md` con requerimientos de la agencia activa.\n"
-        f"  • [bold]Fase 2 (SM)[/bold]: Desglosa tareas en el tablero específico de la agencia.\n"
-        f"  • [bold]Fase 3 (Dev)[/bold]: Ejecución autónoma, depuración de lógica y compilación final.\n"
-        f"  \n"
-        f"  PASO 4: Interactuar con Agentes de la Agencia\n"
-        f"  • Invoca personalidades con @agente (ej. @backend_dev).\n"
-        f"  • Usa /add <archivo> para darles archivos del proyecto como contexto.\n"
-        f"──────────────────────────────────────────────────────────────────────────────\n"
-        f"👉 ¿Quieres ocultar esta guía? Escribe /Goff · Escribe /help para ver el manual de comandos."
-    )
-    console.print(Panel(guide_text, title="🪼 GUÍA DE CONSTRUCCIÓN MULTI-AGENCIA JELLYFISH OS", border_style="dim white"))
+    guide_lines = [
+        "",
+        "==============================================================",
+        "      🪼 GUÍA DE CONSTRUCCIÓN MULTI-AGENCIA JELLYFISH OS",
+        "==============================================================",
+        "",
+        f"ℹ️  ESTADO ACTUAL DEL PROYECTO: {project_status}",
+        f"  • Metodología activa: {methodology}  • Agencia activa: {agency}",
+        "",
+        "--------------------------------------------------------------",
+        "🪼 1. ARQUITECTURA MULTI-AGENCIA (JELLYFISH OS v6.8)",
+        "Jellyfish OS agrupa a los agentes en agencias especializadas:",
+        "  - DEVELOPMENT: Ingeniería de software, bugs, arquitectura y desarrollo.",
+        "  - MARKETING: Estrategias de venta, SEO, redacción de copy y contenido.",
+        "  - RESEARCH: Investigación profunda, análisis de mercado y ciencia de datos.",
+        "  - MANAGEMENT: Orquestación, Scrum Master y Product Owner de proyectos.",
+        "",
+        "--------------------------------------------------------------",
+        "🤖 2. EL CEO CLASIFICADOR (AGENCY ORCHESTRATOR)",
+        "Al ejecutar /auto 'tu idea', el CEO clasifica tu prompt y lo delega",
+        "a la agencia correspondiente para evitar interferencias entre tableros.",
+        "",
+        "--------------------------------------------------------------",
+        "📋 3. TABLEROS DE TRABAJO DINÁMICOS",
+        "Cada agencia gestiona sus tareas en tableros separados:",
+        "  - Desarrollo / Default -> DEV_BOARD.md (o SPRINT_BOARD.md)",
+        "  - Marketing -> MKT_BOARD.md",
+        "  - Investigación -> RESEARCH_BOARD.md",
+        "",
+        "--------------------------------------------------------------",
+        "🔄 4. HANDOFFS INTER-AGENCIA (TRASPASOS)",
+        "Los Scrum Masters coordinan entregables cruzados. Si una tarea",
+        "excede la agencia activa, planifican entregables como insumos para otra.",
+        "",
+        "--------------------------------------------------------------",
+        "🚀 5. GUÍA DE TRABAJO PASO A PASO",
+        "  PASO 1: Vincular o Crear un Proyecto",
+        "  • Ejecuta /project new ./mi-proyecto para inicializar el espacio.",
+        "",
+        "  PASO 2: Navegar y Gestionar Agencias",
+        "  • Ejecuta /agency para ver el catálogo disponible.",
+        "  • Ejecuta /agency switch 'nombre' para cambiar de departamento.",
+        "  • El autocompletador @ se limita a los agentes del departamento activo.",
+        "",
+        "  PASO 3: Lanzar el Pipeline Autónomo",
+        "  • Escribe: /auto 'Tu idea de proyecto'",
+        "    - Ejemplo: /auto Diseña una landing page y escribe su campaña",
+        "  • Fase 1 (PO): Diseña BACKLOG.md con los requerimientos.",
+        "  • Fase 2 (SM): Desglosa las tareas en el tablero.",
+        "  • Fase 3 (Dev): Ejecuta autónomamente la codificación y pruebas.",
+        "",
+        "  PASO 4: Interactuar con Agentes de la Agencia",
+        "  • Invoca personalidades con @agente (ej. @developer).",
+        "  • Usa /add 'archivo' para cargarlo en el contexto del chat.",
+        "",
+        "--------------------------------------------------------------",
+        "👉 ¿Quieres ocultar esta guía? Escribe /goff · Escribe /help para el manual.",
+        "==============================================================",
+        ""
+    ]
+    for line in guide_lines:
+        console.print(line)
 
 def _handle_project(arg: str, state, rag, display_header_func) -> None:
     sub = arg.strip()
