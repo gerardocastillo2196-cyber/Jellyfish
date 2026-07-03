@@ -1,0 +1,8 @@
+--------------------------------------------------------------
+📋 3. TABLEROS DE TRABAJO DINÁMICOS
+Cada agencia gestiona sus tareas en tableros separados:
+  - Desarrollo / Default -> DEV_BOARD.md (o SPRINT_BOARD.md)
+  - Marketing -> MKT_BOARD.md
+  - Investigación -> RESEARCH_BOARD.md
+
+--------------------------------------------------------------
