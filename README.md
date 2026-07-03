@@ -1,20 +1,24 @@
-🪼 Jellyfish OS v6.0 — Manual Completo del Usuario y Desarrollador
+# 🪼 Jellyfish OS v6.9 — Manual Completo del Usuario y Desarrollador
 
-Bienvenido a la documentación oficial de Jellyfish OS v6.0, un sistema operativo corporativo multi-agencia y framework de orquestación ágil diseñado para ejecutarse de forma nativa en Linux.
+Bienvenido a la documentación oficial de **Jellyfish OS v6.9**, un sistema operativo de agentes cognitivos corporativos, arquitectura multi-agencia y framework de orquestación ágil/secuencial diseñado para ejecutarse de forma nativa en sistemas Linux.
 
-Jellyfish combina la potencia de múltiples LLM (a través de Ollama, OpenAI, DeepSeek, Google Gemini y OpenRouter) con una suite de herramientas del sistema, persistencia vectorial para RAG (Retrieval-Augmented Generation) y un Director de Orquesta (CEO) autónomo capaz de clasificar tareas y asignarlas a agencias especializadas (Desarrollo, Marketing, Investigación, etc.).
-🗺️ 1. Arquitectura y Estructura del Core (Multi-Agencia)
+Jellyfish combina la potencia de múltiples modelos de lenguaje a gran escala (LLMs a través de Ollama, OpenAI, DeepSeek, Google Gemini y OpenRouter) con una robusta suite de herramientas del sistema, persistencia vectorial para RAG (Retrieval-Augmented Generation) y un **Director de Orquesta (CEO / Agency Orchestrator)** autónomo capaz de clasificar tareas y delegarlas a agencias especializadas (Desarrollo, Marketing, Investigación, etc.).
 
-Jellyfish v6.0 abandona el pool global y caótico de agentes para organizarlos en Agencias departamentales especializadas, separando estrictamente la interfaz de usuario interactiva (jellyfish.py) de la lógica operativa.
-Diagrama de Arquitectura y Flujo
-Fragmento de código
+---
 
+## 🗺️ 1. Arquitectura y Estructura del Core (Multi-Agencia)
+
+Jellyfish v6.9 abandona el enfoque de un pool global y caótico de agentes, organizándolos en **Agencias Departamentales** especializadas y delimitadas por tableros independientes de trabajo. Esto asegura un aislamiento de tareas y previene la contaminación de contextos.
+
+### Diagrama de Arquitectura y Flujo de Datos
+
+```mermaid
 graph TD
     User([Usuario / Developer]) --> CLI[jellyfish.py / CLI & Autocompletado]
     CLI <--> State[core.state / JellyfishState]
-    CLI --> Commands[core.crud / Slash Commands]
+    CLI --> Commands[core.commands / Slash Commands]
     
-    Commands --> Config[config / ignore / add]
+    Commands --> Config[Configuración & Ignorados]
     Config -.-> RAG[core.rag_coder / RAG Vector DB]
 
     Commands --> AutoCEO[core.agency_orchestrator / CEO: /auto]
@@ -28,94 +32,105 @@ graph TD
 
     AgencyDev --> PO_Scan[1. Product Owner: BACKLOG.md]
     PO_Scan --> SM_Plan[2. Scrum Master: SPRINT_BOARD.md]
-    SM_Plan --> Task_Run[3. Task Runner aislando Memoria]
+    SM_Plan --> Task_Run[3. Task Runner con Aislamiento de Memoria]
     Task_Run <--> Run
     Task_Run --> Daily_Close[4. Sprint Close & Métricas] --> CLI
+```
 
-Componentes Clave
+### Componentes Clave del Core
 
-    core/agency_orchestrator.py (NUEVO): El "CEO" del sistema. Analiza el prompt del usuario y decide a qué agencia departamental (ej. Development, Marketing, Legal) derivar la tarea.
+1. **`core/agency_orchestrator.py` (El CEO)**:
+   Analiza semánticamente el prompt inicial del usuario. Empleando técnicas de clasificación Zero-Shot y Few-Shot, decide a qué agencia departamental (ej. *Development*, *Marketing*, *Research*) derivar la tarea.
+2. **`core/project_orchestrator.py` (Bucle Ágil)**:
+   Implementa los ciclos Scrum y Cascada. Su componente central es el **Compile & Debug Loop**, el cual incluye aislamiento de memoria (limpieza de trazas de compilación en el prompt) para evitar la saturación del contexto del LLM.
+3. **`plugins/plugin_core.py` (Orquestador de Músculos)**:
+   Núcleo del framework de plugins utilizando el patrón *Singleton* (`PluginRegistry`), ganchos de eventos (*hooks*) y auto-descubrimiento de capacidades de herramientas Python.
+4. **`plugins/integration/skill_loader.py` (Cargador de Habilidades)**:
+   Responsable del escaneo dinámico y carga de más de 50 habilidades metodológicas (*Skills*) estructuradas en Markdown utilizando expresiones regulares.
+5. **`core/state.py` (Estado Global)**:
+   Controla el estado reactivo, la persistencia en archivos de configuración (`.jellyfish_project_config.json`), el bloqueo de concurrencia y la contabilidad estricta del consumo de tokens.
 
-    core/project_orchestrator.py: El orquestador de metodología Scrum, ahora optimizado con aislamiento de memoria en su Compile & Debug Loop para evitar la saturación del contexto del LLM.
+---
 
-    plugins/plugin_core.py (NUEVO): El núcleo del framework de plugins utilizando el patrón Singleton (PluginRegistry), ganchos de eventos (hooks) y auto-descubrimiento de capacidades.
+## 🚀 2. Instalación y Configuración Inicial
 
-    plugins/integration/skill_loader.py (NUEVO): Plugin encargado de leer y cargar las más de 50 habilidades metodológicas (Skills) desde los archivos Markdown utilizando expresiones regulares.
+### Requisitos del Sistema
+- **Sistema Operativo**: Linux (Debian/Ubuntu/Fedora/Arch recomendado).
+- **Python**: Versión `3.10` o superior.
+- **Bubblewrap**: Recomendado para el aislamiento seguro (*sandbox*) de la ejecución de plugins.
+  ```bash
+  sudo apt install bubblewrap  # En Debian/Ubuntu
+  sudo dnf install bubblewrap  # En Fedora/RHEL
+  ```
+- **Ollama**: Servidor local corriendo para generación de embeddings locales si no se usan servicios de nube.
 
-    core/state.py: Controla el estado global, el lockfile del proyecto, la agencia activa y el cálculo estricto de presupuestos de tokens.
-
-🚀 2. Instalación y Configuración Inicial
-Requisitos del Sistema
-
-    Python 3.10 o superior
-
-    Bubblewrap (recomendado para sandbox de plugins): sudo apt install bubblewrap
-
-    Ollama ejecutándose localmente para embeddings.
-
-Instalación y Estructura v6
-
-Instala las dependencias y genera la nueva estructura de directorios utilizando el script de configuración:
-Bash
-
+### Instalación de Dependencias e Inicialización v6.9
+Instale las dependencias bloqueadas y configure la estructura del espacio de trabajo utilizando el script de configuración:
+```bash
 pip install -r requirements.lock
 python setup.py --setup
+```
 
-Para auditar que todas las Skills y Plugins se hayan instalado correctamente, ejecuta:
-Bash
-
+Para verificar e inspeccionar el estado actual de los proveedores, habilidades registradas y APIs configuradas, ejecute:
+```bash
 python setup.py --status
+```
 
-🧠 3. Skills vs. Plugins (La Mente y El Músculo)
+---
 
-En v6.0 introducimos una división clara para extender las capacidades de Jellyfish:
+## 🧠 3. Habilidades (Skills) vs. Plugins
 
-    Skills (Las Habilidades - .md): Son metodologías cognitivas inyectadas en el System Prompt. Hay 50 habilidades distribuidas en agencias (ej. 01_backlog_grooming.md para Management, 17_react_best_practices.md para Frontend). Moldean cómo piensa y formatea sus salidas el LLM.
+En Jellyfish v6.9 se define una separación conceptual clara para la extensión del sistema:
 
-    Plugins (Los Músculos - .py): Son scripts ejecutables en Python. Pueden ser de utilidad, integración o automatización. Tienen un ciclo de vida propio (initialize, execute, shutdown) gobernado por la clase PluginInterface.
+- **Skills (Cognición - `.md` o `.py` de Skill)**:
+  Son metodologías de diseño y plantillas de pensamiento que se inyectan en el prompt del sistema. Se distribuyen en agencias (ej. `01_backlog_grooming.md` en Management, `17_react_best_practices.md` en Frontend) y dictan el formato y el flujo analítico de la respuesta del LLM.
+- **Plugins (Acción - `.py`)**:
+  Son extensiones de código imperativo en Python. Tienen acceso a llamadas del sistema operativo, APIs y herramientas de red. Poseen un ciclo de vida estructurado gobernado por la clase `PluginInterface`.
 
-💡 4. Conceptos de Seguridad y Hardening Avanzado
-🛡️ A. Aislamiento de Memoria en el Bucle de Compilación
+---
 
-El Compile & Debug Loop del Task Runner clona las directivas originales en cada intento de corrección de código. Esto evita que los errores de compilación redundantes se acumulen (.append) y contaminen el contexto del LLM, garantizando iteraciones veloces.
-🔌 B. Fallbacks de Contingencia Autónoma (Zero-Breakage)
+## 💡 4. Conceptos de Seguridad y Hardening Avanzado
 
-Si un modelo súper rápido (como Gemini Flash) responde con una cadena vacía ante parámetros restrictivos (Fase 1 - Product Owner), el sistema ya no colapsa en 0.3 segundos. En su lugar, intercepta el fallo y autogenera un andamiaje de Backlog Recovery estructurado, permitiendo que la orquestación continúe.
-🖥️ C. Sincronización Visual TUI y Anti-Corrupción ANSI
+### 🛡️ A. Aislamiento de Memoria en el Bucle de Compilación
+El bucle autónomo de corrección de código de Jellyfish OS clona la rama limpia del contexto en cada intento de depuración. Los errores de compilación anteriores **no se acumulan** de forma redundante, evitando contaminar el contexto del modelo con trazas de error inválidas y limitando el sesgo de confirmación de la IA.
 
-Se implementó una limpieza estricta del búfer residual de la terminal (clear_scroll_region) y la re-impresión forzada de la cabecera tras pipelines masivos. Adicionalmente, el parche de autocompletado evita solaparse con el prompt de usuario en ventanas reducidas.
-🔒 D. Sandbox con Bubblewrap y Lista Negra Regex
+### 🔌 B. Circuit Breakers y Fallbacks Autónomos
+Si un modelo en la nube genera una salida nula o excede los límites permitidos debido a tokens corruptos o latencia excesiva, Jellyfish OS activa mecanismos de **Circuit Breaker** y andamiajes de recuperación (*Backlog Recovery*), evitando el colapso abrupto del pipeline de automatización.
 
-Se mantiene el aislamiento total de red y sistema de archivos temporal para la ejecución de scripts, bloqueando mediante Regex comandos destructivos (rm -rf /, formateos de disco o chmod masivos).
-📋 5. Orquestación Multi-Agencia Autónoma
+### 🖥️ C. Sincronización Visual TUI y Anti-Corrupción ANSI
+El motor de la TUI realiza una limpieza estricta del búfer residual de la terminal (`clear_scroll_region`) y re-imprime de forma forzada las áreas de estado. Esto previene la corrupción estética de la pantalla cuando comandos en segundo plano escriben secuencias ANSI de control.
 
-El flujo Scrum ahora escala a nivel corporativo:
+### 🔒 D. Sandbox con Bubblewrap y Lista Negra de Comandos
+La ejecución de plugins puede correr de manera aislada con Bubblewrap, el cual crea namespaces vacíos de red y un sistema de archivos en memoria temporal. Además, un analizador regex bloquea de forma rígida comandos peligrosos antes de enviarlos a la terminal (`rm -rf /`, formateo de discos, modificaciones a `/etc/passwd`, etc.), reportando inmediatamente un incidente de seguridad.
 
-[Usuario ejecuta /auto crea una investigación de mercado]
-       │
-       ▼
-El CEO (Agency Orchestrator)
-   - Analiza el prompt y determina que pertenece a la "Agencia de Marketing".
-   - Deriva la tarea al Product Owner de esa agencia específica.
-       │
-       ▼
-Planificación de la Agencia
-   - El PO redacta el `MKT_BOARD.md` u objetivo.
-   - El Scrum Master carga las Skills específicas (ej. `32_copywriting_pas.md`).
-       │
-       ▼
-Task Runner (Ejecución y Traspaso)
-   - Los agentes generan los entregables (con output streaming en vivo).
-   - Capacidad de **Handoff**: La agencia puede generar un entregable que luego servirá de insumo para otra agencia.
+---
 
-🛠️ 6. Guía Completa de Comandos
-Comando	Sintaxis	Descripción
-/auto	/auto <idea>	Llama al CEO, clasifica la intención y arranca la orquestación autónoma en la agencia pertinente.
-/agency	/agency switch <nombre>	Cambia el entorno manual a otra agencia, limitando el autocompletado (@) a sus especialistas.
-/skill	/skill	Gestiona o visualiza las habilidades metodológicas cargadas desde skills/.
-/plugin	/plugin <nombre> [args]	Lanza un script Python del directorio plugins/ de manera aislada.
-/add	/add <ruta>	Añade archivos o indexa carpetas completas en la base vectorial del RAG.
-/project	/project	Abre el administrador Scrum para crear o vincular un directorio como proyecto activo.
-/compile	/compile	Ejecuta validación estática y el comando dinámico de build detectado.
+## 📋 5. Guía Completa de Comandos
 
-    Nota: Ejecuta /help dentro del CLI para ver comandos adicionales como /rag, /context, /config, y el control de guías interactivas /gon y /goff.
+| Comando | Sintaxis | Descripción |
+| :--- | :--- | :--- |
+| `/auto` | `/auto <descripción>` | Activa el CEO (Agency Orchestrator), clasifica la tarea y arranca la orquestación autónoma Scrum en la agencia pertinente. |
+| `/agency` | `/agency switch <nombre>` | Cambia manualmente a la agencia departamental indicada, limitando los agentes del autocompletador (`@`). |
+| `/skill` | `/skill` | Visualiza e inyecta dinámicamente habilidades de la carpeta `skills/`. |
+| `/plugin` | `/plugin <nombre> [args]` | Ejecuta un plugin de Python de forma aislada en sandbox. |
+| `/add` | `/add <ruta>` | Carga un archivo en el contexto activo o indexa recursivamente una carpeta en la base de datos RAG del proyecto. |
+| `/project` | `/project new <ruta>` | Crea o vincula un proyecto asignándole metodología Scrum o Cascada. |
+| `/compile` | `/compile` | Ejecuta la verificación estática de tipos o compilación autónoma detectada en el proyecto. |
+| `/gon` / `/goff`| `/gon` o `/goff` | Habilita o deshabilita las guías de construcción y tableros interactivos Scrum. |
+| `/help` | `/help` | Muestra el manual de comandos integrados detallados de Jellyfish OS. |
+
+---
+
+## 🔑 6. Variables de Entorno del Sistema (`.env`)
+
+| Variable | Valor por Defecto | Propósito |
+| :--- | :--- | :--- |
+| `JELLYFISH_PROVIDER` | `ollama` | Proveedor principal de la IA (`openai`, `deepseek`, `gemini`, `openrouter`, `ollama`, etc.). |
+| `JELLYFISH_MODEL` | *(depende)* | Nombre exacto del modelo a utilizar para el Lead Agent (ej. `gpt-4o`, `gemini-1.5-pro`). |
+| `JELLYFISH_CONTEXT_LIMIT` | `8192` | Cantidad máxima de tokens de contexto gestionados en ventana deslizante. |
+| `JELLYFISH_PLUGIN_UNSAFE` | `0` | Si se establece en `1`, desactiva el sandbox Bubblewrap para la ejecución de plugins. |
+| `JELLYFISH_RAG_THRESHOLD` | `1.2` | Umbral de distancia euclidiana mínima para el filtrado de similitud en RAG. |
+
+---
+
+*Última actualización de especificación técnica: Versión v6.9.0*

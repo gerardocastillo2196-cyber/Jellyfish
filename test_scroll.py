@@ -30,7 +30,7 @@ guide_lines = [
     "  • Metodología activa: SCRUM  • Agencia activa: DEFAULT",
     "",
     "--------------------------------------------------------------",
-    "🪼 1. ARQUITECTURA MULTI-AGENCIA (JELLYFISH OS v6.8)",
+    "🪼 1. ARQUITECTURA MULTI-AGENCIA (JELLYFISH OS v6.9)",
     "Jellyfish OS agrupa a los agentes en agencias especializadas:",
     "  - DEVELOPMENT: Ingeniería de software, bugs, arquitectura y desarrollo.",
     "  - MARKETING: Estrategias de venta, SEO, redacción de copy y contenido.",

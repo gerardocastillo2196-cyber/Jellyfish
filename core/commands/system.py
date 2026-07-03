@@ -12,7 +12,7 @@ from core.terminal import run_terminal_command
 
 # Manual content from core/crud.py
 _MANUAL = """
-# 🪼 Jellyfish OS v6.8 — Manual del Usuario
+# 🪼 Jellyfish OS v6.9 — Manual del Usuario
 
 Jellyfish es un framework de agentes técnicos impulsados por IA. Combina modelos locales o en la nube (Ollama, OpenAI, DeepSeek, OpenRouter) con ejecución autónoma (Auto-ReAct), recuperación de código vectorial (RAG) y un **Orquestador Multi-Agente** para investigaciones complejas.
 

@@ -1,6 +1,6 @@
 """
 ╔══════════════════════════════════════════════════════════════════╗
-║  Jellyfish TUI Engine — Sprint 6.8                              ║
+║  Jellyfish TUI Engine — Sprint 6.9                              ║
 ║  Layout Tiling (tmux/htop style) + Redirección de stdout         ║
 ╚══════════════════════════════════════════════════════════════════╝
 
@@ -365,7 +365,7 @@ class JellyfishTUIApp:
         if width < 120:
             # Cabecera en 2 filas para pantallas angostas
             tokens = [
-                ("", " [🪼 Jellyfish 6.8]  |  ESTADO: "),
+                ("", " [🪼 Jellyfish 6.9]  |  ESTADO: "),
                 (status_style, f" {status} "),
                 ("", f"  |  AGENTE: @{active_display}\n"),
                 ("", f" MODELO: {model_name} ({provider_name})  |  PROYECTO: {proj_name}  |  Ctrl+A: Agentes"),
@@ -373,7 +373,7 @@ class JellyfishTUIApp:
         else:
             # Cabecera en 1 fila para pantallas anchas
             tokens = [
-                ("", " [🪼 Jellyfish 6.8]  |  ESTADO: "),
+                ("", " [🪼 Jellyfish 6.9]  |  ESTADO: "),
                 (status_style, f" {status} "),
                 ("", f"  |  AGENTE: @{active_display}  |  MODELO: {model_name} ({provider_name})  |  PROYECTO: {proj_name}  |  AGENCIA: {self.state.active_agency.upper()}  |  Ctrl+A: Agentes"),
             ]
@@ -668,12 +668,12 @@ class TUIEngine:
         pass
 
     def print_welcome_logo(self):
-        """Muestra el logo de Jellyfish en la consola (compatibilidad con comandos v6.8)."""
+        """Muestra el logo de Jellyfish en la consola (compatibilidad con comandos v6.9)."""
         logo = """[bold blue]
 ╦╔═╗╦  ╦  ╦ ╦╔═╗╦╔═╗╦ ╦
 ║║╣ ║  ║  ╚╦╝╠╣ ║╚═╗╠═╣
 ╚╝╚═╝╩═╝╩═╝ ╩ ╚  ╩╚═╝╩ ╩[/bold blue]
-[bold cyan]Jellyfish OS v6.8 — Framework de Agentes[/bold cyan]
+[bold cyan]Jellyfish OS v6.9 — Framework de Agentes[/bold cyan]
 """
         from core.ui import console
         console.print(logo)
