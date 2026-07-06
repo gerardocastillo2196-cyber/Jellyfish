@@ -442,6 +442,18 @@ class JellyfishState:
                     self.active_agency = "default"
                     self.system_prompt += "Eres Jellyfish, un asistente técnico avanzado."
 
+        # 3. Directriz transversal anti-alucinaciones obligatoria
+        self.system_prompt += (
+            "\n\n[REGLAS ESTRICTAS CONTRA ALUCINACIONES]\n"
+            "- SÓLO responde basándote en hechos reales documentados en los archivos del proyecto activo o en los datos de referencia.\n"
+            "- Si no tienes información sobre una tarea, archivo, requerimiento o estado, di claramente "
+            "'No tengo esa información en los documentos del proyecto' en lugar de inventar o alucinar.\n"
+            "- NUNCA supongas la existencia de archivos de código, dependencias, variables o logs que no "
+            "hayan sido explícitamente listados en el contexto.\n"
+            "- Si te piden realizar cambios o programar, limítate a los componentes reales documentados. "
+            "No inventes especificaciones técnicas, funcionalidades ni APIs que no existan en el proyecto."
+        )
+
         if not hasattr(self, "history") or not isinstance(self.history, PersistedHistoryList):
             self.history = PersistedHistoryList(self)
         self.refresh_static_context()
