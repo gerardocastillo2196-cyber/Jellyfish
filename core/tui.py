@@ -1,13 +1,14 @@
 """
 ╔══════════════════════════════════════════════════════════════════╗
-║  Jellyfish TUI Engine — Sprint 6.9                              ║
-║  Layout Tiling (tmux/htop style) + Redirección de stdout         ║
+║  Jellyfish TUI Engine — Sprint 7.1                              ║
+║  CLI Incrustado con Output Panel + Input Panel (TextArea)        ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 Módulo de interfaz minimalista y eficiente:
-- Divide la pantalla en 3 zonas fijas (Agentes, Logs, Prompt).
-- Redirige stdout/stderr para actualizar el panel de logs.
-- Branding compacto e integración de colores de estado.
+- Divide la pantalla en 3 zonas fijas (Header, Output, Input).
+- Output Panel: TextArea read-only con scrollbar para historial.
+- Input Panel: TextArea de 1 línea con autocompletado y lexer.
+- Redirige stdout/stderr para actualizar el Output Panel.
 """
 
 import os
@@ -30,24 +31,16 @@ from prompt_toolkit.formatted_text import ANSI, HTML
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
 from prompt_toolkit.layout.margins import ScrollbarMargin
+from prompt_toolkit.widgets import TextArea
 
 from core.state import get_term_width, get_term_height
 
 logger = logging.getLogger("jellyfish.tui")
 
-# Expresión regular para limpiar secuencias ANSI de control de cursor y pantalla (evitando 25l, 25h, etc.)
-ANSI_CLEAN_RE = re.compile(r'\x1b\[[\d;?]*[a-ln-zABCDEFGJKHST]')
+# Expresión regular comprehensiva para limpiar TODAS las secuencias ANSI
+# (cursor, color, SGR, CSI, OSC, etc.) del texto antes de volcarlo al Output Panel
+ANSI_CLEAN_RE = re.compile(r'\x1b\[[0-9;?]*[a-zA-Z]|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]|\x1b[\x20-\x2F]*[\x40-\x7E]')
 
-class ScrollableFormattedTextControl(FormattedTextControl):
-    """Control de texto formateado que delega la gestión de eventos de ratón a un callback personalizado."""
-    def __init__(self, text, mouse_handler=None):
-        super().__init__(text)
-        self._custom_mouse_handler = mouse_handler
-
-    def mouse_handler(self, mouse_event):
-        if self._custom_mouse_handler:
-            return self._custom_mouse_handler(mouse_event)
-        return super().mouse_handler(mouse_event)
 
 # Estilo para el autocompletado y colores de la TUI
 claude_style = Style.from_dict({
@@ -147,7 +140,7 @@ class TUIRedirector:
 
 
 class JellyfishTUIApp:
-    """Aplicación prompt_toolkit de pantalla dividida (Tiling)."""
+    """Aplicación prompt_toolkit de pantalla dividida con Output Panel + Input Panel."""
 
     def __init__(self, tui_engine, state, completer, key_bindings, lexer):
         self.tui_engine = tui_engine
@@ -155,91 +148,46 @@ class JellyfishTUIApp:
         self.completer = completer
         self.lexer = lexer
         self.key_bindings = key_bindings
-        
-        # Buffer de entrada para el prompt
-        self.input_buffer = Buffer(
-            completer=self.completer,
-            complete_while_typing=True,
-            accept_handler=self.handle_accept,
-            multiline=True,
+
+        # ── Output Panel: TextArea multilínea, read-only, con scrollbar ──
+        self.output_area = TextArea(
+            text="",
+            read_only=True,
+            scrollbar=True,
+            style="class:log-panel",
+            wrap_lines=True,
+            focusable=False,
         )
-        
-        # Posición de scroll vertical de los logs
-        self.log_scroll_pos = 0
-        
-        # Definición de ventanas
-        # 1. Barra de estado superior (Header con branding compacto de Medusa y Color global)
+
+        # ── Input Panel: TextArea de una línea con accept_handler ──
+        self.input_area = TextArea(
+            height=1,
+            prompt=" 🪼 > ",
+            style="class:prompt-area",
+            multiline=False,
+            completer=self.completer,
+            lexer=self.lexer,
+            accept_handler=self.handle_accept,
+        )
+
+        # ── Header Window ──
         self.header_window = Window(
             content=FormattedTextControl(self.get_header_text),
-            height=self.get_header_height,  # Altura dinámica (1 o 2 líneas)
+            height=self.get_header_height,
             style="bg:#1e1b4b #ffffff",
         )
-        
-        # Panel izquierdo removido por redundancia
-        
-        # 3. Prompt label (indicador visual)
-        self.prompt_label = Window(
-            content=FormattedTextControl(self.get_prompt_label_text),
-            dont_extend_width=True,
-            height=1,
-            style="class:prompt-label",
-        )
-        
-        # 4. Panel Central: Entrada de comandos y prompts
-        self.prompt_window = Window(
-            content=BufferControl(
-                buffer=self.input_buffer,
-                lexer=self.lexer,
-            ),
-            style="class:prompt-area",
-            height=3,
-        )
-        
-        # 5. Panel Inferior: Logs, discusiones y diffs de código (soporta scroll con rueda del ratón)
-        def log_mouse_handler(mouse_event):
-            from prompt_toolkit.mouse_events import MouseEventType
-            if not self.log_window:
-                return
-            with self.tui_engine._lock:
-                lines_count = len(self.tui_engine._log_text.splitlines())
-            win_height = 20
-            if self.log_window.render_info:
-                win_height = self.log_window.render_info.window_height
-            max_scroll = max(0, min(lines_count, 1000) - 2)
 
-            if mouse_event.event_type == MouseEventType.SCROLL_UP:
-                self.log_scroll_pos = max(0, self.log_scroll_pos - 3)
-                self.app.invalidate()
-            elif mouse_event.event_type == MouseEventType.SCROLL_DOWN:
-                self.log_scroll_pos = min(max_scroll, self.log_scroll_pos + 3)
-                self.app.invalidate()
-
-        self.log_window = Window(
-            content=ScrollableFormattedTextControl(
-                self.get_log_text,
-                mouse_handler=log_mouse_handler
-            ),
-            wrap_lines=True,
-            style="class:log-panel",
-            right_margins=[ScrollbarMargin(display_arrows=True)],
-            get_vertical_scroll=self.get_log_vertical_scroll,
-        )
-        
-        # Definición del layout responsivo
+        # ── Layout responsivo ──
         def get_body_layout():
             return HSplit([
                 self.header_window,
                 Window(height=1, char="━", style="class:line"),
-                self.log_window,
-                Window(height=1, char="━", style="class:line"),
-                VSplit([
-                    self.prompt_label,
-                    self.prompt_window,
-                ]),
+                self.input_area,
+                self.output_area,
             ])
 
         body = DynamicContainer(get_body_layout)
-        
+
         # Layout con FloatContainer para el menú de autocompletado
         self.layout = Layout(
             container=FloatContainer(
@@ -252,10 +200,10 @@ class JellyfishTUIApp:
                     ),
                 ],
             ),
-            focused_element=self.input_buffer,
+            focused_element=self.input_area,
         )
-        
-        # Configurar Keybindings de scroll
+
+        # Configurar Keybindings
         self.setup_tui_keybindings()
 
         self.app = Application(
@@ -267,71 +215,17 @@ class JellyfishTUIApp:
         )
 
     def setup_tui_keybindings(self):
-        """Asigna atajos de teclado adicionales para navegación y scroll del panel central."""
+        """Asigna atajos de teclado adicionales para el Input Panel."""
         from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
         tui_kb = KeyBindings()
-        
-        @tui_kb.add('pageup')
-        def _scroll_up(event):
-            if self.log_window:
-                self.log_scroll_pos = max(0, self.log_scroll_pos - 10)
-                self.app.invalidate()
 
-        @tui_kb.add('pagedown')
-        def _scroll_down(event):
-            if self.log_window:
-                with self.tui_engine._lock:
-                    lines_count = len(self.tui_engine._log_text.splitlines())
-                win_height = 20
-                if self.log_window.render_info:
-                    win_height = self.log_window.render_info.window_height
-                max_scroll = max(0, min(lines_count, 1000) - 2)
-                self.log_scroll_pos = min(max_scroll, self.log_scroll_pos + 10)
-                self.app.invalidate()
-
-        @tui_kb.add('c-up')
-        def _scroll_up_line(event):
-            if self.log_window:
-                self.log_scroll_pos = max(0, self.log_scroll_pos - 1)
-                self.app.invalidate()
-
-        @tui_kb.add('c-down')
-        def _scroll_down_line(event):
-            if self.log_window:
-                with self.tui_engine._lock:
-                    lines_count = len(self.tui_engine._log_text.splitlines())
-                win_height = 20
-                if self.log_window.render_info:
-                    win_height = self.log_window.render_info.window_height
-                max_scroll = max(0, min(lines_count, 1000) - 2)
-                self.log_scroll_pos = min(max_scroll, self.log_scroll_pos + 1)
-                self.app.invalidate()
-
-        @tui_kb.add('s-up')
-        def _scroll_up_shift(event):
-            if self.log_window:
-                self.log_scroll_pos = max(0, self.log_scroll_pos - 5)
-                self.app.invalidate()
-
-        @tui_kb.add('s-down')
-        def _scroll_down_shift(event):
-            if self.log_window:
-                with self.tui_engine._lock:
-                    lines_count = len(self.tui_engine._log_text.splitlines())
-                win_height = 20
-                if self.log_window.render_info:
-                    win_height = self.log_window.render_info.window_height
-                max_scroll = max(0, min(lines_count, 1000) - 2)
-                self.log_scroll_pos = min(max_scroll, self.log_scroll_pos + 5)
-                self.app.invalidate()
-            
         @tui_kb.add('enter')
         def _submit(event):
             buffer = event.current_buffer
             if buffer.complete_state and buffer.complete_state.current_completion:
                 buffer.apply_completion(buffer.complete_state.current_completion)
             buffer.validate_and_handle()
-            
+
         self.key_bindings = merge_key_bindings([self.key_bindings, tui_kb])
 
     def get_header_height(self) -> int:
@@ -339,12 +233,8 @@ class JellyfishTUIApp:
         width = get_term_width()
         return 2 if width < 120 else 1
 
-    def get_prompt_label_text(self) -> List[Any]:
-        label = getattr(self.tui_engine, "_current_prompt_label", " 🪼 > ")
-        return [('class:prompt-label', label)]
-
     def get_header_text(self) -> List[Any]:
-        """Genera el texto de la barra de estado superior con la Medusa ASCII minimalista y el color global."""
+        """Genera el texto de la barra de estado superior."""
         status = getattr(self.state, "global_status", "OK")
         status_style = "class:status-ok"
         if status == "PROCESS":
@@ -353,19 +243,19 @@ class JellyfishTUIApp:
             status_style = "class:status-error"
         elif status == "INPUT_REQUIRED":
             status_style = "class:status-input"
-            
+
         proj_name = os.path.basename(self.state.active_project) if self.state.active_project else "Ninguno"
         model_name = getattr(self.state, "model", "Ninguno")
         provider_name = getattr(self.state, "provider", "ollama").upper()
-        
+
         active = getattr(self.state, "active_agent", "default")
         active_display = AGENT_ACRONYMS.get(active.lower(), active.upper()[:6])
-        
+
         width = get_term_width()
         if width < 120:
             # Cabecera en 2 filas para pantallas angostas
             tokens = [
-                ("", " [🪼 Jellyfish 6.9]  |  ESTADO: "),
+                ("", " [🪼 Jellyfish 7.1]  |  ESTADO: "),
                 (status_style, f" {status} "),
                 ("", f"  |  AGENTE: @{active_display}\n"),
                 ("", f" MODELO: {model_name} ({provider_name})  |  PROYECTO: {proj_name}  |  Ctrl+A: Agentes"),
@@ -373,7 +263,7 @@ class JellyfishTUIApp:
         else:
             # Cabecera en 1 fila para pantallas anchas
             tokens = [
-                ("", " [🪼 Jellyfish 6.9]  |  ESTADO: "),
+                ("", " [🪼 Jellyfish 7.1]  |  ESTADO: "),
                 (status_style, f" {status} "),
                 ("", f"  |  AGENTE: @{active_display}  |  MODELO: {model_name} ({provider_name})  |  PROYECTO: {proj_name}  |  AGENCIA: {self.state.active_agency.upper()}  |  Ctrl+A: Agentes"),
             ]
@@ -383,7 +273,7 @@ class JellyfishTUIApp:
         """Genera el contenido del panel izquierdo/superior de agentes basándose en la agencia activa."""
         active = getattr(self.state, "active_agent", "default")
         active_agency = getattr(self.state, "active_agency", "default")
-        
+
         # Obtener los agentes de la agencia actual o caer a default
         agency_agents = self.state.agency_catalog.get(active_agency, [])
         if not agency_agents:
@@ -392,13 +282,13 @@ class JellyfishTUIApp:
             agency_agents = list(agency_agents)
             if active not in agency_agents:
                 agency_agents.append(active)
-                
+
         # Preparar listado con mapeo de nombre a acrónimo
         display_agents = []
         for name in sorted(list(set(agency_agents))):
             disp_name = AGENT_ACRONYMS.get(name.lower(), name.upper()[:6])
             display_agents.append((name, disp_name))
-            
+
         width = get_term_width()
         if width < 80:
             # Layout Horizontal para terminal angosta
@@ -422,64 +312,47 @@ class JellyfishTUIApp:
                     tokens.append(("class:agent-inactive", f"   {disp}\n"))
             return tokens
 
-    def get_log_vertical_scroll(self) -> int:
-        """Callback usado por prompt-toolkit para determinar la posición del scroll de la ventana."""
-        return getattr(self, "log_scroll_pos", 0)
+    # ── Métodos del Output Panel ──
 
-    def scroll_to_bottom(self, force=False):
-        """Desplaza la ventana de logs al final si el usuario ya está al final o si se fuerza."""
-        if not self.log_window:
-            return
-        with self.tui_engine._lock:
-            lines_count = len(self.tui_engine._log_text.splitlines())
-        win_height = 20
-        if self.log_window.render_info:
-            win_height = self.log_window.render_info.window_height
-        
-        max_scroll = max(0, min(lines_count, 1000) - 2)
-        current_scroll = self.log_scroll_pos
-        if force or current_scroll >= max_scroll - 3:
-            self.log_scroll_pos = max_scroll
+    def append_to_output(self, text: str):
+        """Agrega texto al Output Panel y hace auto-scroll al final."""
+        current = self.output_area.text
+        new_text = current + text
+        # Limitar tamaño para rendimiento
+        if len(new_text) > 100_000:
+            new_text = new_text[-100_000:]
+        self.output_area.text = new_text
+        # Auto-scroll: mover cursor al final del buffer
+        self.output_area.buffer.cursor_position = len(self.output_area.text)
 
-    def get_log_text(self) -> Any:
-        """Retorna el buffer de logs procesando secuencias ANSI de color.
-        
-        Es defensivo contra excepciones para evitar que la ventana se renderice
-        en rojo brillante por fallos de parseo o modificaciones concurrentes.
-        """
-        viewport_text = ""
+    def scroll_output_to_bottom(self):
+        """Fuerza el scroll del Output Panel al final."""
         try:
-            with self.tui_engine._lock:
-                log_content = self.tui_engine._log_text
-            lines = log_content.splitlines()
-            
-            # Limitamos a las últimas 1000 líneas por rendimiento.
-            rendered_lines = lines[-1000:]
-            viewport_text = "\n".join(rendered_lines)
-            return ANSI(viewport_text)
+            self.output_area.buffer.cursor_position = len(self.output_area.text)
         except Exception:
-            return [("", viewport_text)]
+            pass
+
+    # ── Manejador de Enter ──
 
     def handle_accept(self, buffer):
         """Manejador cuando el usuario envía una línea de comando."""
+        # Caso 1: Estamos esperando input del usuario (prompt_user / prompt_menu)
         if getattr(self.tui_engine, "_waiting_for_input", False):
             self.tui_engine._input_result = buffer.text
             prompt_label = getattr(self.tui_engine, "_current_prompt_label", " 🪼 > ")
-            self.tui_engine.append_log(f"\n\x1b[48;5;17m\x1b[38;5;15m {prompt_label}{buffer.text} \x1b[0m\n")
-            buffer.reset()
+            self.append_to_output(f"\n {prompt_label}{buffer.text}\n")
             self.tui_engine._input_event.set()
             return
 
+        # Caso 2: Comando normal del usuario
         user_input = buffer.text.strip()
         if user_input:
-            prompt_label = getattr(self.tui_engine, "_current_prompt_label", " 🪼 > ")
-            self.tui_engine.append_log(f"\n\x1b[48;5;17m\x1b[38;5;15m {prompt_label}{user_input} \x1b[0m\n")
-            
-        buffer.reset()
-        self.scroll_to_bottom(force=True)
+            self.append_to_output(f"\n[Usuario]: {user_input}\n")
+
+        self.scroll_output_to_bottom()
         if not user_input:
             return
-        
+
         if user_input.lower() in ("/exit", "exit", "quit"):
             self.app.exit(result="/exit")
             return
@@ -487,33 +360,33 @@ class JellyfishTUIApp:
         if hasattr(self.tui_engine, "command_handler") and self.tui_engine.command_handler:
             self.state.global_status = "PROCESS"
             self.app.invalidate()
-            
+
             def run_wrapper():
                 try:
                     if is_interactive_command(user_input):
                         import asyncio
                         from prompt_toolkit.application import run_in_terminal
-                        
+
                         def run_cmd():
                             self.tui_engine.restore_terminal()
                             try:
                                 self.tui_engine.command_handler(user_input)
                             finally:
                                 self.tui_engine.init_terminal()
-                        
+
                         async def main_thread_wrapper():
                             return await run_in_terminal(run_cmd)
-                            
+
                         future = asyncio.run_coroutine_threadsafe(main_thread_wrapper(), self.app.loop)
                         future.result()
                     else:
                         self.tui_engine.command_handler(user_input)
                 except Exception as e:
-                    self.tui_engine.append_log(f"\n❌ Error al ejecutar: {e}\n")
+                    self.append_to_output(f"\n❌ Error al ejecutar: {e}\n")
                 finally:
                     self.state.global_status = "OK"
                     self.app.invalidate()
-            
+
             threading.Thread(target=run_wrapper, daemon=True).start()
         else:
             self.app.exit(result=user_input)
@@ -531,7 +404,7 @@ class TUIEngine:
     def __init__(self):
         self._lock = threading.Lock()
         self._initialized = False
-        self._log_text: str = ""
+        self._log_text: str = ""  # Buffer de respaldo cuando no hay TUI activa
         self._redirector = TUIRedirector(self)
         self._active_tasks: dict = {}
         self.command_handler = None
@@ -545,7 +418,7 @@ class TUIEngine:
         """Inicializa la terminal y activa la redirección de logs."""
         self._redirector.start()
         self._initialized = True
-        
+
         import builtins
         if not hasattr(self, "_original_input"):
             self._original_input = builtins.input
@@ -555,7 +428,7 @@ class TUIEngine:
         """Restaura la terminal desactivando la redirección de logs."""
         self._redirector.stop()
         self._initialized = False
-        
+
         import builtins
         if hasattr(self, "_original_input"):
             builtins.input = self._original_input
@@ -572,83 +445,85 @@ class TUIEngine:
         self._input_event.clear()
         self._input_result = ""
         self._waiting_for_input = True
-        
+
         clean_prompt = prompt_text.strip()
         if clean_prompt.endswith(":"):
             clean_prompt = clean_prompt[:-1]
         if len(clean_prompt) > 30:
             clean_prompt = clean_prompt[:27] + "..."
-            
+
         self._current_prompt_label = f" {clean_prompt} > "
-        
+
+        # Mostrar la pregunta en el Output Panel
         if self.active_tui_app:
+            self.active_tui_app.append_to_output(f"\n❓ {prompt_text}\n")
             self.active_tui_app.app.loop.call_soon_threadsafe(
-                self.active_tui_app.input_buffer.reset
+                self.active_tui_app.input_area.buffer.reset
             )
             self.active_tui_app.app.invalidate()
-            
+
         self._input_event.wait()
-        
+
         self._waiting_for_input = False
         self._current_prompt_label = " 🪼 > "
         if self.active_tui_app:
             self.active_tui_app.app.invalidate()
-            
+
         return self._input_result
 
     def prompt_menu(self, title: str, options: List[str]) -> Optional[str]:
         """Presenta un menú dinámico usando el dropdown de autocompletado en el prompt."""
         if not self.active_tui_app:
             return None
-            
+
         self._input_event.clear()
         self._input_result = ""
         self._waiting_for_input = True
-        
+
         # Guardar completador y validador previos
         old_completer = self.active_tui_app.completer
-        old_validator = self.active_tui_app.input_buffer.validator
-        
+        old_validator = self.active_tui_app.input_area.buffer.validator
+
         from prompt_toolkit.completion import WordCompleter
         menu_completer = WordCompleter(options, ignore_case=True)
-        
+
         from prompt_toolkit.validation import Validator, ValidationError
         class MenuValidator(Validator):
             def validate(self, document):
                 val = document.text.strip()
                 if val.lower() not in [o.lower() for o in options]:
                     raise ValidationError(message="Selecciona una opción del menú")
-                    
+
         # Configurar estado del menú
         self._current_prompt_label = f" {title[:20]} > "
         self.active_tui_app.completer = menu_completer
-        self.active_tui_app.input_buffer.completer = menu_completer
-        self.active_tui_app.input_buffer.validator = MenuValidator()
-        
+        self.active_tui_app.input_area.buffer.completer = menu_completer
+        self.active_tui_app.input_area.buffer.validator = MenuValidator()
+
         # Resetear buffer y disparar autocompletado
         def setup_menu():
-            self.active_tui_app.input_buffer.reset()
-            self.active_tui_app.input_buffer.start_completion(select_first=True)
-            
+            self.active_tui_app.input_area.buffer.reset()
+            self.active_tui_app.input_area.buffer.start_completion(select_first=True)
+
         self.active_tui_app.app.loop.call_soon_threadsafe(setup_menu)
         self.active_tui_app.app.invalidate()
-        
+
         # Bloquear hasta recibir selección
         self._input_event.wait()
-        
+
         # Restaurar estado original
         self._waiting_for_input = False
         self._current_prompt_label = " 🪼 > "
         self.active_tui_app.completer = old_completer
-        self.active_tui_app.input_buffer.completer = old_completer
-        self.active_tui_app.input_buffer.validator = old_validator
-        
+        self.active_tui_app.input_area.buffer.completer = old_completer
+        self.active_tui_app.input_area.buffer.validator = old_validator
+
         def restore_menu():
-            self.active_tui_app.input_buffer.reset()
-            
+            self.active_tui_app.input_area.buffer.reset()
+
         self.active_tui_app.app.loop.call_soon_threadsafe(restore_menu)
         self.active_tui_app.app.invalidate()
-        
+
         result = self._input_result.strip()
         for opt in options:
             if opt.lower() == result.lower():
@@ -656,12 +531,13 @@ class TUIEngine:
         return None
 
     def clear_scroll_region(self):
-        """Limpia el área de logs de la TUI."""
-        with self._lock:
-            self._log_text = ""
+        """Limpia el área de output de la TUI."""
         if getattr(self, "active_tui_app", None):
-            self.active_tui_app.log_scroll_pos = 0
+            self.active_tui_app.output_area.text = ""
             self.active_tui_app.app.invalidate()
+        else:
+            with self._lock:
+                self._log_text = ""
 
     def move_cursor_to_scroll_region(self):
         """No-op en layout tiling ya que el cursor se mantiene en el input buffer."""
@@ -673,38 +549,41 @@ class TUIEngine:
 ╦╔═╗╦  ╦  ╦ ╦╔═╗╦╔═╗╦ ╦
 ║║╣ ║  ║  ╚╦╝╠╣ ║╚═╗╠═╣
 ╚╝╚═╝╩═╝╩═╝ ╩ ╚  ╩╚═╝╩ ╩[/bold blue]
-[bold cyan]Jellyfish OS v6.9 — Framework de Agentes[/bold cyan]
+[bold cyan]Jellyfish OS v7.1 — Framework de Agentes[/bold cyan]
 """
         from core.ui import console
         console.print(logo)
 
     def append_log(self, text: str):
-        """Añade texto a la base de logs de la TUI, interpretando \r y limpiando escape codes de cursor."""
-        with self._lock:
-            # Filtrar secuencias de control no deseadas
-            cleaned_text = ANSI_CLEAN_RE.sub('', text)
-            for char in cleaned_text:
-                if char == '\r':
-                    last_nl = self._log_text.rfind('\n')
-                    if last_nl != -1:
-                        self._log_text = self._log_text[:last_nl + 1]
-                    else:
-                        self._log_text = ""
+        """Añade texto al Output Panel de la TUI, limpiando secuencias ANSI."""
+        # Limpiar TODAS las secuencias ANSI (color, cursor, etc.)
+        cleaned = ANSI_CLEAN_RE.sub('', text)
+
+        # Manejar \r (retorno de carro) para soporte de barras de progreso
+        processed = ""
+        for char in cleaned:
+            if char == '\r':
+                # Retorno de carro: buscar la última línea y sobrescribirla
+                last_nl = processed.rfind('\n')
+                if last_nl != -1:
+                    processed = processed[:last_nl + 1]
                 else:
-                    self._log_text += char
-            
-            # Limitar tamaño de logs en memoria
-            if len(self._log_text) > 100_000:
-                self._log_text = self._log_text[-100_000:]
-        
-        # Determinar si hacemos auto-scroll
+                    processed = ""
+            else:
+                processed += char
+
         if getattr(self, "active_tui_app", None):
             try:
-                # Hacemos auto-scroll moviendo log_scroll_pos al final
-                self.active_tui_app.scroll_to_bottom(force=True)
+                self.active_tui_app.append_to_output(processed)
                 self.active_tui_app.app.invalidate()
             except Exception:
                 pass
+        else:
+            # Respaldo: almacenar en buffer interno
+            with self._lock:
+                self._log_text += processed
+                if len(self._log_text) > 100_000:
+                    self._log_text = self._log_text[-100_000:]
 
     def render_header(self, **kwargs):
         """No-op en layout tiling ya que el header se maneja reactivamente."""
@@ -714,11 +593,17 @@ class TUIEngine:
         """Inicia el TUI interactivo de pantalla dividida y retorna la entrada del usuario."""
         # Asegurar redirección activa
         self._redirector.start()
-        
+
         # Crear instancia de la app
         tui_app = JellyfishTUIApp(self, state, completer, key_bindings, lexer)
         self.active_tui_app = tui_app
-        
+
+        # Si hay texto en el buffer de respaldo, volcarlo al Output Panel
+        if self._log_text:
+            tui_app.append_to_output(self._log_text)
+            with self._lock:
+                self._log_text = ""
+
         # Ejecutar TUI
         try:
             user_input = tui_app.app.run()

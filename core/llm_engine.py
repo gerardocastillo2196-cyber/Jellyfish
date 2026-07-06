@@ -315,23 +315,40 @@ def _prepare_payload(provider_name: str, url: str, model_name: str, messages: li
             "temperature": max(0.0, 0.2 - 0.05 * (attempt - 1)),
         }
 
+    # Consolidar todos los mensajes de sistema en uno solo para evitar alucinaciones
+    # y confusión en modelos locales/sencillos
+    system_content = []
+    other_messages = []
+    for msg in messages:
+        if msg.get("role") == "system":
+            system_content.append(msg.get("content", "").strip())
+        else:
+            other_messages.append(msg)
+
+    consolidated_system = "\n\n".join(filter(None, system_content))
+
     if is_native_anthropic:
         payload["max_tokens"] = 4096
-        system_prompt = ""
         filtered_messages = []
-        for msg in messages:
-            if msg.get("role") == "system":
-                system_prompt += msg.get("content", "") + "\n"
-            else:
-                role = msg.get("role")
-                if role not in ("user", "assistant"):
-                    role = "user"
-                filtered_messages.append({"role": role, "content": msg.get("content", "")})
+        for msg in other_messages:
+            role = msg.get("role")
+            if role not in ("user", "assistant"):
+                role = "user"
+            filtered_messages.append({"role": role, "content": msg.get("content", "")})
         payload["messages"] = filtered_messages
-        if system_prompt:
-            payload["system"] = system_prompt.strip()
+        if consolidated_system:
+            payload["system"] = consolidated_system
     else:
-        payload["messages"] = messages
+        # Para Ollama, OpenAI, Gemini, etc. -> enviar un solo mensaje "system" al inicio
+        cleaned_messages = []
+        if consolidated_system:
+            cleaned_messages.append({"role": "system", "content": consolidated_system})
+        for msg in other_messages:
+            role = msg.get("role")
+            if role not in ("user", "assistant"):
+                role = "user"
+            cleaned_messages.append({"role": role, "content": msg.get("content", "")})
+        payload["messages"] = cleaned_messages
 
     return payload
 
@@ -674,6 +691,10 @@ def _stream_request(
         try:
             import asyncio
 
+            # Detectar si la TUI está activa ANTES de crear el spinner
+            from core.tui import tui_engine
+            tui_active = getattr(tui_engine, "_initialized", False) and tui_engine.active_tui_app is not None
+
             async def _run_stream():
                 nonlocal full, status_code, error_msg
                 async with httpx.AsyncClient(
@@ -681,37 +702,40 @@ def _stream_request(
                     limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
                     follow_redirects=True,
                 ) as client:
-                    status = console.status(f"[cyan]Pensando ({provider_name})...[/cyan]")
-                    status.start()
+                    # En modo TUI, NO usar console.status() (el spinner de Rich
+                    # genera secuencias ANSI que contaminan el Output Panel).
+                    # El header ya muestra ESTADO: PROCESS como indicador visual.
+                    status = None
+                    if not tui_active:
+                        status = console.status(f"[cyan]Pensando ({provider_name})...[/cyan]")
+                        status.start()
+                    else:
+                        tui_engine.append_log(f"⏳ Pensando ({provider_name})...\n")
                     try:
                         async with client.stream("POST", url, headers=headers, json=payload) as response:
-                            status.stop()
+                            if status:
+                                status.stop()
                             if response.status_code != 200:
                                 status_code = response.status_code
                                 error_body = (await response.aread())[:500].decode("utf-8", errors="replace")
                                 error_msg = error_body
                                 response.raise_for_status()
                                 return
-        
-                            import sys
-                            from core.tui import tui_engine
-                            tui_active = getattr(tui_engine, "_initialized", False) and tui_engine.active_tui_app is not None
 
                             if tui_active:
                                 try:
                                     async for line in response.aiter_lines():
                                         if _aborted and _aborted[0]:
-                                            print("\n⚡ Stream interrumpido — respuesta parcial conservada.")
+                                            tui_engine.append_log("\n⚡ Stream interrumpido — respuesta parcial conservada.\n")
                                             break
                                         if not line:
                                             continue
                                         chunk = parse_fn(line.encode("utf-8"))
                                         if chunk:
                                             full += chunk
-                                            sys.stdout.write(chunk)
-                                            sys.stdout.flush()
+                                            tui_engine.append_log(chunk)
                                 except KeyboardInterrupt:
-                                    print("\n⚡ Stream interrumpido — respuesta parcial conservada.")
+                                    tui_engine.append_log("\n⚡ Stream interrumpido — respuesta parcial conservada.\n")
                                     if _aborted is not None:
                                         _aborted[0] = True
                             else:
@@ -736,7 +760,8 @@ def _stream_request(
                                         if _aborted is not None:
                                             _aborted[0] = True
                     finally:
-                        status.stop()
+                        if status:
+                            status.stop()
 
             asyncio.run(_run_stream())
 
