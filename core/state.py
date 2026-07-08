@@ -122,19 +122,15 @@ _HISTORY_CHAR_BUDGET = int(_MODEL_TOKEN_LIMIT * 0.80 * _CHARS_PER_TOKEN)
 # Sprint 8.0 — Flag global de actividad LLM para el spinner del header
 _llm_busy = False
 
+import shutil
+
 def get_term_width() -> int:
     """Obtiene el ancho de la terminal de forma segura."""
-    try:
-        return os.get_terminal_size().columns
-    except (OSError, ValueError):
-        return 60
+    return shutil.get_terminal_size(fallback=(120, 24)).columns
 
 def get_term_height() -> int:
     """Obtiene el alto de la terminal de forma segura."""
-    try:
-        return os.get_terminal_size().lines
-    except (OSError, ValueError):
-        return 24
+    return shutil.get_terminal_size(fallback=(120, 24)).lines
 
 
 def _safe_read(filepath: str) -> str:

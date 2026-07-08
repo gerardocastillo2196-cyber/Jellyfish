@@ -355,12 +355,14 @@ def _scan_gguf_files(search_paths: list[str]) -> list[dict]:
 
 
 def _register_gguf_with_ollama(gguf_path: str, model_name: str) -> bool:
-    """Registra un archivo .gguf en Ollama usando `ollama create --from`.
+    """Registra un archivo .gguf en Ollama usando un Modelfile temporal.
 
-    Requiere Ollama >= 0.30 que soporta --from <ruta.gguf> directamente.
-    Retorna True si el registro fue exitoso.
+    Genera un Modelfile con la instrucción FROM apuntando al archivo GGUF
+    y usa `ollama create` para registrarlo. Retorna True si es exitoso.
     """
     import subprocess
+    import tempfile
+    
     gguf_path = os.path.expanduser(gguf_path)
     if not os.path.isfile(gguf_path):
         console.print(f"[red]❌ Archivo no encontrado: {gguf_path}[/red]")
@@ -369,12 +371,23 @@ def _register_gguf_with_ollama(gguf_path: str, model_name: str) -> bool:
     console.print(f"   [dim]{gguf_path}[/dim]")
     console.print("[dim](Esto puede tardar unos segundos...)[/dim]\n")
     try:
+        # Crear Modelfile temporal
+        fd, modelfile_path = tempfile.mkstemp(prefix="jellyfish_modelfile_")
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            # Escapar barras invertidas en Windows si es necesario
+            f.write(f'FROM "{gguf_path}"\n')
+            
         result = subprocess.run(
-            ["ollama", "create", model_name, "--from", gguf_path],
+            ["ollama", "create", model_name, "-f", modelfile_path],
             capture_output=True,
             text=True,
             timeout=120,
         )
+        
+        # Eliminar archivo temporal de forma segura
+        if os.path.exists(modelfile_path):
+            os.remove(modelfile_path)
+            
         if result.returncode == 0:
             console.print(f"[green]✓ Modelo '{model_name}' registrado exitosamente en Ollama.[/green]")
             return True
@@ -590,32 +603,20 @@ def _handle_model_picker(state, display_header_func) -> None:
             return
 
     elif selected_model == "[📁 Cargar modelo GGUF desde un directorio]":
+        from core.ui import interactive_file_browser
         default_dir = os.path.expanduser("~")
-        search_dir = input(
-            f"Ruta del directorio donde buscar archivos .gguf [default: {default_dir}]: "
-        ).strip() or default_dir
-        if not search_dir:
+        chosen_path = interactive_file_browser(default_dir, ext=".gguf")
+        
+        if not chosen_path:
             return
-        console.print("[dim]Buscando archivos .gguf...[/dim]")
-        found = _scan_gguf_files([search_dir])
-        if not found:
-            console.print(f"[yellow]No se encontraron archivos .gguf en: {search_dir}[/yellow]")
-            input("\nPresiona Enter para volver...")
-            return
-        gguf_options = [m["display"] for m in found]
-        chosen_display = interactive_picker("SELECCIONAR ARCHIVO .GGUF", gguf_options)
-        if not chosen_display:
-            return
-        chosen = next((m for m in found if m["display"] == chosen_display), None)
-        if not chosen:
-            return
-        default_name = chosen["name"].lower().replace(" ", "_")[:40]
+            
+        default_name = os.path.splitext(os.path.basename(chosen_path))[0].lower().replace(" ", "_")[:40]
         model_name = input(
             f"Nombre del modelo en Ollama [default: {default_name}]: "
         ).strip() or default_name
         if not model_name:
             return
-        ok = _register_gguf_with_ollama(chosen["path"], model_name)
+        ok = _register_gguf_with_ollama(chosen_path, model_name)
         if not ok:
             input("\nPresiona Enter para volver...")
             return

@@ -12,7 +12,7 @@ from core.terminal import run_terminal_command
 
 # Manual content from core/crud.py
 _MANUAL = """
-# 🪼 Jellyfish OS v6.9 — Manual del Usuario
+# 🪼 Jellyfish OS v6.9.3 — Manual del Usuario
 
 Jellyfish es un framework de agentes técnicos impulsados por IA. Combina modelos locales o en la nube (Ollama, OpenAI, DeepSeek, OpenRouter) con ejecución autónoma (Auto-ReAct), recuperación de código vectorial (RAG) y un **Orquestador Multi-Agente** para investigaciones complejas.
 
@@ -208,6 +208,7 @@ Las Skills enseñan al agente comandos Bash pre-configurados con manejo de error
 | `/ignore` | — | Gestionar .jellyfishignore |
 | `/errors` | `/d` | Ver errores de la sesión |
 | `/provider` | — | Ver proveedor activo |
+| `/status` | `/info` | Ver el estado actual del sistema y la configuración activa |
 | `/purge` | — | Borrar todo contexto y RAG |
 | `/clear` | — | Limpiar historial de chat |
 | `/help` | `/h` | Este manual |
@@ -219,43 +220,33 @@ def handle_system_command(command: str, arg: str, state, plugins, display_header
     if command == "/goff":
         state.show_guides = False
         state.save_config(show_guides="0")
+        os.system("cls" if os.name == "nt" else "clear")
         from core.tui import tui_engine
-        if tui_engine._initialized:
-            tui_engine.clear_scroll_region()
-        else:
-            os.system("cls" if os.name == "nt" else "clear")
-            tui_engine.print_welcome_logo()
-        display_header_func()
+        tui_engine.print_welcome_logo()
+        display_header_func(force=True)
         console.print("🪼 Guías del proyecto DESACTIVADAS. Escribe /gon para volver a activarlas.")
 
     elif command == "/gon":
         state.show_guides = True
         state.save_config(show_guides="1")
+        os.system("cls" if os.name == "nt" else "clear")
         from core.tui import tui_engine
-        if tui_engine._initialized:
-            tui_engine.clear_scroll_region()
-        else:
-            os.system("cls" if os.name == "nt" else "clear")
-            tui_engine.print_welcome_logo()
-        display_header_func()
+        tui_engine.print_welcome_logo()
+        display_header_func(force=True)
         from core.commands.project import show_project_guide_if_needed
         show_project_guide_if_needed(state)
 
     elif command == "/clear":
         state.reset_history()
+        os.system("cls" if os.name == "nt" else "clear")
         from core.tui import tui_engine
-        if tui_engine._initialized:
-            tui_engine.clear_scroll_region()
-            tui_engine.move_cursor_to_scroll_region()
-            display_header_func()
-            from core.commands.project import show_project_guide_if_needed
-            show_project_guide_if_needed(state)
-        else:
-            os.system("cls" if os.name == "nt" else "clear")
-            tui_engine.print_welcome_logo()
-            display_header_func()
-            from core.commands.project import show_project_guide_if_needed
-            show_project_guide_if_needed(state)
+        tui_engine.print_welcome_logo()
+        display_header_func(force=True)
+        from core.commands.project import show_project_guide_if_needed
+        show_project_guide_if_needed(state)
+
+    elif command == "/status":
+        display_header_func(force=True)
 
     elif command == "/help":
         _show_help(display_header_func)

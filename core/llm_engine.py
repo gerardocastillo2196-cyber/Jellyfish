@@ -81,21 +81,26 @@ def _truncate_messages_to_budget(messages: list, limit: int) -> list:
     system_tokens = sum(estimate_tokens(m.get("content", "")) for m in system_msgs)
     available_budget = budget - system_tokens
 
-    if available_budget <= 0:
-        # Si el prompt de sistema ya consume todo el presupuesto, lo recortamos a la fuerza
-        # pero es extremadamente raro. Al menos retornamos solo el prompt del sistema.
+    if not other_msgs:
         return system_msgs
 
     selected_other = []
     other_tokens_sum = 0
-    # Recorrer del más nuevo al más viejo
-    for msg in reversed(other_msgs):
+    
+    # Siempre forzar la inclusión del último mensaje (prompt actual del usuario).
+    # Si omitimos esto (ej. por presupuesto agotado), el LLM solo recibe el System Prompt
+    # y empieza a alucinar texto basura tratando de autocompletarlo.
+    last_msg = other_msgs[-1]
+    selected_other.insert(0, last_msg)
+    other_tokens_sum += estimate_tokens(last_msg.get("content", ""))
+
+    # Recorrer del penúltimo al más viejo
+    for msg in reversed(other_msgs[:-1]):
         msg_tokens = estimate_tokens(msg.get("content", ""))
         if other_tokens_sum + msg_tokens <= available_budget:
             selected_other.insert(0, msg)
             other_tokens_sum += msg_tokens
         else:
-            # Si no cabe, paramos de agregar mensajes más antiguos
             break
 
     return system_msgs + selected_other
@@ -216,7 +221,12 @@ def _get_provider_config(state, provider: str | None = None) -> tuple[str, dict]
     """
     provider_name = normalize_provider(provider or state.provider)
     if provider_name == "ollama":
-        return state.ollama_base_url, {"Content-Type": "application/json"}
+        base_url = state.ollama_base_url.rstrip("/")
+        if not base_url.endswith("/api/chat"):
+            url = f"{base_url}/api/chat"
+        else:
+            url = base_url
+        return url, {"Content-Type": "application/json"}
 
     base_url = state.base_urls.get(provider_name) or getattr(state, f"{provider_name}_base_url", "")
     if not base_url:
@@ -691,9 +701,8 @@ def _stream_request(
         try:
             import asyncio
 
-            # Detectar si la TUI está activa ANTES de crear el spinner
             from core.tui import tui_engine
-            tui_active = getattr(tui_engine, "_initialized", False) and tui_engine.active_tui_app is not None
+            tui_active = getattr(tui_engine, "_initialized", False)
 
             async def _run_stream():
                 nonlocal full, status_code, error_msg
@@ -786,22 +795,38 @@ def _stream_request(
 
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException, httpx.RequestError) as e:
             if provider_name == "ollama" and isinstance(e, httpx.TimeoutException):
-                console.print("\n[red]⚠ El modelo local superó el tiempo de espera (Timeout). Memoria saturada.[/red]\n")
+                msg = "\n⚠ El modelo local superó el tiempo de espera (Timeout). Memoria saturada.\n"
+                if getattr(tui_engine, "_initialized", False):
+                    tui_engine.append_log(msg)
+                else:
+                    console.print(f"[red]{msg.strip()}[/red]")
                 logger.error("Timeout del modelo local (GPU saturada) en _stream_request: %s", e)
                 raise LocalLLMTimeoutError("El modelo local superó el tiempo de espera (Timeout). Memoria saturada.") from e
 
             code = status_code or (e.response.status_code if hasattr(e, "response") and e.response else None)
             failed_models.add(model_name)
 
+            def log_msg(msg):
+                if getattr(tui_engine, "_initialized", False):
+                    tui_engine.append_log(msg + "\n")
+                else:
+                    console.print(msg)
+
+            if provider_name == "ollama" and code == 404:
+                error_alert = f"❌ El modelo '{model_name}' no está instalado en Ollama.\n\nPor favor, abre otra terminal y ejecuta:\n    ollama pull {model_name}\n\nLuego vuelve a intentarlo."
+                log_msg(f"\n{error_alert}\n")
+                logger.error("Ollama model not found: %s", model_name)
+                return error_alert
+
             if code in (429, 503):
-                console.print(f"[yellow]⚠ El modelo {model_name} está saturado (Error {code}). Buscando alternativas...[/yellow]")
+                log_msg(f"⚠ El modelo {model_name} está saturado (Error {code}). Buscando alternativas...")
             else:
-                console.print(f"[yellow]⚠ Error de conexión/red al invocar {model_name} (Error: {e}). Buscando alternativas...[/yellow]")
+                log_msg(f"⚠ Error al invocar {model_name} (Status: {code}, Error: {e}). Buscando alternativas...")
             
             logger.warning("Fallo en _stream_request: %s (status_code=%s) con modelo %s. Iniciando fallback...", e, code, model_name)
 
             if fallback_attempt >= max_fallbacks:
-                console.print(f"[red]❌ Se excedió el límite de fallbacks ({max_fallbacks}).[/red]")
+                log_msg(f"❌ Se excedió el límite de fallbacks ({max_fallbacks}).")
                 return None
 
             # Intentar fallback dinámico
@@ -811,20 +836,20 @@ def _stream_request(
                 
                 if new_model:
                     state.save_config(model=new_model)
-                    console.print(f"[green]✓ Cambiando a modelo de respaldo dinámico: {new_model}[/green]")
+                    log_msg(f"✓ Cambiando a modelo de respaldo dinámico: {new_model}")
                     continue
                 else:
                     raise ValueError("No se encontraron modelos de respaldo viables en este proveedor.")
             except Exception as fe:
                 logger.warning("Fallo al obtener modelos dinámicos de %s: %s. Ejecutando Plan C (Ollama)...", provider_name, fe)
-                console.print(f"[yellow]⚠ Proveedor {provider_name} no disponible o sin modelos. Ejecutando Plan C (Fallback a Local)...[/yellow]")
+                log_msg(f"⚠ Proveedor {provider_name} no disponible o sin modelos. Ejecutando Plan C (Fallback a Local)...")
                 
                 try:
                     new_prov, new_model = _fallback_to_local_ollama(state)
-                    console.print(f"[green]✓ Cambiando a proveedor local: {new_prov} (Modelo: {new_model})[/green]")
+                    log_msg(f"✓ Cambiando a proveedor local: {new_prov} (Modelo: {new_model})")
                     continue
                 except Exception as local_err:
-                    console.print(f"[red]❌ Falló el fallback local a Ollama: {local_err}[/red]")
+                    log_msg(f"❌ Falló el fallback local a Ollama: {local_err}")
                     return None
 
 

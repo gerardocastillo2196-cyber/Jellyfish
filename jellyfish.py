@@ -84,6 +84,7 @@ class JellyfishCompleter(Completer):
         "/gon": "Activar guías de construcción",
         "/goff": "Desactivar guías de construcción",
         "/errors": "Ver y diagnosticar errores de la sesión (/d)",
+        "/status": "Ver el estado actual del sistema y la configuración activa",
         "/help": "Ver guía de comandos (/h)",
         "/exit": "Cerrar Jellyfish",
     }
@@ -242,12 +243,14 @@ state.rag = rag
 plugins = PluginManager(PLUGINS_DIR)
 
 
-def refresh_header(force=True):
+def refresh_header(force=False):
     """Renderiza el header con el estado actual del sistema.
     
     Sprint 8.0 — Ahora pasa el token_budget para la barra visual
     y el flag _llm_busy para el spinner de conectividad.
     """
+    if not force:
+        return
     import core.state as _state_mod
     proj_name = os.path.basename(state.active_project) if state.active_project else ""
     proj_methodology = getattr(state, "project_methodology", "") if state.active_project else ""

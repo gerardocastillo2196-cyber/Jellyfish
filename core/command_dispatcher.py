@@ -16,14 +16,15 @@ def handle_slash_command(cmd_input: str, state, rag, plugins, display_header_fun
         "/h": "/help",
         "/m": "/model",
         "/d": "/debug",
-        "/build": "/auto"
+        "/build": "/auto",
+        "/info": "/status"
     }
     command = aliases.get(command, command)
 
     if command == "/exit":
         sys.exit(0)
     
-    elif command in ("/goff", "/gon", "/clear", "/help", "/run", "/plugin", "/errors", "/debug"):
+    elif command in ("/goff", "/gon", "/clear", "/help", "/run", "/plugin", "/errors", "/debug", "/status"):
         from core.commands.system import handle_system_command
         handle_system_command(command, arg, state, plugins, display_header_func)
         

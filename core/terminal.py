@@ -526,5 +526,5 @@ def get_global_keybindings(state) -> KeyBindings:
         """Ctrl+C — Cierra de forma inmediata y segura la aplicación Jellyfish."""
         event.app.exit(result="/exit")
 
-    return merge_key_bindings([load_key_bindings(), kb])
+    return kb
 
