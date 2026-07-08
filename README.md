@@ -1,6 +1,6 @@
-# 🪼 Jellyfish OS v6.9 — Manual Completo del Usuario y Desarrollador
+# 🪼 Jellyfish OS v6.9.3 — Manual Completo del Usuario y Desarrollador
 
-Bienvenido a la documentación oficial de **Jellyfish OS v6.9**, un sistema operativo de agentes cognitivos corporativos, arquitectura multi-agencia y framework de orquestación ágil/secuencial diseñado para ejecutarse de forma nativa en sistemas Linux.
+Bienvenido a la documentación oficial de **Jellyfish OS v6.9.3**, un sistema operativo de agentes cognitivos corporativos, arquitectura multi-agencia y framework de orquestación ágil/secuencial diseñado para ejecutarse de forma nativa en sistemas Linux.
 
 Jellyfish combina la potencia de múltiples modelos de lenguaje a gran escala (LLMs a través de Ollama, OpenAI, DeepSeek, Google Gemini y OpenRouter) con una robusta suite de herramientas del sistema, persistencia vectorial para RAG (Retrieval-Augmented Generation) y un **Director de Orquesta (CEO / Agency Orchestrator)** autónomo capaz de clasificar tareas y delegarlas a agencias especializadas (Desarrollo, Marketing, Investigación, etc.).
 
@@ -8,7 +8,7 @@ Jellyfish combina la potencia de múltiples modelos de lenguaje a gran escala (L
 
 ## 🗺️ 1. Arquitectura y Estructura del Core (Multi-Agencia)
 
-Jellyfish v6.9 abandona el enfoque de un pool global y caótico de agentes, organizándolos en **Agencias Departamentales** especializadas y delimitadas por tableros independientes de trabajo. Esto asegura un aislamiento de tareas y previene la contaminación de contextos.
+Jellyfish v6.9.3 abandona el enfoque de un pool global y caótico de agentes, organizándolos en **Agencias Departamentales** especializadas y delimitadas por tableros independientes de trabajo. Esto asegura un aislamiento de tareas y previene la contaminación de contextos.
 
 ### Diagrama de Arquitectura y Flujo de Datos
 
@@ -64,7 +64,7 @@ graph TD
   ```
 - **Ollama**: Servidor local corriendo para generación de embeddings locales si no se usan servicios de nube.
 
-### Instalación de Dependencias e Inicialización v6.9
+### Instalación de Dependencias e Inicialización v6.9.3
 Instale las dependencias bloqueadas y configure la estructura del espacio de trabajo utilizando el script de configuración:
 ```bash
 pip install -r requirements.lock
@@ -80,7 +80,7 @@ python setup.py --status
 
 ## 🧠 3. Habilidades (Skills) vs. Plugins
 
-En Jellyfish v6.9 se define una separación conceptual clara para la extensión del sistema:
+En Jellyfish v6.9.3 se define una separación conceptual clara para la extensión del sistema:
 
 - **Skills (Cognición - `.md` o `.py` de Skill)**:
   Son metodologías de diseño y plantillas de pensamiento que se inyectan en el prompt del sistema. Se distribuyen en agencias (ej. `01_backlog_grooming.md` en Management, `17_react_best_practices.md` en Frontend) y dictan el formato y el flujo analítico de la respuesta del LLM.
@@ -133,4 +133,4 @@ La ejecución de plugins puede correr de manera aislada con Bubblewrap, el cual 
 
 ---
 
-*Última actualización de especificación técnica: Versión v6.9.0*
+*Última actualización de especificación técnica: Versión v6.9.3*

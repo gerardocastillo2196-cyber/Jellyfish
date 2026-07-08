@@ -39,7 +39,7 @@ claude_style = Style.from_dict({
 })
 
 # Consola global con ancho controlado
-_main_console = Console(force_terminal=True, width=60)
+_main_console = Console(force_terminal=True)
 
 
 def display_header(active_agent="default", model_name="none", num_skills=0,
@@ -68,26 +68,7 @@ def display_header(active_agent="default", model_name="none", num_skills=0,
         session_tokens: Tokens totales consumidos en la sesión actual.
         active_agency: Nombre de la agencia activa.
     """
-    try:
-        from core.tui import tui_engine
-        if tui_engine._initialized:
-            tui_engine.render_header(
-                active_agent=active_agent,
-                model_name=model_name,
-                num_skills=num_skills,
-                num_docs=num_docs,
-                rag_status=rag_status,
-                provider=provider,
-                project_name=project_name,
-                project_methodology=project_methodology,
-                token_budget=token_budget,
-                llm_busy=llm_busy,
-                session_tokens=session_tokens,
-                active_agency=active_agency,
-            )
-            return
-    except ImportError:
-        pass
+
 
     # Fallback clásico (para compatibilidad)
     buf = StringIO()
@@ -107,14 +88,7 @@ def display_header(active_agent="default", model_name="none", num_skills=0,
         if key_env and not os.getenv(key_env):
             model_status_text = "NO_KEY"
 
-    jelly = Text()
-    jelly.append("\n", style="")
-    jelly.append("        ▄███████▄\n", style="bold purple")
-    jelly.append("       ███████████\n", style="bold violet")
-    jelly.append("       ███▀███▀███\n", style="bold purple")
-    jelly.append("       █  █  █  █\n", style="bold violet")
-    jelly.append("       ▀  ▀  ▀  ▀\n", style="bold purple")
-    local_console.print(jelly)
+
 
     ctx_color = "green" if num_docs > 0 else "dim"
     rag_color = "green" if "OFF" not in rag_status else "dim"
@@ -135,28 +109,32 @@ def display_header(active_agent="default", model_name="none", num_skills=0,
         used = token_budget.get("used_tokens", 0)
         total = token_budget.get("total_tokens", 8192)
         pct = token_budget.get("percent", 0)
-        budget_disp = f"BUDGET: {used:,}/{total:,} ({pct}%)"
+        budget_disp = f" [dim]│[/dim] [dim]BDG:[/dim] [bold]{used:,}/{total:,}[/bold] [dim]({pct}%)[/dim]"
 
     model_short = model_name[:30] if len(model_name) > 30 else model_name
+    rag_status_short = "ON" if "ON" in rag_status else "OFF"
 
-    from rich.table import Table
-    table = Table(box=None, show_header=False, padding=(0, 2), expand=True)
-    table.add_column("Col1", ratio=1)
-    table.add_column("Col2", ratio=1)
+    line1 = (
+        f"[bold]JELLYFISH[/bold] [dim]│[/dim] "
+        f"[bold]@{active_agent.upper()[:10]}[/bold] [dim]({active_agency.upper()})[/dim] [dim]│[/dim] "
+        f"[dim]MOD:[/dim] [bold]{model_short}[/bold] [dim][{provider.upper()}:{model_status_text}][/dim] [dim]│[/dim] "
+        f"[dim]OLLAMA:[/dim] [bold]{'ON' if ollama_ok else 'OFF'}[/bold]"
+    )
     
-    c1_r1 = f"JELLYFISH | AGENCY: {active_agency.upper()} | AGENT: @{active_agent.upper()[:10]}"
-    c2_r1 = f"[white]MOD:[/white] {model_short} [{model_status_text}] \\[{provider.upper()}]"
-    
-    c1_r2 = f"[{ctx_color}]CTX:{num_docs}[/{ctx_color}] | [{rag_color}]{rag_status}[/{rag_color}] | SKL:{num_skills} | [{ollama_color}]OLLAMA:{'ON' if ollama_ok else 'OFF'}[/{ollama_color}]"
-    c2_r2 = f"TOK: {session_tokens:,} {budget_disp}{spinner_disp}"
+    line2 = (
+        f"[dim]CTX:[/dim] [bold]{num_docs}[/bold] [dim]│[/dim] "
+        f"[dim]RAG:[/dim] [bold]{rag_status_short}[/bold] [dim]│[/dim] "
+        f"[dim]SKL:[/dim] [bold]{num_skills}[/bold] [dim]│[/dim] "
+        f"[dim]TOK:[/dim] [bold]{session_tokens:,}[/bold]{budget_disp}{spinner_disp}"
+    )
 
-    table.add_row(c1_r1, c2_r1)
-    table.add_row(c1_r2, c2_r2)
+    local_console.print(line1, justify="left")
+    local_console.print(line2, justify="left")
+    
     if proj_disp:
-        table.add_row(proj_disp, "")
+        local_console.print(f"{proj_disp}", justify="left")
 
-    local_console.print(table)
-    local_console.print(Text("─" * term_width, style="dim purple"))
+    local_console.print(Text("─" * term_width, style="dim"), justify="left")
 
     output = buf.getvalue()
     if silent:
@@ -226,6 +204,51 @@ def print_code(code: str, filename: str = "", language: str = "python"):
         border_style="dim white", expand=False, width=panel_width
     )
     _main_console.print(panel)
+
+
+def interactive_file_browser(start_dir: str, ext: str = ".gguf") -> str | None:
+    """Navegador de archivos interactivo en terminal."""
+    current_dir = os.path.abspath(start_dir)
+    while True:
+        try:
+            items = os.listdir(current_dir)
+        except PermissionError:
+            _main_console.print(f"[red]❌ Permiso denegado: {current_dir}[/red]")
+            current_dir = os.path.dirname(current_dir)
+            continue
+        except FileNotFoundError:
+            current_dir = os.path.dirname(current_dir)
+            continue
+
+        dirs = []
+        files = []
+        for item in items:
+            # Ignorar ocultos por defecto para no saturar
+            if item.startswith("."):
+                continue
+            path = os.path.join(current_dir, item)
+            if os.path.isdir(path):
+                dirs.append(item)
+            elif item.endswith(ext):
+                files.append(item)
+
+        dirs.sort(key=str.lower)
+        files.sort(key=str.lower)
+
+        options = ["📁 .. (Subir un nivel)"]
+        options.extend([f"📁 {d}/" for d in dirs])
+        options.extend([f"📄 {f}" for f in files])
+
+        selected = interactive_picker(f"NAVEGAR: {current_dir}", options, add_back=True)
+        if not selected or selected == ".. VOLVER":
+            return None
+
+        if selected == "📁 .. (Subir un nivel)":
+            current_dir = os.path.dirname(current_dir)
+        elif selected.startswith("📁 "):
+            current_dir = os.path.join(current_dir, selected[3:-1])
+        elif selected.startswith("📄 "):
+            return os.path.join(current_dir, selected[3:])
 
 
 def interactive_picker(title: str, options: list, add_back: bool = True,

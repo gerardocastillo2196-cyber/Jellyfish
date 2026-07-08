@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""setup.py — Script de configuración y auditoría para Jellyfish OS v6.9.
+"""setup.py — Script de configuración y auditoría para Jellyfish OS v6.9.3.
 
 Permite:
   --setup: Inicializar la estructura y copiar agentes, skills y plugins.
@@ -98,7 +98,7 @@ def check_status():
     from core.skills.registry import SkillRegistry
     
     console = Console()
-    console.print("\n[bold purple]🔍 Auditando Estado de Jellyfish OS v6.9[/bold purple]\n")
+    console.print("\n[bold purple]🔍 Auditando Estado de Jellyfish OS v6.9.3[/bold purple]\n")
     
     # 1. Rutas
     console.print(f"[bold]Directorio de Trabajo (AGENCY_DIR):[/bold] {AGENCY_DIR}")
