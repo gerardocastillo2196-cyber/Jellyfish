@@ -151,14 +151,24 @@ def _handle_rag(arg: str, rag, display_header_func):
                 else:
                     console.print(Panel(raw_context[:2000], title="RAG Preview (crudo)", border_style="dim white"))
 
+    elif subcmd == "on":
+        rag.enabled = True
+        console.print("✓ Inyección de contexto RAG [bold green]activada[/bold green] temporalmente.")
+
+    elif subcmd == "off":
+        rag.enabled = False
+        console.print("✓ Inyección de contexto RAG [bold red]desactivada[/bold red] temporalmente.")
+
     else:
-        if not subcmd:
+        if not subcmd or subcmd == "toggle":
             rag.enabled = not getattr(rag, "enabled", True)
-            estado = "activado" if rag.enabled else "desactivado"
+            estado = "[bold green]activado[/bold green]" if rag.enabled else "[bold red]desactivado[/bold red]"
             console.print(f"✓ Inyección de contexto RAG {estado} temporalmente.")
         else:
             console.print(
                 "Uso:\n"
+                "  /rag on               — Activar RAG\n"
+                "  /rag off              — Desactivar RAG\n"
                 "  /rag status           — Ver estado del índice\n"
                 "  /rag clear            — Eliminar el índice completo\n"
                 "  /rag reindex <path>   — Reindexar una ruta\n"
