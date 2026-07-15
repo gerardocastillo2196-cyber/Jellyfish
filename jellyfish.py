@@ -34,7 +34,7 @@ from logging.handlers import RotatingFileHandler
 # Ahora se escribe de forma persistente en jellyfish.log en el directorio de la agencia.
 log_file_path = os.path.join(AGENCY_DIR, "jellyfish.log")
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
     handlers=[
         RotatingFileHandler(log_file_path, maxBytes=5*1024*1024, backupCount=3, encoding="utf-8")
@@ -365,6 +365,8 @@ def main():
             state.captured_errors.append(error_trace)
             console.print(f"[red]Error inesperado: {e}[/red]")
             logging.getLogger("jellyfish").error("Error en ejecución de comando: %s", e, exc_info=True)
+        # Sprint 8.0 — Mantener el header visible actualizando antes del siguiente prompt
+        # refresh_header(force=True)  # <-- Comentado nuevamente por petición del usuario (no reimprimir nunca)
 
     tui_engine.command_handler = process_command
 

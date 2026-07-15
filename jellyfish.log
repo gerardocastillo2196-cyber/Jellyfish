@@ -3550,3 +3550,380 @@
 2026-07-08 14:23:11,398 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/api_integration
 2026-07-08 14:23:11,398 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/knowledge_base
 2026-07-08 14:23:11,399 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-07-08 18:31:36,659 [jellyfish.project_manager] INFO: Historial de conversación cargado (0 mensajes) para el proyecto /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main
+2026-07-08 18:31:36,661 [jellyfish.agents.registry] INFO: Agente Python registrado: @arquitecto_software (ArquitectoSoftwareAgent)
+2026-07-08 18:31:36,664 [jellyfish.agents.registry] INFO: Agente Python registrado: @backend_dev (BackendDevAgent)
+2026-07-08 18:31:36,665 [jellyfish.agents.registry] INFO: Agente Python registrado: @copywriter (CopywriterAgent)
+2026-07-08 18:31:36,668 [jellyfish.agents.registry] INFO: Agente Python registrado: @data_scientist (DataScientistAgent)
+2026-07-08 18:31:36,670 [jellyfish.agents.registry] INFO: Agente Python registrado: @devops_engineer (DevopsEngineerAgent)
+2026-07-08 18:31:36,673 [jellyfish.agents.registry] INFO: Agente Python registrado: @frontend_dev (FrontendDevAgent)
+2026-07-08 18:31:36,675 [jellyfish.agents.registry] INFO: Agente Python registrado: @marketing_director (MarketingDirectorAgent)
+2026-07-08 18:31:36,677 [jellyfish.agents.registry] INFO: Agente Python registrado: @product_owner (ProductOwnerAgent)
+2026-07-08 18:31:36,679 [jellyfish.agents.registry] INFO: Agente Python registrado: @qa_engineer (QAEngineerAgent)
+2026-07-08 18:31:36,681 [jellyfish.agents.registry] INFO: Agente Python registrado: @researcher (ResearcherAgent)
+2026-07-08 18:31:36,682 [jellyfish.agents.registry] INFO: Agente Python registrado: @scrum_master (ScrumMasterAgent)
+2026-07-08 18:31:36,684 [jellyfish.agents.registry] INFO: Agente Python registrado: @security_auditor (SecurityAuditorAgent)
+2026-07-08 18:31:36,687 [jellyfish.agents.registry] INFO: Agente Python registrado: @seo_specialist (SeoSpecialistAgent)
+2026-07-08 18:31:36,688 [jellyfish.agents.registry] INFO: Agente Python registrado: @ui_designer (UiDesignerAgent)
+2026-07-08 18:31:36,689 [jellyfish.project_manager] INFO: Agentes Python registrados: 14
+2026-07-08 18:31:36,689 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Brand Voice Consistency' (BrandVoiceConsistencySkill)
+2026-07-08 18:31:36,689 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Cap Table Simulation' (CapTableSimulationSkill)
+2026-07-08 18:31:36,690 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Financial Burn Rate' (FinancialBurnRateSkill)
+2026-07-08 18:31:36,690 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Game Economy Balancing' (GameEconomyBalancingSkill)
+2026-07-08 18:31:36,690 [jellyfish.skills.registry] INFO: Skill Python registrada: 'GDPR Compliance Audit' (GdprComplianceAuditSkill)
+2026-07-08 18:31:36,690 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Narrative Arc Structuring' (NarrativeArcStructuringSkill)
+2026-07-08 18:31:36,691 [jellyfish.skills.registry] INFO: Skill Python registrada: 'NPC Lore Generation' (NpcLoreGenerationSkill)
+2026-07-08 18:31:36,691 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Open Source License Check' (OpenSourceLicenseCheckSkill)
+2026-07-08 18:31:36,691 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Podcast Escaleta Design' (PodcastEscaletaDesignSkill)
+2026-07-08 18:31:36,691 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Prompt Engineering for Video' (PromptEngineeringVideoSkill)
+2026-07-08 18:31:36,692 [jellyfish.skills.registry] INFO: Skill Python registrada: 'SaaS Pricing Model' (SaasPricingModelSkill)
+2026-07-08 18:31:36,692 [jellyfish.skills.registry] INFO: Skill Python registrada: 'SLA Drafting' (SlaDraftingSkill)
+2026-07-08 18:31:36,692 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Async Messaging' (AsyncMessagingSkill)
+2026-07-08 18:31:36,692 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Caching Strategies' (CachingStrategiesSkill)
+2026-07-08 18:31:36,692 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Clean Architecture' (CleanArchitectureSkill)
+2026-07-08 18:31:36,693 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Code Review Master' (CodeReviewMasterSkill)
+2026-07-08 18:31:36,693 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Database Schema Optimization' (DatabaseSchemaOptimizationSkill)
+2026-07-08 18:31:36,693 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Domain-Driven Design' (DomainDrivenDesignSkill)
+2026-07-08 18:31:36,693 [jellyfish.skills.registry] INFO: Skill Python registrada: 'GraphQL Schema Design' (GraphqlSchemaDesignSkill)
+2026-07-08 18:31:36,694 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Microservices Boundary' (MicroservicesBoundarySkill)
+2026-07-08 18:31:36,694 [jellyfish.skills.registry] INFO: Skill Python registrada: 'REST API Design' (RestApiDesignSkill)
+2026-07-08 18:31:36,694 [jellyfish.skills.registry] INFO: Skill Python registrada: 'TDD Methodology' (TddMethodologySkill)
+2026-07-08 18:31:36,694 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Backlog Grooming' (BacklogGroomingSkill)
+2026-07-08 18:31:36,695 [jellyfish.skills.registry] INFO: Skill Python registrada: 'OKR Definition' (OkrDefinitionSkill)
+2026-07-08 18:31:36,695 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Planning Poker' (PlanningPokerSkill)
+2026-07-08 18:31:36,695 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Risk Matrix Analysis' (RiskMatrixAnalysisSkill)
+2026-07-08 18:31:36,695 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Sprint Planning' (SprintPlanningSkill)
+2026-07-08 18:31:36,696 [jellyfish.skills.registry] INFO: Skill Python registrada: 'CI/CD Pipeline Design' (CicdPipelineDesignSkill)
+2026-07-08 18:31:36,696 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Cloud Cost Optimization' (CloudCostOptimizationSkill)
+2026-07-08 18:31:36,696 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Dockerfile Optimization' (DockerfileOptimizationSkill)
+2026-07-08 18:31:36,696 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Kubernetes Resource Planning' (KubernetesResourcePlanningSkill)
+2026-07-08 18:31:36,697 [jellyfish.skills.registry] INFO: Skill Python registrada: 'OWASP Top 10 Audit' (OwaspTop10AuditSkill)
+2026-07-08 18:31:36,697 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Threat Modeling STRIDE' (ThreatModelingStrideSkill)
+2026-07-08 18:31:36,699 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Academic Paper Distillation' (AcademicPaperDistillationSkill)
+2026-07-08 18:31:36,699 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Demographic Trend Analysis' (DemographicTrendAnalysisSkill)
+2026-07-08 18:31:36,699 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Geopolitical Risk Analysis' (GeopoliticalRiskAnalysisSkill)
+2026-07-08 18:31:36,700 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Historical Precedent Search' (HistoricalPrecedentSearchSkill)
+2026-07-08 18:31:36,700 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Qualitative Data Coding' (QualitativeDataCodingSkill)
+2026-07-08 18:31:36,700 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Statistical Bias Detection' (StatisticalBiasDetectionSkill)
+2026-07-08 18:31:36,700 [jellyfish.skills.registry] INFO: Skill Python registrada: 'A11Y Audit' (A11yAuditSkill)
+2026-07-08 18:31:36,701 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Design System Extractor' (DesignSystemExtractorSkill)
+2026-07-08 18:31:36,701 [jellyfish.skills.registry] INFO: Skill Python registrada: 'React Best Practices' (ReactBestPracticesSkill)
+2026-07-08 18:31:36,701 [jellyfish.skills.registry] INFO: Skill Python registrada: 'State Management' (StateManagementSkill)
+2026-07-08 18:31:36,701 [jellyfish.skills.registry] INFO: Skill Python registrada: 'UI/UX Heuristic Evaluation' (UiUxHeuristicEvaluationSkill)
+2026-07-08 18:31:36,702 [jellyfish.skills.registry] INFO: Skill Python registrada: 'A/B Test Planning' (AbTestPlanningSkill)
+2026-07-08 18:31:36,702 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Conversion Rate Optimization' (ConversionRateOptimizationSkill)
+2026-07-08 18:31:36,702 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Copywriting PAS' (CopywritingPasSkill)
+2026-07-08 18:31:36,702 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Empathy Mapping' (EmpathyMappingSkill)
+2026-07-08 18:31:36,703 [jellyfish.skills.registry] INFO: Skill Python registrada: 'SEO Technical Audit' (SeoTechnicalAuditSkill)
+2026-07-08 18:31:36,703 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Viral Loop Design' (ViralLoopDesignSkill)
+2026-07-08 18:31:36,703 [jellyfish.project_manager] INFO: Skills Python registradas: 50
+2026-07-08 18:31:36,703 [jellyfish.project_manager] INFO: Historial de conversación cargado (0 mensajes) para el proyecto /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main
+2026-07-08 18:31:36,714 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://127.0.0.1:11434
+2026-07-08 18:31:37,019 [jellyfish.rag] INFO: RAG cargado: 882 chunks en la base vectorial.
+2026-07-08 18:31:37,029 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Brand Voice Consistency' (BrandVoiceConsistencySkill)
+2026-07-08 18:31:37,030 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Cap Table Simulation' (CapTableSimulationSkill)
+2026-07-08 18:31:37,030 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Financial Burn Rate' (FinancialBurnRateSkill)
+2026-07-08 18:31:37,031 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Game Economy Balancing' (GameEconomyBalancingSkill)
+2026-07-08 18:31:37,031 [jellyfish.skills.registry] INFO: Skill Python registrada: 'GDPR Compliance Audit' (GdprComplianceAuditSkill)
+2026-07-08 18:31:37,031 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Narrative Arc Structuring' (NarrativeArcStructuringSkill)
+2026-07-08 18:31:37,032 [jellyfish.skills.registry] INFO: Skill Python registrada: 'NPC Lore Generation' (NpcLoreGenerationSkill)
+2026-07-08 18:31:37,032 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Open Source License Check' (OpenSourceLicenseCheckSkill)
+2026-07-08 18:31:37,032 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Podcast Escaleta Design' (PodcastEscaletaDesignSkill)
+2026-07-08 18:31:37,032 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Prompt Engineering for Video' (PromptEngineeringVideoSkill)
+2026-07-08 18:31:37,033 [jellyfish.skills.registry] INFO: Skill Python registrada: 'SaaS Pricing Model' (SaasPricingModelSkill)
+2026-07-08 18:31:37,033 [jellyfish.skills.registry] INFO: Skill Python registrada: 'SLA Drafting' (SlaDraftingSkill)
+2026-07-08 18:31:37,033 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Async Messaging' (AsyncMessagingSkill)
+2026-07-08 18:31:37,034 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Caching Strategies' (CachingStrategiesSkill)
+2026-07-08 18:31:37,034 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Clean Architecture' (CleanArchitectureSkill)
+2026-07-08 18:31:37,034 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Code Review Master' (CodeReviewMasterSkill)
+2026-07-08 18:31:37,034 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Database Schema Optimization' (DatabaseSchemaOptimizationSkill)
+2026-07-08 18:31:37,035 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Domain-Driven Design' (DomainDrivenDesignSkill)
+2026-07-08 18:31:37,040 [jellyfish.skills.registry] INFO: Skill Python registrada: 'GraphQL Schema Design' (GraphqlSchemaDesignSkill)
+2026-07-08 18:31:37,040 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Microservices Boundary' (MicroservicesBoundarySkill)
+2026-07-08 18:31:37,040 [jellyfish.skills.registry] INFO: Skill Python registrada: 'REST API Design' (RestApiDesignSkill)
+2026-07-08 18:31:37,040 [jellyfish.skills.registry] INFO: Skill Python registrada: 'TDD Methodology' (TddMethodologySkill)
+2026-07-08 18:31:37,041 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Backlog Grooming' (BacklogGroomingSkill)
+2026-07-08 18:31:37,041 [jellyfish.skills.registry] INFO: Skill Python registrada: 'OKR Definition' (OkrDefinitionSkill)
+2026-07-08 18:31:37,041 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Planning Poker' (PlanningPokerSkill)
+2026-07-08 18:31:37,042 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Risk Matrix Analysis' (RiskMatrixAnalysisSkill)
+2026-07-08 18:31:37,042 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Sprint Planning' (SprintPlanningSkill)
+2026-07-08 18:31:37,042 [jellyfish.skills.registry] INFO: Skill Python registrada: 'CI/CD Pipeline Design' (CicdPipelineDesignSkill)
+2026-07-08 18:31:37,042 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Cloud Cost Optimization' (CloudCostOptimizationSkill)
+2026-07-08 18:31:37,043 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Dockerfile Optimization' (DockerfileOptimizationSkill)
+2026-07-08 18:31:37,043 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Kubernetes Resource Planning' (KubernetesResourcePlanningSkill)
+2026-07-08 18:31:37,044 [jellyfish.skills.registry] INFO: Skill Python registrada: 'OWASP Top 10 Audit' (OwaspTop10AuditSkill)
+2026-07-08 18:31:37,044 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Threat Modeling STRIDE' (ThreatModelingStrideSkill)
+2026-07-08 18:31:37,045 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Academic Paper Distillation' (AcademicPaperDistillationSkill)
+2026-07-08 18:31:37,045 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Demographic Trend Analysis' (DemographicTrendAnalysisSkill)
+2026-07-08 18:31:37,045 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Geopolitical Risk Analysis' (GeopoliticalRiskAnalysisSkill)
+2026-07-08 18:31:37,046 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Historical Precedent Search' (HistoricalPrecedentSearchSkill)
+2026-07-08 18:31:37,046 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Qualitative Data Coding' (QualitativeDataCodingSkill)
+2026-07-08 18:31:37,046 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Statistical Bias Detection' (StatisticalBiasDetectionSkill)
+2026-07-08 18:31:37,047 [jellyfish.skills.registry] INFO: Skill Python registrada: 'A11Y Audit' (A11yAuditSkill)
+2026-07-08 18:31:37,047 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Design System Extractor' (DesignSystemExtractorSkill)
+2026-07-08 18:31:37,047 [jellyfish.skills.registry] INFO: Skill Python registrada: 'React Best Practices' (ReactBestPracticesSkill)
+2026-07-08 18:31:37,047 [jellyfish.skills.registry] INFO: Skill Python registrada: 'State Management' (StateManagementSkill)
+2026-07-08 18:31:37,047 [jellyfish.skills.registry] INFO: Skill Python registrada: 'UI/UX Heuristic Evaluation' (UiUxHeuristicEvaluationSkill)
+2026-07-08 18:31:37,048 [jellyfish.skills.registry] INFO: Skill Python registrada: 'A/B Test Planning' (AbTestPlanningSkill)
+2026-07-08 18:31:37,048 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Conversion Rate Optimization' (ConversionRateOptimizationSkill)
+2026-07-08 18:31:37,048 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Copywriting PAS' (CopywritingPasSkill)
+2026-07-08 18:31:37,048 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Empathy Mapping' (EmpathyMappingSkill)
+2026-07-08 18:31:37,049 [jellyfish.skills.registry] INFO: Skill Python registrada: 'SEO Technical Audit' (SeoTechnicalAuditSkill)
+2026-07-08 18:31:37,049 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Viral Loop Design' (ViralLoopDesignSkill)
+2026-07-08 18:31:37,049 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-07-08 18:31:37,049 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/task_tracker
+2026-07-08 18:31:37,050 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-07-08 18:31:37,050 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/agent_context
+2026-07-08 18:31:37,050 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/metrics_collector
+2026-07-08 18:31:37,050 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-07-08 18:31:37,050 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/api_integration
+2026-07-08 18:31:37,050 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/knowledge_base
+2026-07-08 18:31:37,050 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-07-08 18:34:29,989 [jellyfish.project_manager] INFO: Historial de conversación cargado (0 mensajes) para el proyecto /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main
+2026-07-08 18:34:29,991 [jellyfish.agents.registry] INFO: Agente Python registrado: @arquitecto_software (ArquitectoSoftwareAgent)
+2026-07-08 18:34:29,994 [jellyfish.agents.registry] INFO: Agente Python registrado: @backend_dev (BackendDevAgent)
+2026-07-08 18:34:29,996 [jellyfish.agents.registry] INFO: Agente Python registrado: @copywriter (CopywriterAgent)
+2026-07-08 18:34:29,999 [jellyfish.agents.registry] INFO: Agente Python registrado: @data_scientist (DataScientistAgent)
+2026-07-08 18:34:30,002 [jellyfish.agents.registry] INFO: Agente Python registrado: @devops_engineer (DevopsEngineerAgent)
+2026-07-08 18:34:30,004 [jellyfish.agents.registry] INFO: Agente Python registrado: @frontend_dev (FrontendDevAgent)
+2026-07-08 18:34:30,006 [jellyfish.agents.registry] INFO: Agente Python registrado: @marketing_director (MarketingDirectorAgent)
+2026-07-08 18:34:30,009 [jellyfish.agents.registry] INFO: Agente Python registrado: @product_owner (ProductOwnerAgent)
+2026-07-08 18:34:30,011 [jellyfish.agents.registry] INFO: Agente Python registrado: @qa_engineer (QAEngineerAgent)
+2026-07-08 18:34:30,014 [jellyfish.agents.registry] INFO: Agente Python registrado: @researcher (ResearcherAgent)
+2026-07-08 18:34:30,016 [jellyfish.agents.registry] INFO: Agente Python registrado: @scrum_master (ScrumMasterAgent)
+2026-07-08 18:34:30,018 [jellyfish.agents.registry] INFO: Agente Python registrado: @security_auditor (SecurityAuditorAgent)
+2026-07-08 18:34:30,020 [jellyfish.agents.registry] INFO: Agente Python registrado: @seo_specialist (SeoSpecialistAgent)
+2026-07-08 18:34:30,024 [jellyfish.agents.registry] INFO: Agente Python registrado: @ui_designer (UiDesignerAgent)
+2026-07-08 18:34:30,025 [jellyfish.project_manager] INFO: Agentes Python registrados: 14
+2026-07-08 18:34:30,025 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Brand Voice Consistency' (BrandVoiceConsistencySkill)
+2026-07-08 18:34:30,026 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Cap Table Simulation' (CapTableSimulationSkill)
+2026-07-08 18:34:30,026 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Financial Burn Rate' (FinancialBurnRateSkill)
+2026-07-08 18:34:30,027 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Game Economy Balancing' (GameEconomyBalancingSkill)
+2026-07-08 18:34:30,027 [jellyfish.skills.registry] INFO: Skill Python registrada: 'GDPR Compliance Audit' (GdprComplianceAuditSkill)
+2026-07-08 18:34:30,028 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Narrative Arc Structuring' (NarrativeArcStructuringSkill)
+2026-07-08 18:34:30,028 [jellyfish.skills.registry] INFO: Skill Python registrada: 'NPC Lore Generation' (NpcLoreGenerationSkill)
+2026-07-08 18:34:30,029 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Open Source License Check' (OpenSourceLicenseCheckSkill)
+2026-07-08 18:34:30,029 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Podcast Escaleta Design' (PodcastEscaletaDesignSkill)
+2026-07-08 18:34:30,030 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Prompt Engineering for Video' (PromptEngineeringVideoSkill)
+2026-07-08 18:34:30,030 [jellyfish.skills.registry] INFO: Skill Python registrada: 'SaaS Pricing Model' (SaasPricingModelSkill)
+2026-07-08 18:34:30,031 [jellyfish.skills.registry] INFO: Skill Python registrada: 'SLA Drafting' (SlaDraftingSkill)
+2026-07-08 18:34:30,032 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Async Messaging' (AsyncMessagingSkill)
+2026-07-08 18:34:30,032 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Caching Strategies' (CachingStrategiesSkill)
+2026-07-08 18:34:30,033 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Clean Architecture' (CleanArchitectureSkill)
+2026-07-08 18:34:30,033 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Code Review Master' (CodeReviewMasterSkill)
+2026-07-08 18:34:30,034 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Database Schema Optimization' (DatabaseSchemaOptimizationSkill)
+2026-07-08 18:34:30,035 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Domain-Driven Design' (DomainDrivenDesignSkill)
+2026-07-08 18:34:30,035 [jellyfish.skills.registry] INFO: Skill Python registrada: 'GraphQL Schema Design' (GraphqlSchemaDesignSkill)
+2026-07-08 18:34:30,036 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Microservices Boundary' (MicroservicesBoundarySkill)
+2026-07-08 18:34:30,036 [jellyfish.skills.registry] INFO: Skill Python registrada: 'REST API Design' (RestApiDesignSkill)
+2026-07-08 18:34:30,037 [jellyfish.skills.registry] INFO: Skill Python registrada: 'TDD Methodology' (TddMethodologySkill)
+2026-07-08 18:34:30,037 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Backlog Grooming' (BacklogGroomingSkill)
+2026-07-08 18:34:30,038 [jellyfish.skills.registry] INFO: Skill Python registrada: 'OKR Definition' (OkrDefinitionSkill)
+2026-07-08 18:34:30,038 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Planning Poker' (PlanningPokerSkill)
+2026-07-08 18:34:30,039 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Risk Matrix Analysis' (RiskMatrixAnalysisSkill)
+2026-07-08 18:34:30,039 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Sprint Planning' (SprintPlanningSkill)
+2026-07-08 18:34:30,040 [jellyfish.skills.registry] INFO: Skill Python registrada: 'CI/CD Pipeline Design' (CicdPipelineDesignSkill)
+2026-07-08 18:34:30,040 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Cloud Cost Optimization' (CloudCostOptimizationSkill)
+2026-07-08 18:34:30,041 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Dockerfile Optimization' (DockerfileOptimizationSkill)
+2026-07-08 18:34:30,041 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Kubernetes Resource Planning' (KubernetesResourcePlanningSkill)
+2026-07-08 18:34:30,042 [jellyfish.skills.registry] INFO: Skill Python registrada: 'OWASP Top 10 Audit' (OwaspTop10AuditSkill)
+2026-07-08 18:34:30,042 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Threat Modeling STRIDE' (ThreatModelingStrideSkill)
+2026-07-08 18:34:30,043 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Academic Paper Distillation' (AcademicPaperDistillationSkill)
+2026-07-08 18:34:30,043 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Demographic Trend Analysis' (DemographicTrendAnalysisSkill)
+2026-07-08 18:34:30,044 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Geopolitical Risk Analysis' (GeopoliticalRiskAnalysisSkill)
+2026-07-08 18:34:30,044 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Historical Precedent Search' (HistoricalPrecedentSearchSkill)
+2026-07-08 18:34:30,045 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Qualitative Data Coding' (QualitativeDataCodingSkill)
+2026-07-08 18:34:30,045 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Statistical Bias Detection' (StatisticalBiasDetectionSkill)
+2026-07-08 18:34:30,046 [jellyfish.skills.registry] INFO: Skill Python registrada: 'A11Y Audit' (A11yAuditSkill)
+2026-07-08 18:34:30,046 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Design System Extractor' (DesignSystemExtractorSkill)
+2026-07-08 18:34:30,047 [jellyfish.skills.registry] INFO: Skill Python registrada: 'React Best Practices' (ReactBestPracticesSkill)
+2026-07-08 18:34:30,047 [jellyfish.skills.registry] INFO: Skill Python registrada: 'State Management' (StateManagementSkill)
+2026-07-08 18:34:30,048 [jellyfish.skills.registry] INFO: Skill Python registrada: 'UI/UX Heuristic Evaluation' (UiUxHeuristicEvaluationSkill)
+2026-07-08 18:34:30,048 [jellyfish.skills.registry] INFO: Skill Python registrada: 'A/B Test Planning' (AbTestPlanningSkill)
+2026-07-08 18:34:30,048 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Conversion Rate Optimization' (ConversionRateOptimizationSkill)
+2026-07-08 18:34:30,049 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Copywriting PAS' (CopywritingPasSkill)
+2026-07-08 18:34:30,050 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Empathy Mapping' (EmpathyMappingSkill)
+2026-07-08 18:34:30,050 [jellyfish.skills.registry] INFO: Skill Python registrada: 'SEO Technical Audit' (SeoTechnicalAuditSkill)
+2026-07-08 18:34:30,051 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Viral Loop Design' (ViralLoopDesignSkill)
+2026-07-08 18:34:30,051 [jellyfish.project_manager] INFO: Skills Python registradas: 50
+2026-07-08 18:34:30,051 [jellyfish.project_manager] INFO: Historial de conversación cargado (0 mensajes) para el proyecto /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main
+2026-07-08 18:34:30,063 [jellyfish.llm] INFO: Ollama ya se encuentra activo en http://127.0.0.1:11434
+2026-07-08 18:34:30,386 [jellyfish.rag] INFO: RAG cargado: 882 chunks en la base vectorial.
+2026-07-08 18:34:30,401 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Brand Voice Consistency' (BrandVoiceConsistencySkill)
+2026-07-08 18:34:30,401 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Cap Table Simulation' (CapTableSimulationSkill)
+2026-07-08 18:34:30,401 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Financial Burn Rate' (FinancialBurnRateSkill)
+2026-07-08 18:34:30,401 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Game Economy Balancing' (GameEconomyBalancingSkill)
+2026-07-08 18:34:30,402 [jellyfish.skills.registry] INFO: Skill Python registrada: 'GDPR Compliance Audit' (GdprComplianceAuditSkill)
+2026-07-08 18:34:30,402 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Narrative Arc Structuring' (NarrativeArcStructuringSkill)
+2026-07-08 18:34:30,402 [jellyfish.skills.registry] INFO: Skill Python registrada: 'NPC Lore Generation' (NpcLoreGenerationSkill)
+2026-07-08 18:34:30,402 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Open Source License Check' (OpenSourceLicenseCheckSkill)
+2026-07-08 18:34:30,402 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Podcast Escaleta Design' (PodcastEscaletaDesignSkill)
+2026-07-08 18:34:30,402 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Prompt Engineering for Video' (PromptEngineeringVideoSkill)
+2026-07-08 18:34:30,403 [jellyfish.skills.registry] INFO: Skill Python registrada: 'SaaS Pricing Model' (SaasPricingModelSkill)
+2026-07-08 18:34:30,403 [jellyfish.skills.registry] INFO: Skill Python registrada: 'SLA Drafting' (SlaDraftingSkill)
+2026-07-08 18:34:30,403 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Async Messaging' (AsyncMessagingSkill)
+2026-07-08 18:34:30,403 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Caching Strategies' (CachingStrategiesSkill)
+2026-07-08 18:34:30,403 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Clean Architecture' (CleanArchitectureSkill)
+2026-07-08 18:34:30,404 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Code Review Master' (CodeReviewMasterSkill)
+2026-07-08 18:34:30,404 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Database Schema Optimization' (DatabaseSchemaOptimizationSkill)
+2026-07-08 18:34:30,404 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Domain-Driven Design' (DomainDrivenDesignSkill)
+2026-07-08 18:34:30,404 [jellyfish.skills.registry] INFO: Skill Python registrada: 'GraphQL Schema Design' (GraphqlSchemaDesignSkill)
+2026-07-08 18:34:30,404 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Microservices Boundary' (MicroservicesBoundarySkill)
+2026-07-08 18:34:30,404 [jellyfish.skills.registry] INFO: Skill Python registrada: 'REST API Design' (RestApiDesignSkill)
+2026-07-08 18:34:30,405 [jellyfish.skills.registry] INFO: Skill Python registrada: 'TDD Methodology' (TddMethodologySkill)
+2026-07-08 18:34:30,405 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Backlog Grooming' (BacklogGroomingSkill)
+2026-07-08 18:34:30,405 [jellyfish.skills.registry] INFO: Skill Python registrada: 'OKR Definition' (OkrDefinitionSkill)
+2026-07-08 18:34:30,405 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Planning Poker' (PlanningPokerSkill)
+2026-07-08 18:34:30,405 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Risk Matrix Analysis' (RiskMatrixAnalysisSkill)
+2026-07-08 18:34:30,406 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Sprint Planning' (SprintPlanningSkill)
+2026-07-08 18:34:30,406 [jellyfish.skills.registry] INFO: Skill Python registrada: 'CI/CD Pipeline Design' (CicdPipelineDesignSkill)
+2026-07-08 18:34:30,406 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Cloud Cost Optimization' (CloudCostOptimizationSkill)
+2026-07-08 18:34:30,406 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Dockerfile Optimization' (DockerfileOptimizationSkill)
+2026-07-08 18:34:30,406 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Kubernetes Resource Planning' (KubernetesResourcePlanningSkill)
+2026-07-08 18:34:30,406 [jellyfish.skills.registry] INFO: Skill Python registrada: 'OWASP Top 10 Audit' (OwaspTop10AuditSkill)
+2026-07-08 18:34:30,407 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Threat Modeling STRIDE' (ThreatModelingStrideSkill)
+2026-07-08 18:34:30,407 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Academic Paper Distillation' (AcademicPaperDistillationSkill)
+2026-07-08 18:34:30,407 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Demographic Trend Analysis' (DemographicTrendAnalysisSkill)
+2026-07-08 18:34:30,407 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Geopolitical Risk Analysis' (GeopoliticalRiskAnalysisSkill)
+2026-07-08 18:34:30,408 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Historical Precedent Search' (HistoricalPrecedentSearchSkill)
+2026-07-08 18:34:30,408 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Qualitative Data Coding' (QualitativeDataCodingSkill)
+2026-07-08 18:34:30,408 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Statistical Bias Detection' (StatisticalBiasDetectionSkill)
+2026-07-08 18:34:30,408 [jellyfish.skills.registry] INFO: Skill Python registrada: 'A11Y Audit' (A11yAuditSkill)
+2026-07-08 18:34:30,408 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Design System Extractor' (DesignSystemExtractorSkill)
+2026-07-08 18:34:30,409 [jellyfish.skills.registry] INFO: Skill Python registrada: 'React Best Practices' (ReactBestPracticesSkill)
+2026-07-08 18:34:30,409 [jellyfish.skills.registry] INFO: Skill Python registrada: 'State Management' (StateManagementSkill)
+2026-07-08 18:34:30,409 [jellyfish.skills.registry] INFO: Skill Python registrada: 'UI/UX Heuristic Evaluation' (UiUxHeuristicEvaluationSkill)
+2026-07-08 18:34:30,409 [jellyfish.skills.registry] INFO: Skill Python registrada: 'A/B Test Planning' (AbTestPlanningSkill)
+2026-07-08 18:34:30,409 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Conversion Rate Optimization' (ConversionRateOptimizationSkill)
+2026-07-08 18:34:30,410 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Copywriting PAS' (CopywritingPasSkill)
+2026-07-08 18:34:30,410 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Empathy Mapping' (EmpathyMappingSkill)
+2026-07-08 18:34:30,410 [jellyfish.skills.registry] INFO: Skill Python registrada: 'SEO Technical Audit' (SeoTechnicalAuditSkill)
+2026-07-08 18:34:30,410 [jellyfish.skills.registry] INFO: Skill Python registrada: 'Viral Loop Design' (ViralLoopDesignSkill)
+2026-07-08 18:34:30,410 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): plugin_core
+2026-07-08 18:34:30,411 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/task_tracker
+2026-07-08 18:34:30,411 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): automation/workflow_orchestrator
+2026-07-08 18:34:30,411 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/agent_context
+2026-07-08 18:34:30,411 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/metrics_collector
+2026-07-08 18:34:30,411 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): utility/output_formatter
+2026-07-08 18:34:30,411 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/api_integration
+2026-07-08 18:34:30,411 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/knowledge_base
+2026-07-08 18:34:30,411 [jellyfish.plugins] INFO: Plugin descubierto (sandbox): integration/skill_loader
+2026-07-08 18:58:53,031 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.5-flash. Iniciando fallback...
+2026-07-08 18:58:53,842 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.5-pro. Iniciando fallback...
+2026-07-08 18:58:54,354 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.0-flash. Iniciando fallback...
+2026-07-08 18:58:54,911 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo antigravity-preview-05-2026. Iniciando fallback...
+2026-07-08 19:01:25,472 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo antigravity-preview-05-2026. Iniciando fallback...
+2026-07-08 19:01:26,066 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.5-pro. Iniciando fallback...
+2026-07-08 19:01:26,541 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.5-flash. Iniciando fallback...
+2026-07-08 19:01:27,138 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.0-flash. Iniciando fallback...
+2026-07-08 19:01:42,499 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.5-flash. Iniciando fallback...
+2026-07-08 19:01:43,196 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.5-pro. Iniciando fallback...
+2026-07-08 19:01:43,675 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.0-flash. Iniciando fallback...
+2026-07-08 19:01:44,150 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo antigravity-preview-05-2026. Iniciando fallback...
+2026-07-08 19:04:39,034 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo antigravity-preview-05-2026. Iniciando fallback...
+2026-07-08 19:04:39,754 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.5-pro. Iniciando fallback...
+2026-07-08 19:04:40,368 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.5-flash. Iniciando fallback...
+2026-07-08 19:04:40,829 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.0-flash. Iniciando fallback...
+2026-07-08 19:04:40,893 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo nomic-embed-text:latest. Iniciando fallback...
+2026-07-08 19:07:23,624 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo nomic-embed-text:latest. Iniciando fallback...
+2026-07-08 19:07:23,631 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:34,177 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:34,180 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:34,594 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:34,595 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:35,096 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:35,096 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:35,556 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:35,557 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:36,003 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:36,004 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:36,395 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:36,396 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:36,812 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:36,812 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:37,215 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:37,216 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:37,617 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:37,618 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:38,028 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:38,029 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:38,452 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:38,456 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:38,904 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:38,905 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:39,305 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:39,306 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:39,688 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:39,689 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:40,105 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:40,106 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:40,484 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:40,485 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:40,926 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:40,927 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:41,441 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:41,442 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:41,909 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:41,910 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:42,399 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:42,403 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:42,930 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:42,931 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:43,373 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:43,377 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:07:43,858 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://127.0.0.1:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:07:43,859 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor.. Ejecutando Plan C (Ollama)...
+2026-07-08 19:09:46,736 [jellyfish.llm] ERROR: Ollama model not found: qwen2.5-agent:latest
+2026-07-08 19:14:35,416 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://localhost:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:14:35,425 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor..
+2026-07-08 19:14:51,633 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '400 Bad Request' for url 'http://localhost:11434/api/chat'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 (status_code=400) con modelo quewn:latest. Iniciando fallback...
+2026-07-08 19:14:51,635 [jellyfish.llm] WARNING: Fallo al obtener modelos dinámicos de ollama: No se encontraron modelos de respaldo viables en este proveedor..
+2026-07-08 19:38:04,625 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main/ARCHITECTURE.md'
+2026-07-08 19:38:04,627 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main/package.json'
+2026-07-08 19:38:04,627 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main/Pipfile'
+2026-07-08 19:38:04,628 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main/pyproject.toml'
+2026-07-08 19:38:04,628 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main/go.mod'
+2026-07-08 19:38:08,954 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/naturamedics-main/DESIGN_TOKENS.md'

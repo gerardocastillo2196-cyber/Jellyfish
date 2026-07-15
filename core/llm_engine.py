@@ -320,8 +320,12 @@ def _prepare_payload(provider_name: str, url: str, model_name: str, messages: li
         limit = getattr(state, "local_context_limit", 4096) if state is not None else 4096
         if not isinstance(limit, int):
             limit = 4096
+            
+        actual_tokens = sum(estimate_tokens(m.get("content", "")) for m in messages)
+        actual_num_ctx = max(limit, actual_tokens + 1024)
+        
         payload["options"] = {
-            "num_ctx": limit,
+            "num_ctx": actual_num_ctx,
             "temperature": max(0.0, 0.2 - 0.05 * (attempt - 1)),
         }
 
@@ -614,7 +618,7 @@ def _select_fallback_model(provider_name: str, available_models: list[str], fail
     for m in available_models:
         m_lower = m.lower()
         if m_lower not in clean_failed:
-            if not any(k in m_lower for k in ["embed", "moderation", "similarity", "whisper", "tts", "dall-e"]):
+            if not any(k in m_lower for k in ["embed", "moderation", "similarity", "whisper", "tts", "dall-e", "preview", "experimental", "antigravity", "vision"]):
                 return m
                 
     for m in available_models:
@@ -650,7 +654,8 @@ def _fallback_to_local_ollama(state) -> tuple[str, str]:
             break
             
     if new_model == "llama3" and local_models:
-        new_model = local_models[0]
+        valid_models = [m for m in local_models if "embed" not in m.lower()]
+        new_model = valid_models[0] if valid_models else local_models[0]
         
     state.save_config(provider=new_provider, model=new_model)
     return new_provider, new_model
@@ -673,8 +678,9 @@ def _stream_request(
     """
     failed_models = set()
     max_fallbacks = 3
+    fallback_attempt = 0
 
-    for fallback_attempt in range(max_fallbacks + 1):
+    while fallback_attempt <= max_fallbacks:
         provider_name = normalize_provider(provider or state.provider)
         model_name = model or state.model
         url, headers = _get_provider_config(state, provider_name)
@@ -821,13 +827,26 @@ def _stream_request(
             if code in (429, 503):
                 log_msg(f"⚠ El modelo {model_name} está saturado (Error {code}). Buscando alternativas...")
             else:
-                log_msg(f"⚠ Error al invocar {model_name} (Status: {code}, Error: {e}). Buscando alternativas...")
+                extra_details = f" - Details: {error_msg}" if error_msg else ""
+                log_msg(f"⚠ Error al invocar {model_name} (Status: {code}, Error: {e}{extra_details}). Buscando alternativas...")
             
-            logger.warning("Fallo en _stream_request: %s (status_code=%s) con modelo %s. Iniciando fallback...", e, code, model_name)
+            logger.warning("Fallo en _stream_request: %s (status_code=%s) con modelo %s. Iniciando fallback... Detalles: %s", e, code, model_name, error_msg)
 
             if fallback_attempt >= max_fallbacks:
-                log_msg(f"❌ Se excedió el límite de fallbacks ({max_fallbacks}).")
-                return None
+                if provider_name != "ollama":
+                    log_msg(f"⚠ Límite de fallbacks cloud excedido. Ejecutando Plan C (Fallback a Local)...")
+                    try:
+                        new_prov, new_model = _fallback_to_local_ollama(state)
+                        log_msg(f"✓ Cambiando a proveedor local: {new_prov} (Modelo: {new_model})")
+                        max_fallbacks += 1
+                        fallback_attempt += 1
+                        continue
+                    except Exception as local_err:
+                        log_msg(f"❌ Falló el fallback local a Ollama: {local_err}")
+                        return None
+                else:
+                    log_msg(f"❌ Se excedió el límite de fallbacks ({max_fallbacks}).")
+                    return None
 
             # Intentar fallback dinámico
             try:
@@ -837,16 +856,23 @@ def _stream_request(
                 if new_model:
                     state.save_config(model=new_model)
                     log_msg(f"✓ Cambiando a modelo de respaldo dinámico: {new_model}")
+                    fallback_attempt += 1
                     continue
                 else:
                     raise ValueError("No se encontraron modelos de respaldo viables en este proveedor.")
             except Exception as fe:
-                logger.warning("Fallo al obtener modelos dinámicos de %s: %s. Ejecutando Plan C (Ollama)...", provider_name, fe)
+                logger.warning("Fallo al obtener modelos dinámicos de %s: %s.", provider_name, fe)
+                
+                if provider_name == "ollama":
+                    log_msg(f"❌ No hay modelos locales viables restantes en Ollama. Abortando.")
+                    return None
+                    
                 log_msg(f"⚠ Proveedor {provider_name} no disponible o sin modelos. Ejecutando Plan C (Fallback a Local)...")
                 
                 try:
                     new_prov, new_model = _fallback_to_local_ollama(state)
                     log_msg(f"✓ Cambiando a proveedor local: {new_prov} (Modelo: {new_model})")
+                    fallback_attempt += 1
                     continue
                 except Exception as local_err:
                     log_msg(f"❌ Falló el fallback local a Ollama: {local_err}")

@@ -522,6 +522,13 @@ class TaskRunnerPhase:
                         console.print(f"\n❌ [BLOQUEADO] La tarea {task_id_str} ha fallado {MAX_RETRIES} veces consecutivas.")
                         console.print(f"       Último error registrado: {last_error_log}")
                         
+                        self.orchestrator.metrics.append({
+                            "fase": f"@{agent_name} ({task_id_str})",
+                            "detalle": f"Fallo Crítico: {last_error_log[:50]}...",
+                            "tiempo": getattr(self, "task_elapsed", 0.0),
+                            "status": "❌",
+                        })
+
                         # Solicitar intervención manual
                         input("\n⚠️ Flujo autónomo bloqueado. Presiona Enter para intervención manual en la TUI...")
                         return

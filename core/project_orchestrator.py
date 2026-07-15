@@ -1155,28 +1155,31 @@ class ProjectOrchestrator:
             with SilentExecutionRedirect(self.state):
                 self._run_task_runner(user_idea)
 
-                build_cmd = self._detect_compile_command()
-                if build_cmd:
-                    console.print("\n🛠 Ejecutando compilación de validación final del proyecto...")
-                    returncode, build_output = self._run_build_command(build_cmd)
-                    
-                    from core.terminal import screen_console
-                    if returncode == 0:
-                        screen_console.print("✓ ¡Compilación final exitosa! El proyecto está listo.\n")
-                        self.metrics.append({
-                            "fase": "🛠 Compilación Final",
-                            "detalle": f"Comando: {build_cmd}",
-                            "tiempo": 0.0,
-                            "status": "✅",
-                        })
-                    else:
-                        screen_console.print(f"⚠ La compilación final falló con código {returncode}.\n")
-                        self.metrics.append({
-                            "fase": "🛠 Compilación Final",
-                            "detalle": "Fallo de compilación",
-                            "tiempo": 0.0,
-                            "status": "❌",
-                        })
+                if getattr(self.state, "global_status", "") == "ERROR":
+                    console.print("\n[red]⚠ El Task Runner reportó un error crítico. Abortando compilación final.[/red]")
+                else:
+                    build_cmd = self._detect_compile_command()
+                    if build_cmd:
+                        console.print("\n🛠 Ejecutando compilación de validación final del proyecto...")
+                        returncode, build_output = self._run_build_command(build_cmd)
+                        
+                        from core.terminal import screen_console
+                        if returncode == 0:
+                            screen_console.print("✓ ¡Compilación final exitosa! El proyecto está listo.\n")
+                            self.metrics.append({
+                                "fase": "🛠 Compilación Final",
+                                "detalle": f"Comando: {build_cmd}",
+                                "tiempo": 0.0,
+                                "status": "✅",
+                            })
+                        else:
+                            screen_console.print(f"⚠ La compilación final falló con código {returncode}.\n")
+                            self.metrics.append({
+                                "fase": "🛠 Compilación Final",
+                                "detalle": "Fallo de compilación",
+                                "tiempo": 0.0,
+                                "status": "❌",
+                            })
         finally:
             self.state.silent_execution = False
 
