@@ -12,6 +12,8 @@ import threading
 from typing import Any, Dict, List, Optional
 from prompt_toolkit import PromptSession
 
+from prompt_toolkit.patch_stdout import patch_stdout
+
 logger = logging.getLogger("jellyfish.tui")
 
 class TUIEngine:
@@ -90,7 +92,8 @@ class TUIEngine:
         while True:
             try:
                 # El prompt será directamente session.prompt('🐙> ')
-                user_input = session.prompt('🐙> ')
+                with patch_stdout():
+                    user_input = session.prompt('🐙> ')
                 user_input = user_input.strip()
                 if not user_input:
                     continue
