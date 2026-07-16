@@ -32,12 +32,13 @@ from logging.handlers import RotatingFileHandler
 # --- Logging ---
 # Refactorizado para evitar contaminación de la interfaz TUI con logs técnicos en stderr.
 # Ahora se escribe de forma persistente en jellyfish.log en el directorio de la agencia.
+# Se reduce backupCount a 1 para evitar un desgaste innecesario de escritura en disco por rotación agresiva.
 log_file_path = os.path.join(AGENCY_DIR, "jellyfish.log")
 logging.basicConfig(
     level=logging.WARNING,
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
     handlers=[
-        RotatingFileHandler(log_file_path, maxBytes=5*1024*1024, backupCount=3, encoding="utf-8")
+        RotatingFileHandler(log_file_path, maxBytes=5*1024*1024, backupCount=1, encoding="utf-8")
     ]
 )
 logging.getLogger("chromadb").setLevel(logging.ERROR)

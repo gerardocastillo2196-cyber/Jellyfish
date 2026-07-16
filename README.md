@@ -97,8 +97,8 @@ El bucle autónomo de corrección de código de Jellyfish OS clona la rama limpi
 ### 🔌 B. Circuit Breakers y Fallbacks Autónomos
 Si un modelo en la nube genera una salida nula o excede los límites permitidos debido a tokens corruptos o latencia excesiva, Jellyfish OS activa mecanismos de **Circuit Breaker** y andamiajes de recuperación (*Backlog Recovery*), evitando el colapso abrupto del pipeline de automatización.
 
-### 🖥️ C. Sincronización Visual TUI y Anti-Corrupción ANSI
-El motor de la TUI realiza una limpieza estricta del búfer residual de la terminal (`clear_scroll_region`) y re-imprime de forma forzada las áreas de estado. Esto previene la corrupción estética de la pantalla cuando comandos en segundo plano escriben secuencias ANSI de control.
+### 🖥️ C. REPL Interactivo Robustecido y Anti-Corrupción ANSI
+El sistema opera ahora mediante un REPL interactivo robusto que integra capacidades de autocompletado y resaltado de sintaxis en tiempo real, evitando la sobrecarga estética y la corrupción de pantalla que suelen asociarse a las interfaces TUI de pantalla completa. El motor de entrada gestiona de forma limpia las secuencias ANSI y las salidas concurrentes de comandos en segundo plano.
 
 ### 🔒 D. Sandbox con Bubblewrap y Lista Negra de Comandos
 La ejecución de plugins puede correr de manera aislada con Bubblewrap, el cual crea namespaces vacíos de red y un sistema de archivos en memoria temporal. Además, un analizador regex bloquea de forma rígida comandos peligrosos antes de enviarlos a la terminal (`rm -rf /`, formateo de discos, modificaciones a `/etc/passwd`, etc.), reportando inmediatamente un incidente de seguridad.

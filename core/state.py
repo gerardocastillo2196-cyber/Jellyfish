@@ -149,13 +149,24 @@ class PersistedHistoryList(list):
         super().__init__(*args, **kwargs)
         self.state = state
 
+    def _truncate(self):
+        max_size = int(os.getenv("JELLYFISH_MAX_HISTORY_SIZE", "50"))
+        if len(self) > max_size:
+            diff = len(self) - max_size
+            for _ in range(diff):
+                super().pop(0)
+            if hasattr(self.state, "summarized_message_count"):
+                self.state.summarized_message_count = max(0, self.state.summarized_message_count - diff)
+
     def append(self, item):
         super().append(item)
+        self._truncate()
         if hasattr(self.state, "save_history_to_project"):
             self.state.save_history_to_project()
 
     def extend(self, iterable):
         super().extend(iterable)
+        self._truncate()
         if hasattr(self.state, "save_history_to_project"):
             self.state.save_history_to_project()
 
@@ -176,6 +187,7 @@ class PersistedHistoryList(list):
 
     def insert(self, index, item):
         super().insert(index, item)
+        self._truncate()
         if hasattr(self.state, "save_history_to_project"):
             self.state.save_history_to_project()
 
@@ -758,6 +770,9 @@ class JellyfishState:
                     for item in history_data:
                         if isinstance(item, dict) and "role" in item and "content" in item:
                             super(PersistedHistoryList, self.history).append(item)
+                
+                # Truncar al límite configurado después de cargar
+                self.history._truncate()
                 
                 logger.info("Historial de conversación cargado (%d mensajes) para el proyecto %s", len(self.history), self.active_project)
             except Exception as e:

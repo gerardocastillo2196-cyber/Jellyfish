@@ -283,6 +283,23 @@ class TestTokenBudget:
         finally:
             shutil.rmtree(temp_dir)
 
+    def test_history_sliding_window_limit(self):
+        from core.state import JellyfishState
+        import os
+        os.environ["JELLYFISH_MAX_HISTORY_SIZE"] = "5"
+        try:
+            state = JellyfishState()
+            state.history.clear()
+            for i in range(10):
+                state.history.append({"role": "user", "content": f"msg {i}"})
+            
+            assert len(state.history) == 5
+            assert state.history[0]["content"] == "msg 5"
+            assert state.history[-1]["content"] == "msg 9"
+        finally:
+            os.environ.pop("JELLYFISH_MAX_HISTORY_SIZE", None)
+
+
 
 # ---------------------------------------------------------------------------
 # 5.1. Configuración de proveedores cloud
