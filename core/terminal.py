@@ -127,6 +127,18 @@ def _smart_truncate(text: str, max_chars: int = 5000) -> str:
     )
 
 
+def _apply_modern_aliases(command_str: str) -> str:
+    """Aplica traducción automática de comandos obsoletos a sus equivalentes modernos."""
+    aliases = {
+        "docker-compose": "docker compose",
+        "git-lfs": "git lfs",
+    }
+    for old, new in aliases.items():
+        pattern = r'\b' + re.escape(old) + r'\b'
+        command_str = re.sub(pattern, new, command_str)
+    return command_str
+
+
 def _prepare_subprocess_command(command: str):
     """Prefiere shell=False cuando no hacen falta metacaracteres de shell."""
     if _SHELL_META_RE.search(command):
@@ -144,6 +156,7 @@ def run_terminal_command(
     timeout: int = DEFAULT_TIMEOUT,
     force_confirm: bool = False,
     return_code_dict: dict = None,
+    auto_healed: bool = False,
 ) -> str:
     """Ejecuta un comando en la terminal del sistema.
 
@@ -388,6 +401,23 @@ def run_terminal_command(
             console.print(f"╰{'─'*80}╯")
 
         res = "".join(captured_lines).strip()
+        
+        # Interceptación y Auto-Healing para exit code 127 (Comando no encontrado)
+        if process.returncode == 127 and not auto_healed:
+            alias_command = _apply_modern_aliases(actual_command)
+            if alias_command != actual_command:
+                console.print(f"[yellow]⚠️ Comando no encontrado (127). Auto-healing: Ejecutando '{alias_command}'...[/yellow]\n")
+                logger.info("Comando falló con 127. Auto-healing: '%s' -> '%s'", actual_command, alias_command)
+                return run_terminal_command(
+                    alias_command,
+                    state,
+                    silent_history=silent_history,
+                    timeout=timeout,
+                    force_confirm=force_confirm,
+                    return_code_dict=return_code_dict,
+                    auto_healed=True
+                )
+
         if return_code_dict is not None:
             return_code_dict['returncode'] = process.returncode
 
@@ -442,8 +472,21 @@ def run_terminal_command(
         if return_code_dict is not None:
             return_code_dict['returncode'] = -1
         return msg
-
     except FileNotFoundError as e:
+        if not auto_healed:
+            alias_command = _apply_modern_aliases(actual_command)
+            if alias_command != actual_command:
+                console.print(f"[yellow]⚠️ Comando no encontrado (FileNotFoundError). Auto-healing: Ejecutando '{alias_command}'...[/yellow]\n")
+                logger.info("Comando no encontrado (FileNotFoundError). Auto-healing: '%s' -> '%s'", actual_command, alias_command)
+                return run_terminal_command(
+                    alias_command,
+                    state,
+                    silent_history=silent_history,
+                    timeout=timeout,
+                    force_confirm=force_confirm,
+                    return_code_dict=return_code_dict,
+                    auto_healed=True
+                )
         msg = f"Comando no encontrado: {e}"
         screen_console.print(f"[dim red]{msg}[/dim red]")
         logger.error("Comando no encontrado: %s", e)

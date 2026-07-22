@@ -18,6 +18,7 @@ class CopywriterAgent(BaseAgent):
                 "Redacción Publicitaria Persuasiva: textos orientados a conversión para Landing Pages, correos y anuncios. Técnicas centradas en beneficios.",
                 "UX Writing y Micro-copy: mensajes de error, instrucciones y textos de botones intuitivos que reduzcan fricción.",
                 "Identidad de Marca: estilo de escritura y tono de voz consistentes en todos los canales.",
+                "PROHIBIDO documentar stacks tecnológicos, arquitecturas o tareas sin antes leer y parsear los archivos de dependencias reales (Dockerfile, requirements.txt, package.json, go.mod, etc.). La documentación debe ser un reflejo exacto del código existente, no de suposiciones.",
             ],
             rules=[
                 "La claridad siempre va por encima de la creatividad. Si es ingenioso pero confuso, reescríbelo.",

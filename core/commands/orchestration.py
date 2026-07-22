@@ -22,6 +22,17 @@ def _handle_auto(arg: str, state, display_header_func) -> None:
         )
         return
 
+    if state.is_pipeline_paused():
+        console.print("\n[bold red]⚠️  PIPELINE BLOQUEADO - Sentinel Interactive Pause (SIP) Activo[/bold red]")
+        console.print("[yellow]El proyecto se encuentra en modo de 'Esperando Intervención' debido a un fallo previo.[/yellow]")
+        from core.agency_orchestrator import AgencyOrchestrator
+        orchestrator = AgencyOrchestrator(state)
+        final_report = orchestrator.run_sentinel_session()
+        
+        state.history.append({"role": "user", "content": "/auto (Intervención Sentinel)"})
+        state.history.append({"role": "assistant", "content": final_report})
+        return
+
     if not idea:
         # Determinar si existe un tablero previo en el proyecto activo para permitir /auto vacío
         from core.project_orchestrator import ProjectOrchestrator
@@ -44,12 +55,16 @@ def _handle_auto(arg: str, state, display_header_func) -> None:
             )
             return
 
+    from core.translator import IntentTranslator
+    translator = IntentTranslator(state)
+    compact_token = translator.translate(idea)
+
     from core.agency_orchestrator import AgencyOrchestrator
 
     orchestrator = AgencyOrchestrator(state)
-    final_report = orchestrator.route_and_execute(idea)
+    final_report = orchestrator.route_and_execute(compact_token)
 
-    state.history.append({"role": "user", "content": f"/auto {idea}"})
+    state.history.append({"role": "user", "content": f"/auto {idea} (Token: {compact_token})" if compact_token != idea else f"/auto {idea}"})
     state.history.append({"role": "assistant", "content": final_report})
 
 def _handle_research(arg: str, state, rag, display_header_func) -> None:

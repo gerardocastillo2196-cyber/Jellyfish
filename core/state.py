@@ -299,8 +299,62 @@ class JellyfishState:
         return is_project_auto_approved(self)
 
     def enable_project_auto_approve(self) -> None:
-        """Activa la auto-aprobación persistente para el proyecto activo."""
+        """Activa la auto-aprobación permanente para el proyecto activo."""
         enable_project_auto_approve(self)
+
+    def is_pipeline_paused(self) -> bool:
+        """Verifica si el pipeline se encuentra en estado PIPELINE_PAUSED."""
+        if not self.active_project or not os.path.isdir(self.active_project):
+            return False
+        config_path = os.path.join(self.active_project, ".jellyfish_project_config.json")
+        if not os.path.isfile(config_path):
+            return False
+        try:
+            import json
+            with open(config_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data.get("pipeline_status") == "PIPELINE_PAUSED"
+        except Exception:
+            return False
+
+    def set_pipeline_status(self, status: str, paused_context: dict = None) -> None:
+        """Establece el estado del pipeline (ej. PIPELINE_PAUSED u OK) en .jellyfish_project_config.json."""
+        if not self.active_project or not os.path.isdir(self.active_project):
+            return
+        config_path = os.path.join(self.active_project, ".jellyfish_project_config.json")
+        try:
+            import json
+            data = {}
+            if os.path.isfile(config_path):
+                try:
+                    with open(config_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except Exception:
+                    pass
+            data["pipeline_status"] = status
+            if status == "PIPELINE_PAUSED" and paused_context:
+                data["paused_context"] = paused_context
+            elif status == "OK":
+                data.pop("paused_context", None)
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4)
+        except Exception as e:
+            logger.error("Error al guardar estado del pipeline: %s", e)
+
+    def get_paused_context(self) -> dict:
+        """Obtiene el contexto de fallo del pipeline pausado."""
+        if not self.active_project or not os.path.isdir(self.active_project):
+            return {}
+        config_path = os.path.join(self.active_project, ".jellyfish_project_config.json")
+        if not os.path.isfile(config_path):
+            return {}
+        try:
+            import json
+            with open(config_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data.get("paused_context", {})
+        except Exception:
+            return {}
 
     @property
     def ollama_url(self) -> str:

@@ -40,6 +40,76 @@ class ProductOwnerPhase:
             except (EOFError, KeyboardInterrupt):
                 return False
 
+        # --- SUB-FASE A: Refinamiento Interactivo ---
+        refinement_system = (
+            f"Eres @product_owner, el Product Owner del equipo de desarrollo.\n"
+            f"Tu rol en este momento es refinar e indagar activamente sobre la idea del usuario. "
+            f"Tu meta final es redactar un Backlog completo con al menos 4 Historias de Usuario priorizadas con MoSCoW "
+            f"y con criterios de aceptación claros.\n\n"
+            f"REGLA CRÍTICA: Evalúa si la información actual es suficiente para redactar esas 4 Historias de Usuario sin inventar o suponer datos clave (ej. stack, lógica, flujos).\n"
+            f"- Si la información es INSUFICIENTE: Formula exactamente una pregunta clara, directa y concisa para aclarar los requerimientos. NO generes el backlog, NO respondas con introducciones largas ni saludos. Ve al grano.\n"
+            f"- Si la información es SUFICIENTE para redactar las 4 US y los criterios: Responde ÚNICAMENTE con la palabra 'READY'. Ninguna otra palabra o explicación está permitida. Solo escribe 'READY'."
+        )
+
+        refinement_history = [
+            {"role": "system", "content": refinement_system},
+            {"role": "user", "content": f"Idea del proyecto: {user_idea}"}
+        ]
+
+        from core.llm_engine import _call_llm_silent
+        
+        console.print("[dim]       ⚙ Iniciando bucle de refinamiento interactivo del Product Owner...[/dim]")
+        
+        refining = True
+        refinement_log = [f"Idea inicial del proyecto: {user_idea}"]
+        
+        while refining:
+            with TaskProgress(tui_engine, "auto_po_refinement", "Product Owner: Evaluando requerimientos..."):
+                response = _call_llm_silent(
+                    self.orchestrator.state,
+                    refinement_history,
+                    provider=self.orchestrator.state.provider,
+                    model=self.orchestrator.state.model
+                )
+            
+            if not response:
+                console.print("[yellow]⚠ El Product Owner no respondió. Saltando refinamiento.[/yellow]")
+                break
+                
+            clean_response = response.strip().replace(".", "").replace("!", "").upper()
+            if clean_response == "READY":
+                console.print("[green]✓ Product Owner determinó que los requerimientos están completos y listos (READY).[/green]")
+                break
+                
+            # Presentar la pregunta destacada en cian usando un Panel de Rich
+            from rich.panel import Panel
+            console.print()
+            console.print(Panel(
+                f"[bold cyan]{response}[/bold cyan]",
+                title="[bold yellow]🤖 Product Owner (Refinamiento)[/bold yellow]",
+                border_style="cyan"
+            ))
+            console.print()
+            
+            try:
+                user_input = input("✍ Responde al PO (o escribe /skip o /ready para continuar) > ").strip()
+            except (KeyboardInterrupt, EOFError):
+                console.print("\n[yellow]⚠ Refinamiento cancelado por el usuario. Continuando con la generación estructurada...[/yellow]")
+                break
+                
+            if not user_input:
+                continue
+                
+            if user_input.lower() in ("/skip", "/ready"):
+                console.print("[yellow]⏭ Escape Hatch: Forzando generación del backlog con la información actual.[/yellow]")
+                break
+                
+            refinement_history.append({"role": "assistant", "content": response})
+            refinement_history.append({"role": "user", "content": user_input})
+            refinement_log.append(f"Pregunta PO: {response}")
+            refinement_log.append(f"Respuesta Usuario: {user_input}")
+
+        # --- SUB-FASE B: Generación estructurada del backlog ---
         alert_prefix = ""
         if last_exit != 0:
             alert_prefix = "[SYSTEM ALERT: THE BUILD/PIPELINE IS CURRENTLY BROKEN. PRIORITIZE FIXING EXISTING FATAL ERRORS BEFORE ADDING FEATURES OR MOVING FORWARD].\n\n"
@@ -76,8 +146,15 @@ class ProductOwnerPhase:
             "}\n"
         )
         
+        full_refinement_context = "\n".join(refinement_log)
+        po_prompt = (
+            f"IDEA DEL PROYECTO Y DISCUSIÓN DE REFINAMIENTO:\n"
+            f"{full_refinement_context}\n\n"
+            f"Por favor, genera el BACKLOG.json definitivo basado en toda la discusión anterior."
+        )
+
         with TaskProgress(tui_engine, "auto_po", "Product Owner: Redactando backlog estructurado (JSON)..."):
-            result = self.orchestrator._call_agent(system, f"IDEA DEL PROYECTO:\n{user_idea}")
+            result = self.orchestrator._call_agent(system, po_prompt)
 
         elapsed = time.perf_counter() - t0
 
@@ -93,50 +170,108 @@ class ProductOwnerPhase:
             json_clean = match.group(0)
 
         # Validar y escribir BACKLOG.json
+        # Validar y escribir BACKLOG.json
         try:
             parsed_backlog = json.loads(json_clean)
             self.orchestrator._write_project_file("BACKLOG.json", json.dumps(parsed_backlog, indent=2, ensure_ascii=False))
             # Crear un BACKLOG.md legible para compatibilidad visual con humanos
-            md_backlog = f"# Backlog: {parsed_backlog.get('proyecto', 'Proyecto Jellyfish')}\n\n"
-            md_backlog += f"**Visión:** {parsed_backlog.get('vision', '')}\n\n"
-            md_backlog += "## Historias de Usuario\n\n"
-            for us in parsed_backlog.get("user_stories", []):
-                md_backlog += f"### {us.get('id')}: {us.get('titulo')}\n"
-                md_backlog += f"- **Como:** {us.get('como')}\n"
-                md_backlog += f"- **Quiero:** {us.get('quiero')}\n"
-                md_backlog += f"- **Para:** {us.get('para')}\n\n"
-                md_backlog += "#### Criterios de Aceptación\n"
-                for ca in us.get("criterios_aceptacion", []):
-                    md_backlog += f"- {ca}\n"
-                md_backlog += "\n#### Contexto RAG\n"
-                for rag_ctx in us.get("contexto_rag_necesario", []):
-                    md_backlog += f"- `{rag_ctx}`\n"
-                md_backlog += "\n#### Definition of Done\n"
-                for dod in us.get("definition_of_done", []):
-                    md_backlog += f"- {dod}\n"
-                md_backlog += "\n---\n\n"
+            def _build_md_backlog(backlog_dict: dict) -> str:
+                md = f"# Backlog: {backlog_dict.get('proyecto', 'Proyecto Jellyfish')}\n\n"
+                md += f"**Visión:** {backlog_dict.get('vision', '')}\n\n"
+                md += "## Historias de Usuario\n\n"
+                for us in backlog_dict.get("user_stories", []):
+                    md += f"### {us.get('id')}: {us.get('titulo')}\n"
+                    md += f"- **Como:** {us.get('como')}\n"
+                    md += f"- **Quiero:** {us.get('quiero')}\n"
+                    md += f"- **Para:** {us.get('para')}\n"
+                    if "prioridad" in us:
+                        md += f"- **Prioridad (MoSCoW):** {us.get('prioridad')}\n"
+                    elif "priority" in us:
+                        md += f"- **Prioridad (MoSCoW):** {us.get('priority')}\n"
+                    md += "\n#### Criterios de Aceptación\n"
+                    for ca in us.get("criterios_aceptacion", []):
+                        md += f"- {ca}\n"
+                    md += "\n#### Contexto RAG\n"
+                    for rag_ctx in us.get("contexto_rag_necesario", []):
+                        md += f"- `{rag_ctx}`\n"
+                    md += "\n#### Definition of Done\n"
+                    for dod in us.get("definition_of_done", []):
+                        md += f"- {dod}\n"
+                    md += "\n---\n\n"
+                return md
+            
+            md_backlog = _build_md_backlog(parsed_backlog)
             self.orchestrator._write_project_file("BACKLOG.md", md_backlog)
         except Exception as e:
             logger.error("Error al parsear el JSON de BACKLOG: %s. Contenido: %s", e, result)
             console.print("❌ Error al parsear backlog JSON generado por el PO. Guardando salida cruda.")
             self.orchestrator._write_project_file("BACKLOG.json", json.dumps({"error": "Falló el parsing del LLM", "raw_output": result}))
             self.orchestrator._write_project_file("BACKLOG.md", result)
+            parsed_backlog = {"error": "Falló el parsing del LLM", "raw_output": result, "user_stories": []}
+            md_backlog = result
 
         tokens = estimate_tokens(result)
         console.print(f"✓ BACKLOG.json generado [dim]({tokens:,} tokens · {elapsed:.1f}s)[/dim]")
         self.orchestrator.metrics.append({"fase": "📝 Product Owner", "detalle": f"~{tokens:,} tokens → BACKLOG.json", "tiempo": elapsed, "status": "✅"})
 
-        # Checkpoint (Resumen mínimo sin preview largo)
-        console.print(f"📋 BACKLOG.json validado y guardado.")
-
-        try:
-            approved = Confirm.ask("\n¿Aprobar backlog y continuar?", default=True)
-        except (EOFError, KeyboardInterrupt):
-            approved = False
-
-        if not approved:
-            console.print("Pipeline detenido. Edita BACKLOG.json y re-ejecuta /auto.")
-            return False
+        # Bucle de interacción y feedback del usuario sobre el backlog (Interactividad y Transparencia)
+        backlog_approved = False
+        while not backlog_approved:
+            # Mostrar resumen narrativo en consola
+            from rich.markdown import Markdown
+            console.print("\n[bold green]📋 Resumen Narrativo del Backlog de Producto:[/bold green]")
+            console.print(Markdown(md_backlog))
+            console.print("-" * 60)
+            
+            try:
+                feedback = input("\n✍ Escribe comentarios para ajustar el backlog, o responde 'y'/'aprobado' para confirmar > ").strip()
+            except (KeyboardInterrupt, EOFError):
+                feedback = "y"
+                
+            if feedback.lower() in ("y", "aprobado"):
+                backlog_approved = True
+                break
+                
+            if not feedback:
+                continue
+                
+            # Integrar feedback del usuario y regenerar
+            console.print(f"[yellow]🔄 Integrando feedback del usuario en el backlog: '{feedback}'...[/yellow]")
+            
+            adjustment_system = (
+                f"{agent_prompt}\n\n"
+                "[INSTRUCCIONES DE AJUSTE]\n"
+                "El usuario ha revisado tu BACKLOG.json anterior y ha solicitado algunos cambios.\n"
+                "Debes integrar sus comentarios en el nuevo backlog y devolver ÚNICAMENTE el JSON actualizado "
+                "siguiendo exactamente la misma estructura de antes.\n\n"
+                "No agregues texto conversacional, explicaciones ni bloques markdown fuera del JSON."
+            )
+            adjustment_user = (
+                f"BACKLOG ANTERIOR:\n```json\n{json.dumps(parsed_backlog, indent=2, ensure_ascii=False)}\n```\n\n"
+                f"COMENTARIOS DEL USUARIO:\n{feedback}\n\n"
+                f"Por favor, integra los cambios solicitados y genera el nuevo JSON."
+            )
+            
+            with TaskProgress(tui_engine, "auto_po_adjust", "Product Owner: Ajustando backlog con tu feedback..."):
+                adjust_result = self.orchestrator._call_agent(adjustment_system, adjustment_user)
+                
+            if not adjust_result:
+                console.print("[red]❌ El Product Owner no pudo ajustar el backlog. Intentando mantener el backlog actual.[/red]")
+                continue
+                
+            json_clean = adjust_result.strip()
+            match = re.search(r'\{.*\}', json_clean, re.DOTALL)
+            if match:
+                json_clean = match.group(0)
+                
+            try:
+                parsed_backlog = json.loads(json_clean)
+                self.orchestrator._write_project_file("BACKLOG.json", json.dumps(parsed_backlog, indent=2, ensure_ascii=False))
+                md_backlog = _build_md_backlog(parsed_backlog)
+                self.orchestrator._write_project_file("BACKLOG.md", md_backlog)
+            except Exception as e:
+                logger.error("Error al parsear el JSON de BACKLOG ajustado: %s", e)
+                console.print("[red]❌ Error al integrar el feedback en el JSON. Reintentando...[/red]")
 
         console.print("✓ Backlog aprobado.\n")
         return True

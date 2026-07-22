@@ -1258,5 +1258,480 @@ class TestResilientLLMFallback:
         target_binding.handler(mock_event)
         mock_event.app.exit.assert_called_once_with(result="/exit")
 
+    @patch("subprocess.Popen")
+    def test_run_terminal_command_auto_healing(self, mock_popen):
+        from core.terminal import run_terminal_command
+        from core.state import JellyfishState
+        from unittest.mock import MagicMock
+        
+        state = JellyfishState()
+        
+        # Simular que al llamar con "docker-compose" lanza FileNotFoundError,
+        # y al llamar con "docker compose" se ejecuta con éxito (exit code 0).
+        def popen_side_effect(args, **kwargs):
+            # args puede ser string o lista
+            cmd_str = args if isinstance(args, str) else " ".join(args)
+            if "docker-compose" in cmd_str:
+                raise FileNotFoundError("[Errno 2] No such file or directory: 'docker-compose'")
+            
+            # Mock del proceso exitoso
+            mock_proc = MagicMock()
+            mock_proc.returncode = 0
+            mock_proc.stdout = ["Docker Compose V2 running successfully\n"]
+            mock_proc.stderr = []
+            mock_proc.wait.return_value = 0
+            return mock_proc
+
+        mock_popen.side_effect = popen_side_effect
+        
+        ret_dict = {'returncode': 0}
+        res = run_terminal_command(
+            "docker-compose --version",
+            state,
+            silent_history=True,
+            return_code_dict=ret_dict
+        )
+        
+        assert "Docker Compose V2 running successfully" in res
+        assert ret_dict['returncode'] == 0
+
+    @patch("core.llm_engine._call_llm_silent")
+    @patch("builtins.input")
+    @patch("core.orchestration.product_owner.Confirm.ask")
+    def test_product_owner_refinement_loop_success(self, mock_confirm, mock_input, mock_call_llm):
+        from core.state import JellyfishState
+        from core.project_orchestrator import ProjectOrchestrator
+        from core.orchestration.product_owner import ProductOwnerPhase
+        from unittest.mock import MagicMock
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = JellyfishState()
+            state.active_project = temp_dir
+            orchestrator = ProjectOrchestrator(state)
+            orchestrator.project_path = temp_dir
+            
+            # Mock _load_agent_prompt
+            orchestrator._load_agent_prompt = MagicMock(return_value="Agent prompt text")
+            orchestrator._get_last_exit_code = MagicMock(return_value=0)
+            orchestrator._get_circuit_breaker_count = MagicMock(return_value=0)
+            
+            # PO refinement returns:
+            # 1. A question: "What is the DB?"
+            # 2. "READY"
+            mock_call_llm.side_effect = [
+                "What database should we use?",
+                "READY"
+            ]
+            
+            # User responds:
+            # 1. "Supabase" (refinement)
+            # 2. "y" (approval)
+            mock_input.side_effect = ["Supabase", "y"]
+            
+            # Final backlog generation mock
+            mock_json_backlog = (
+                "{\n"
+                '  "proyecto": "NaturaMedics",\n'
+                '  "vision": "A clinic management system",\n'
+                '  "user_stories": [\n'
+                "    {\n"
+                '      "id": "US-001",\n'
+                '      "titulo": "US 1",\n'
+                '      "como": "User",\n'
+                '      "quiero": "View dashboard",\n'
+                '      "para": "Track status",\n'
+                '      "criterios_aceptacion": ["Dado que..."],\n'
+                '      "contexto_rag_necesario": ["app.py"],\n'
+                '      "definition_of_done": ["compila"]\n'
+                "    }\n"
+                "  ]\n"
+                "}"
+            )
+            orchestrator._call_agent = MagicMock(return_value=mock_json_backlog)
+            orchestrator._write_project_file = MagicMock(side_effect=lambda fn, content: True)
+            mock_confirm.return_value = True # Aprove backlog
+            
+            # Simular escritura real en temp_dir para archivos
+            def write_file_side_effect(fn, content):
+                import os
+                with open(os.path.join(temp_dir, fn), "w") as f:
+                    f.write(content)
+                return True
+            orchestrator._write_project_file.side_effect = write_file_side_effect
+            
+            phase = ProductOwnerPhase(orchestrator)
+            res = phase.run("Crear app NaturaMedics")
+            
+            assert res is True
+            # Verificamos que se haya escrito BACKLOG.json
+            import os
+            assert os.path.exists(os.path.join(temp_dir, "BACKLOG.json"))
+            assert os.path.exists(os.path.join(temp_dir, "BACKLOG.md"))
+            
+            # Verificamos que las respuestas se incluyeron en la llamada final al PO
+            call_args = orchestrator._call_agent.call_args[0]
+            po_prompt_passed = call_args[1]
+            assert "Idea inicial del proyecto: Crear app NaturaMedics" in po_prompt_passed
+            assert "Pregunta PO: What database should we use?" in po_prompt_passed
+            assert "Respuesta Usuario: Supabase" in po_prompt_passed
+
+    @patch("core.llm_engine._call_llm_silent")
+    @patch("builtins.input")
+    @patch("core.orchestration.product_owner.Confirm.ask")
+    def test_product_owner_refinement_loop_escape_hatch(self, mock_confirm, mock_input, mock_call_llm):
+        from core.state import JellyfishState
+        from core.project_orchestrator import ProjectOrchestrator
+        from core.orchestration.product_owner import ProductOwnerPhase
+        from unittest.mock import MagicMock
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = JellyfishState()
+            state.active_project = temp_dir
+            orchestrator = ProjectOrchestrator(state)
+            orchestrator.project_path = temp_dir
+            
+            orchestrator._load_agent_prompt = MagicMock(return_value="Agent prompt text")
+            orchestrator._get_last_exit_code = MagicMock(return_value=0)
+            orchestrator._get_circuit_breaker_count = MagicMock(return_value=0)
+            
+            # PO keeps returning questions, but user skips
+            mock_call_llm.side_effect = [
+                "What database should we use?",
+                "This shouldn't be called because user escapes"
+            ]
+            
+            # User uses escape hatch /skip, then approves with "y"
+            mock_input.side_effect = ["/skip", "y"]
+            
+            mock_json_backlog = (
+                "{\n"
+                '  "proyecto": "NaturaMedics",\n'
+                '  "vision": "A clinic management system",\n'
+                '  "user_stories": []\n'
+                "}"
+            )
+            orchestrator._call_agent = MagicMock(return_value=mock_json_backlog)
+            orchestrator._write_project_file = MagicMock()
+            
+            def write_file_side_effect(fn, content):
+                import os
+                with open(os.path.join(temp_dir, fn), "w") as f:
+                    f.write(content)
+                return True
+            orchestrator._write_project_file.side_effect = write_file_side_effect
+            mock_confirm.return_value = True
+            
+            phase = ProductOwnerPhase(orchestrator)
+            res = phase.run("Crear app NaturaMedics")
+            
+            assert res is True
+            import os
+            assert os.path.exists(os.path.join(temp_dir, "BACKLOG.json"))
+
+    @patch("core.llm_engine._call_llm_silent")
+    @patch("builtins.input")
+    def test_product_owner_interactive_feedback_loop(self, mock_input, mock_call_llm):
+        from core.state import JellyfishState
+        from core.project_orchestrator import ProjectOrchestrator
+        from core.orchestration.product_owner import ProductOwnerPhase
+        from unittest.mock import MagicMock
+        import tempfile
+        import os
+        import json
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = JellyfishState()
+            state.active_project = temp_dir
+            orchestrator = ProjectOrchestrator(state)
+            orchestrator.project_path = temp_dir
+            orchestrator._load_agent_prompt = MagicMock(return_value="Agent prompt text")
+            orchestrator._get_last_exit_code = MagicMock(return_value=0)
+            orchestrator._get_circuit_breaker_count = MagicMock(return_value=0)
+
+            # Silencio de refinamiento para que vaya directo a READY
+            mock_call_llm.return_value = "READY"
+
+            # 1. Entrada final del PO
+            # 2. Entrada del PO con el feedback integrado
+            backlog_v1 = (
+                "{\n"
+                '  "proyecto": "NaturaMedics",\n'
+                '  "vision": "Clinic app",\n'
+                '  "user_stories": [\n'
+                "    {\n"
+                '      "id": "US-001",\n'
+                '      "titulo": "US 1",\n'
+                '      "como": "User",\n'
+                '      "quiero": "Action",\n'
+                '      "para": "Benefit",\n'
+                '      "criterios_aceptacion": ["c1"],\n'
+                '      "contexto_rag_necesario": [],\n'
+                '      "definition_of_done": []\n'
+                "    }\n"
+                "  ]\n"
+                "}"
+            )
+            backlog_v2 = (
+                "{\n"
+                '  "proyecto": "NaturaMedics",\n'
+                '  "vision": "Clinic app con reportes",\n'
+                '  "user_stories": [\n'
+                "    {\n"
+                '      "id": "US-001",\n'
+                '      "titulo": "US 1",\n'
+                '      "como": "User",\n'
+                '      "quiero": "Action",\n'
+                '      "para": "Benefit",\n'
+                '      "criterios_aceptacion": ["c1"],\n'
+                '      "contexto_rag_necesario": [],\n'
+                '      "definition_of_done": []\n'
+                "    },\n"
+                "    {\n"
+                '      "id": "US-002",\n'
+                '      "titulo": "Reportes",\n'
+                '      "como": "User",\n'
+                '      "quiero": "Reportes",\n'
+                '      "para": "Track",\n'
+                '      "criterios_aceptacion": ["c2"],\n'
+                '      "contexto_rag_necesario": [],\n'
+                '      "definition_of_done": []\n'
+                "    }\n"
+                "  ]\n"
+                "}"
+            )
+            orchestrator._call_agent = MagicMock(side_effect=[backlog_v1, backlog_v2])
+
+            # El usuario escribe comentarios de feedback libre y luego aprueba con "y"
+            mock_input.side_effect = [
+                "Quiero un modulo de reportes extra",
+                "y"
+            ]
+
+            def write_file_side_effect(fn, content):
+                with open(os.path.join(temp_dir, fn), "w") as f:
+                    f.write(content)
+                return True
+            orchestrator._write_project_file = MagicMock(side_effect=write_file_side_effect)
+
+            phase = ProductOwnerPhase(orchestrator)
+            res = phase.run("Crear app NaturaMedics")
+
+            assert res is True
+            assert os.path.exists(os.path.join(temp_dir, "BACKLOG.json"))
+            with open(os.path.join(temp_dir, "BACKLOG.json"), "r") as f:
+                saved = json.load(f)
+            assert len(saved["user_stories"]) == 2
+            assert saved["user_stories"][1]["titulo"] == "Reportes"
+
+    @patch("core.llm_engine._call_llm_silent")
+    def test_scrum_master_auto_healing_mapping(self, mock_call_llm):
+        from core.state import JellyfishState
+        from core.project_orchestrator import ProjectOrchestrator
+        from core.orchestration.scrum_master import ScrumMasterPhase
+        from unittest.mock import MagicMock
+        import tempfile
+        import os
+        import json
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = JellyfishState()
+            state.active_project = temp_dir
+            state.active_agency = "development"
+            orchestrator = ProjectOrchestrator(state)
+            orchestrator.project_path = temp_dir
+            orchestrator._get_last_exit_code = MagicMock(return_value=0)
+
+            # Escribir un BACKLOG.json inválido (sin el campo obligatorio "proyecto")
+            invalid_backlog = (
+                "{\n"
+                '  "user_stories": [\n'
+                "    {\n"
+                '      "id": "US-001",\n'
+                '      "titulo": "US 1",\n'
+                '      "como": "User",\n'
+                '      "quiero": "Action",\n'
+                '      "para": "Benefit",\n'
+                '      "criterios_aceptacion": [],\n'
+                '      "contexto_rag_necesario": [],\n'
+                '      "definition_of_done": []\n'
+                "    }\n"
+                "  ]\n"
+                "}"
+            )
+            with open(os.path.join(temp_dir, "BACKLOG.json"), "w") as f:
+                f.write(invalid_backlog)
+
+            # Healed backlog (debe retornar cuando el SM haga Auto-Healing en el schema-check)
+            healed_backlog = (
+                "{\n"
+                '  "proyecto": "NaturaMedics",\n'
+                '  "vision": "Vision",\n'
+                '  "user_stories": [\n'
+                "    {\n"
+                '      "id": "US-001",\n'
+                '      "titulo": "US 1",\n'
+                '      "como": "User",\n'
+                '      "quiero": "Action",\n'
+                '      "para": "Benefit",\n'
+                '      "criterios_aceptacion": [],\n'
+                '      "contexto_rag_necesario": [],\n'
+                '      "definition_of_done": []\n'
+                "    }\n"
+                "  ]\n"
+                "}"
+            )
+
+            # Mockear la llamada del SM inicial que genera una tabla vacía o no mapea historias
+            initial_board = "## 📋 POR HACER (TODO)\n| ID | Tarea | Asignado | Estimación | Entregable | Dependencias |\n|---|---|---|---|---|---|\n"
+            orchestrator._call_agent = MagicMock(return_value=initial_board)
+
+            # Mockear _call_llm_silent:
+            # 1. Primer llamada: Auto-Healing de BACKLOG.json -> retorna healed_backlog
+            # 2. Segunda llamada: Auto-Healing del Tablero -> retorna tablero correcto
+            healed_board = (
+                "## 📋 POR HACER (TODO)\n"
+                "| ID | Tarea | Asignado | Estimación | Entregable | Dependencias |\n"
+                "|---|---|---|---|---|---|\n"
+                "| T-001 | Implementar login para US-001 | @backend_dev | M | src/login.py | Ninguna |\n"
+            )
+            mock_call_llm.side_effect = [
+                healed_backlog,  # Para backlog heal
+                healed_board     # Para board heal
+            ]
+
+            def write_file_side_effect(fn, content):
+                with open(os.path.join(temp_dir, fn), "w") as f:
+                    f.write(content)
+                return True
+            orchestrator._write_project_file = MagicMock(side_effect=write_file_side_effect)
+
+            phase = ScrumMasterPhase(orchestrator)
+            res = phase.run("Idea")
+
+            assert res is True
+            # Verificar que se guardó BACKLOG.json corregido
+            with open(os.path.join(temp_dir, "BACKLOG.json"), "r") as f:
+                saved_backlog = json.load(f)
+            assert saved_backlog.get("proyecto") == "NaturaMedics"
+
+            # Verificar que se escribió en jellyfish_debug.log
+            assert os.path.exists(os.path.join(temp_dir, "jellyfish_debug.log"))
+            with open(os.path.join(temp_dir, "jellyfish_debug.log"), "r") as f:
+                debug_log = f.read()
+            assert "[SCRUM MASTER SCHEMA CHECK ERROR" in debug_log
+            assert "[SCRUM MASTER MAPPING ERROR" in debug_log
+
+    def test_intent_translator_dictionary_match(self):
+        from core.state import JellyfishState
+        from core.translator import IntentTranslator
+        import tempfile
+        import os
+        import json
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = JellyfishState()
+            state.active_project = temp_dir
+            
+            # Crear diccionario inicial
+            initial_map = {"Crear Login": "[AUTH:LOGIN]"}
+            with open(os.path.join(temp_dir, "intent_map.json"), "w", encoding="utf-8") as f:
+                json.dump(initial_map, f)
+                
+            translator = IntentTranslator(state)
+            token = translator.translate("Crear Login")
+            assert token == "[AUTH:LOGIN]"
+
+    @patch("core.translator._call_llm_silent")
+    def test_intent_translator_synthesis_new_intent(self, mock_call_llm):
+        from core.state import JellyfishState
+        from core.translator import IntentTranslator
+        import tempfile
+        import os
+        import json
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = JellyfishState()
+            state.active_project = temp_dir
+            
+            mock_call_llm.return_value = "[DB:CONFIG]"
+            
+            translator = IntentTranslator(state)
+            token = translator.translate("Configurar base de datos")
+            
+            assert token == "[DB:CONFIG]"
+            # Verificar que se haya guardado en el archivo
+            with open(os.path.join(temp_dir, "intent_map.json"), "r", encoding="utf-8") as f:
+                saved_map = json.load(f)
+            assert saved_map["Configurar base de datos"] == "[DB:CONFIG]"
+            assert getattr(state, "new_intents")["Configurar base de datos"] == "[DB:CONFIG]"
+
+    @patch("core.translator._call_llm_silent")
+    @patch("builtins.input")
+    def test_intent_translator_ambiguity_refinement(self, mock_input, mock_call_llm):
+        from core.state import JellyfishState
+        from core.translator import IntentTranslator
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = JellyfishState()
+            state.active_project = temp_dir
+            
+            # 1. El traductor detecta ambigüedad -> retorna "AMBIGUOUS"
+            # 2. El bucle de refinamiento pregunta algo -> retorna una pregunta
+            # 3. El validador dice que es READY -> retorna "READY"
+            # 4. El traductor final traduce la idea refinada -> retorna el token "[SYS:COMPILE]"
+            mock_call_llm.side_effect = [
+                "AMBIGUOUS",
+                "What language does compile mean here?",
+                "READY",
+                "[SYS:COMPILE]"
+            ]
+            
+            # El usuario responde a la pregunta aclaratoria
+            mock_input.side_effect = ["Python compiler"]
+            
+            translator = IntentTranslator(state)
+            token = translator.translate("compilar")
+            
+            assert token == "[SYS:COMPILE]"
+
+    @patch("rich.prompt.Confirm.ask")
+    @patch("builtins.input")
+    def test_intent_translator_review_learned_intents(self, mock_input, mock_confirm):
+        from core.state import JellyfishState
+        from core.project_orchestrator import ProjectOrchestrator
+        import tempfile
+        import os
+        import json
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = JellyfishState()
+            state.active_project = temp_dir
+            state.new_intents = {"Crear Login": "[AUTH:LOGIN]"}
+            
+            # Escribir el map inicial
+            with open(os.path.join(temp_dir, "intent_map.json"), "w", encoding="utf-8") as f:
+                json.dump({"Crear Login": "[AUTH:LOGIN]"}, f)
+            
+            # El usuario no quiere mantenerlos sin cambios (Confirm.ask = False)
+            mock_confirm.return_value = False
+            # El usuario edita el token por "[SECURITY:LOGIN]"
+            mock_input.side_effect = ["[SECURITY:LOGIN]"]
+            
+            orchestrator = ProjectOrchestrator(state)
+            orchestrator.project_path = temp_dir
+            orchestrator._review_learned_intents()
+            
+            # Verificar que se guardó la edición del usuario en intent_map.json
+            with open(os.path.join(temp_dir, "intent_map.json"), "r", encoding="utf-8") as f:
+                saved_map = json.load(f)
+            assert saved_map["Crear Login"] == "[SECURITY:LOGIN]"
+            assert state.new_intents == {}
+
+
+
 
 
