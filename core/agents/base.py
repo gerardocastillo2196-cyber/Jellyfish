@@ -122,6 +122,10 @@ class BaseAgent(BaseModel):
             parts.append("\n## REGLAS INQUEBRANTABLES")
             for i, r in enumerate(self.rules, 1):
                 parts.append(f"{i}. {r}")
+            parts.append(f"{len(self.rules) + 1}. Si recibes un token compacto del 'Idioma Jellyfish' (ej. [DB:CONFIG]), ejecuta la acción asociada directamente sin solicitar explicación ni razonamiento verboso.")
+        else:
+            parts.append("\n## REGLAS INQUEBRANTABLES")
+            parts.append("1. Si recibes un token compacto del 'Idioma Jellyfish' (ej. [DB:CONFIG]), ejecuta la acción asociada directamente sin solicitar explicación ni razonamiento verboso.")
 
         return "\n".join(parts)
 

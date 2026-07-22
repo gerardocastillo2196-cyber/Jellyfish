@@ -1199,6 +1199,11 @@ class ProjectOrchestrator:
         except Exception as e:
             logger.warning("No se pudo ejecutar la retrospectiva autónoma: %s", e)
 
+        try:
+            self._review_learned_intents()
+        except Exception as e:
+            logger.warning("No se pudo ejecutar la revisión de vocabulario: %s", e)
+
         return self._generate_final_summary(user_idea, total_time)
 
     def _print_summary_table(self, total_time: float) -> None:
@@ -1569,3 +1574,51 @@ class ProjectOrchestrator:
         """Analiza DAILY.md y guarda aprendizajes en retrospective_rules.md para futuros sprints."""
         from core.orchestration.scrum_master import ScrumMasterPhase
         ScrumMasterPhase(self).run_retrospective()
+
+    def _review_learned_intents(self) -> None:
+        """Al final del sprint, pregunta al usuario si desea mantener o editar los nuevos tokens creados."""
+        new_intents = getattr(self.state, "new_intents", {})
+        if not new_intents:
+            return
+
+        console.print(f"\n[bold yellow]📖 REVISIÓN DE VOCABULARIO (Translator Aprendizaje)[/bold yellow]")
+        console.print(f"Se han creado {len(new_intents)} nuevos tokens de intención en este sprint:")
+        for idx, (nat, comp) in enumerate(new_intents.items(), 1):
+            console.print(f"  {idx}. '{nat}' -> {comp}")
+            
+        try:
+            from rich.prompt import Confirm
+            keep = Confirm.ask("\n¿Deseas mantener todos estos tokens sin cambios?", default=True)
+            if keep:
+                console.print("[green]✓ Tokens guardados permanentemente.[/green]")
+                self.state.new_intents = {}
+                return
+        except Exception:
+            self.state.new_intents = {}
+            return
+
+        # El usuario quiere editar o remover alguno
+        from core.translator import IntentTranslator
+        translator = IntentTranslator(self.state)
+        
+        for nat, comp in list(new_intents.items()):
+            console.print(f"\nToken: '{nat}' -> {comp}")
+            try:
+                action = input("Escribe el nuevo token corregido, o 'd' para eliminarlo, o presiona Enter para mantenerlo: ").strip()
+                if action.lower() == 'd':
+                    if nat in translator.intent_map:
+                        del translator.intent_map[nat]
+                    console.print(f"[red]✗ Eliminado.[/red]")
+                elif action:
+                    if not action.startswith("[") or not action.endswith("]"):
+                        action = f"[{action}]"
+                    translator.intent_map[nat] = action.upper()
+                    console.print(f"[green]✓ Actualizado a: {action.upper()}[/green]")
+                else:
+                    console.print("[dim]Manteniendo sin cambios.[/dim]")
+            except (KeyboardInterrupt, EOFError):
+                break
+                
+        translator._save_map()
+        self.state.new_intents = {}
+        console.print("[green]✓ Revisión de vocabulario completada.[/green]")

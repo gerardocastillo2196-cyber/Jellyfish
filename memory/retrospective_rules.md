@@ -863,3 +863,56 @@ NO implementes mecanismos de persistencia sensible, criptografía o manejo de cr
 ---
 
 Estas lecciones aprendidas y recomendaciones deberán ser incorporadas en futuros sprints para mejorar la eficiencia y calidad de los proyectos.
+
+---
+
+## Retrospectiva 2026-07-15 19:44
+
+# Lecciones Aprendidas y Reglas de Acción
+
+## 1. Qué Falló Durante el Sprint
+
+- **Error en la documentación:** El archivo de documentación estaba truncado, lo que indicaba que el proceso de configuración no había sido documentado completamente.
+- **Punto de entrada principal:** No se identificó el punto de entrada principal de la aplicación y no se definió el comando de ejecución local.
+
+## 2. Reglas Recomendadas (Negative Prompts o Mejores Directrices)
+
+1. **Documentación Completa:**
+   - **Regla:** Asegúrate de que todos los procesos de configuración, instalación y compilación estén completamente documentados en el archivo `README.md` y cualquier otro documento relevante.
+   - **Negative Prompt:** No permitir que la documentación sea incompleta o truncada.
+
+2. **Identificación del Punto de Entrada Principal:**
+   - **Regla:** Identifica claramente el punto de entrada principal de la aplicación y define el comando de ejecución local en los archivos de configuración.
+   - **Negative Prompt:** No permitir que el punto de entrada principal sea desconocido o que no se defina el comando de ejecución local.
+
+3. **Revisión y Aprobación:**
+   - **Regla:** Realiza una revisión exhaustiva de la documentación y los archivos de configuración antes de marcarlas como completadas.
+   - **Negative Prompt:** No marcar tareas como completas sin una revisión previa.
+
+4. **Comunicación Clara:**
+   - **Regla:** Comunica claramente cualquier impedimento o problema encontrado durante el sprint para que pueda ser abordado inmediatamente.
+   - **Negative Prompt:** Ignorar los problemas y seguir adelante sin resolverlos.
+
+5. **Seguimiento de Tareas:**
+   - **Regla:** Mantén un seguimiento constante de las tareas asignadas y asegúrate de que se completan todas las tareas programadas.
+   - **Negative Prompt:** Dejar tareas incompletas o pendientes sin resolver.
+
+6. **Pruebas Iniciales:**
+   - **Regla:** Realiza pruebas iniciales para verificar que la instalación y compilación sean exitosas antes de avanzar a las siguientes etapas.
+   - **Negative Prompt:** Ignorar las pruebas iniciales y pasar directamente a los pasos posteriores.
+
+7. **Revisión de Código:**
+   - **Regla:** Realiza una revisión de código exhaustiva para asegurarte de que no haya errores o problemas de compilación.
+   - **Negative Prompt:** Ignorar los errores de compilación y seguir adelante con la tarea.
+
+8. **Documentación de Requisitos:**
+   - **Regla:** Documenta claramente todos los requisitos del sistema en el archivo `ARCHITECTURE.md` para evitar confusiones posteriores.
+   - **Negative Prompt:** No documentar los requisitos del sistema o documentarlos incompletamente.
+
+9. **Pruebas de Integración:**
+   - **Regla:** Realiza pruebas de integración para asegurarte de que todos los componentes funcionen correctamente juntos.
+   - **Negative Prompt:** Ignorar las pruebas de integración y seguir adelante con la tarea.
+
+10. **Revisión Final:**
+    - **Regla:** Realiza una revisión final del proyecto antes de marcar el sprint como completo para asegurarte de que no haya errores o problemas.
+    - **Negative Prompt:** Ignorar la revisión final y marcar el sprint como completo sin verificar los resultados.

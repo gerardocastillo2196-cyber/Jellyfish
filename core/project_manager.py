@@ -123,3 +123,48 @@ def enable_project_auto_approve(state) -> None:
             json.dump(data, f, indent=4)
     except Exception as e:
         logger.error("Error guardando auto-aprobación del proyecto: %s", e)
+
+def get_environment_and_dependencies_summary(state) -> str:
+    """Genera un resumen inmutable del estado del contenedor y las dependencias reales del proyecto."""
+    summary_parts = ["### [ESTADO DEL CONTENEDOR Y DEPENDENCIAS DE REFERENCIA (CONTEXTO INMUTABLE)]"]
+    
+    if not state or not getattr(state, "active_project", None):
+        summary_parts.append("No hay proyecto activo seleccionado.")
+        return "\n".join(summary_parts)
+
+    project_path = state.active_project
+    
+    # 1. Capacidades del entorno (Environment Probe)
+    cap_path = os.path.join(project_path, "env_capabilities.json")
+    if os.path.isfile(cap_path):
+        try:
+            import json
+            with open(cap_path, "r", encoding="utf-8") as f:
+                caps = json.load(f)
+            summary_parts.append("\n#### Versiones de Herramientas del Entorno:")
+            for k, v in caps.items():
+                summary_parts.append(f"- {k}: {v}")
+        except Exception:
+            pass
+            
+    # 2. Leer dependencias reales
+    dep_files = ["requirements.txt", "package.json", "go.mod", "Dockerfile", "docker-compose.yml", "docker-compose.yaml"]
+    found_deps = False
+    for dep_file in dep_files:
+        dep_path = os.path.join(project_path, dep_file)
+        if os.path.isfile(dep_path):
+            found_deps = True
+            try:
+                with open(dep_path, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read().strip()
+                # Truncar si es muy largo para no saturar contexto
+                if len(content) > 1500:
+                    content = content[:1500] + "\n... [TRUNCADO POR ESPACIO]"
+                summary_parts.append(f"\n#### Contenido de `{dep_file}`:")
+                summary_parts.append(f"```\n{content}\n```")
+            except Exception:
+                pass
+    if not found_deps:
+        summary_parts.append("\nNo se encontraron manifiestos de dependencias ni archivos de construcción en el directorio del proyecto.")
+        
+    return "\n".join(summary_parts)

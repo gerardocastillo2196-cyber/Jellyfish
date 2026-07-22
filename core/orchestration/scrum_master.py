@@ -55,6 +55,111 @@ class ScrumMasterPhase:
     def __init__(self, orchestrator):
         self.orchestrator = orchestrator
 
+    def _validate_and_heal_backlog(self, backlog_content: str) -> str:
+        """Valida BACKLOG.json contra el esquema estricto y realiza Auto-Healing si falla."""
+        import json
+        import re
+        from datetime import datetime
+        
+        is_valid = True
+        try:
+            data = json.loads(backlog_content)
+            if not isinstance(data, dict):
+                is_valid = False
+            else:
+                if "proyecto" not in data or "vision" not in data or "user_stories" not in data:
+                    is_valid = False
+                elif not isinstance(data.get("user_stories"), list):
+                    is_valid = False
+                else:
+                    for us in data["user_stories"]:
+                        if not isinstance(us, dict):
+                            is_valid = False
+                            break
+                        for f in ("id", "titulo", "como", "quiero", "para"):
+                            if f not in us or not isinstance(us[f], str):
+                                is_valid = False
+                                break
+                        for f in ("criterios_aceptacion", "contexto_rag_necesario", "definition_of_done"):
+                            if f not in us or not isinstance(us[f], list):
+                                is_valid = False
+                                break
+                        if not is_valid:
+                            break
+        except Exception:
+            is_valid = False
+
+        if is_valid:
+            return backlog_content
+
+        # Loguear en jellyfish_debug.log el JSON exacto
+        debug_log_path = os.path.join(self.orchestrator.project_path, "jellyfish_debug.log")
+        log_msg = (
+            f"\n\n[SCRUM MASTER SCHEMA CHECK ERROR - {datetime.now().isoformat()}]\n"
+            f"El archivo BACKLOG.json falló la validación del esquema estricto.\n"
+            f"JSON exacto que intentó procesar:\n"
+            f"{backlog_content}\n"
+            f"--------------------------------------------------\n"
+        )
+        try:
+            with open(debug_log_path, "a", encoding="utf-8") as f:
+                f.write(log_msg)
+        except Exception as log_err:
+            logger.warning("No se pudo escribir en jellyfish_debug.log: %s", log_err)
+
+        console.print("[yellow]⚠ BACKLOG.json no cumple con el esquema estricto. Iniciando Auto-Healing del Backlog...[/yellow]")
+        
+        # Llamar silenciosamente a LLM
+        from core.llm_engine import _call_llm_silent
+        heal_system = (
+            "Eres un Scrum Master experto. El archivo BACKLOG.json del proyecto no cumple con el esquema estricto requerido.\n"
+            "Debes corregir y transformar el JSON para que coincida exactamente con el siguiente formato:\n"
+            "{\n"
+            '  "proyecto": "Nombre del proyecto (string)",\n'
+            '  "vision": "Visión general (string)",\n'
+            '  "user_stories": [\n'
+            "    {\n"
+            '      "id": "US-001 (string)",\n'
+            '      "titulo": "Título (string)",\n'
+            '      "como": "Rol (string)",\n'
+            '      "quiero": "Acción (string)",\n'
+            '      "para": "Beneficio (string)",\n'
+            '      "criterios_aceptacion": ["Criterio 1"] (list of strings),\n'
+            '      "contexto_rag_necesario": ["Ruta sugerida"] (list of strings),\n'
+            '      "definition_of_done": ["DoD 1"] (list of strings)\n'
+            "    }\n"
+            "  ]\n"
+            "}\n\n"
+            "Tu ÚNICO entregable es el JSON corregido y sanitizado. No devuelvas explicaciones ni texto markdown fuera del JSON."
+        )
+        heal_messages = [
+            {"role": "system", "content": heal_system},
+            {"role": "user", "content": f"CONTENIDO PROBLEMÁTICO:\n{backlog_content}"}
+        ]
+        
+        healed_result = _call_llm_silent(
+            self.orchestrator.state,
+            heal_messages,
+            provider=self.orchestrator.state.provider,
+            model=self.orchestrator.state.model
+        )
+        if healed_result:
+            json_clean = healed_result.strip()
+            match = re.search(r'\{.*\}', json_clean, re.DOTALL)
+            if match:
+                json_clean = match.group(0)
+            try:
+                # Validar el healed JSON
+                json.loads(json_clean)
+                self.orchestrator._write_project_file("BACKLOG.json", json_clean)
+                console.print("[green]✓ Auto-Healing exitoso. BACKLOG.json corregido.[/green]")
+                return json_clean
+            except Exception:
+                pass
+                
+        console.print("[red]❌ Falló el Auto-Healing del BACKLOG.json. Continuando con el backlog existente.[/red]")
+        return backlog_content
+
     def run(self, user_idea: str) -> bool:
         """SM escanea agentes, arma equipo y genera el tablero correspondiente a la agencia."""
         console.print(f"\n━━━ FASE 2: 📋 Scrum Master (Team Assembly - Agencia: {self.orchestrator.state.active_agency.upper()}) ━━━")
@@ -76,6 +181,8 @@ class ScrumMasterPhase:
 
         # FASE 2: Leer BACKLOG.json si existe, si no, caer a BACKLOG.md
         backlog_json = self.orchestrator._read_project_file("BACKLOG.json")
+        if backlog_json:
+            backlog_json = self._validate_and_heal_backlog(backlog_json)
         backlog = backlog_json if backlog_json else self.orchestrator._read_project_file("BACKLOG.md")
         
         agent_prompt = self.orchestrator._load_agent_prompt("scrum_master")
@@ -146,9 +253,86 @@ class ScrumMasterPhase:
 
         # Mostrar equipo seleccionado y guardar tablero en formato JSON (Mejora 11)
         tasks = _parse_sprint_tasks(result)
+        
+        # Validar mapeo de historias del Backlog
+        import json
+        import re
+        user_stories = []
+        try:
+            backlog_data = json.loads(backlog)
+            user_stories = backlog_data.get("user_stories", [])
+        except Exception:
+            pass
+
+        unmapped_stories = []
+        if user_stories:
+            for us in user_stories:
+                us_id = us.get("id", "")
+                if not us_id:
+                    continue
+                found = False
+                for t in tasks:
+                    if us_id.lower() in t.get("task", "").lower() or us_id.lower() in t.get("id", "").lower():
+                        found = True
+                        break
+                if not found:
+                    unmapped_stories.append(us_id)
+
+        # Si no hay tareas o hay historias de usuario sin mapear, iniciamos Auto-Healing
+        if not tasks or unmapped_stories:
+            # 1. Loggear en jellyfish_debug.log el JSON exacto de BACKLOG
+            debug_log_path = os.path.join(self.orchestrator.project_path, "jellyfish_debug.log")
+            log_msg = (
+                f"\n\n[SCRUM MASTER MAPPING ERROR - {datetime.now().isoformat()}]\n"
+                f"No se pudieron mapear las historias de usuario al SPRINT_BOARD.md.\n"
+                f"Historias no mapeadas: {unmapped_stories}\n"
+                f"Tareas detectadas inicialmente: {len(tasks)}\n"
+                f"JSON exacto del backlog recibido:\n"
+                f"{backlog}\n"
+                f"--------------------------------------------------\n"
+            )
+            try:
+                with open(debug_log_path, "a", encoding="utf-8") as f:
+                    f.write(log_msg)
+            except Exception as log_err:
+                logger.warning("No se pudo escribir en jellyfish_debug.log: %s", log_err)
+
+            console.print("[yellow]⚠ Scrum Master detectó historias no mapeadas o tabla vacía. Iniciando Auto-Healing del Tablero...[/yellow]")
+            
+            # Auto-Healing: transformar la estructura JSON de forma que coincida con el formato del SPRINT_BOARD.md
+            from core.llm_engine import _call_llm_silent
+            heal_system = (
+                f"Eres el Scrum Master de Jellyfish OS.\n"
+                f"Tu tarea es realizar un Auto-Healing del SPRINT_BOARD.md. Debes asegurar que TODAS las historias del Backlog "
+                f"estén mapeadas a tareas técnicas concretas en la tabla de Markdown.\n\n"
+                f"EQUIPO DISPONIBLE:\n{agents_catalog}\n\n"
+                f"FORMATO REQUERIDO DE TABLA:\n"
+                f"## 📋 POR HACER (TODO)\n"
+                f"| ID | Tarea | Asignado | Estimación | Entregable | Dependencias |\n"
+                f"|---|---|---|---|---|---|\n"
+                f"| T-001 | [Detalle técnico para US-001] | @agente | M | archivo_de_salida | Dependencia |\n\n"
+                f"Genera la tabla completa de SPRINT_BOARD.md mapeando de forma segura cada una de las historias."
+                f"Devuelve ÚNICAMENTE el Markdown con la tabla y su especificación de tareas."
+            )
+            heal_messages = [
+                {"role": "system", "content": heal_system},
+                {"role": "user", "content": f"BACKLOG:\n{backlog}\n\nTABLERO ANTERIOR GENERADO:\n{result}"}
+            ]
+            healed_board = _call_llm_silent(
+                self.orchestrator.state,
+                heal_messages,
+                provider=self.orchestrator.state.provider,
+                model=self.orchestrator.state.model
+            )
+            if healed_board:
+                result = healed_board
+                self.orchestrator._write_project_file(target_board, result)
+                tasks = _parse_sprint_tasks(result)
+                console.print("[green]✓ Auto-Healing del Tablero completado con éxito.[/green]")
+
         if not tasks:
-            self.orchestrator.metrics.append({"fase": "📋 Scrum Master", "detalle": "ERROR — No se encontraron tareas", "tiempo": elapsed, "status": "❌"})
-            console.print(f"❌ Error: El Scrum Master no pudo generar tareas válidas en {target_board}.")
+            self.orchestrator.metrics.append({"fase": "📋 Scrum Master", "detalle": "ERROR — No se encontraron tareas tras Auto-Healing", "tiempo": elapsed, "status": "❌"})
+            console.print(f"❌ Error: El Scrum Master no pudo generar tareas válidas en {target_board} incluso tras Auto-Healing.")
             return False
 
         # Sprint 13 — Resolver asignaciones @autodetect programáticamente (Python puro, 0 tokens)

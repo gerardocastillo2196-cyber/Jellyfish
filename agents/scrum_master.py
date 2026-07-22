@@ -52,6 +52,9 @@ class ScrumMasterAgent(BaseAgent):
                     "Comunicación entre Agentes: Toda comunicación se documenta en DAILY.md "
                     "con formato: [FECHA] [@AGENTE] — Mensaje."
                 ),
+                (
+                    "PROHIBIDO documentar stacks tecnológicos, arquitecturas o tareas sin antes leer y parsear los archivos de dependencias reales (Dockerfile, requirements.txt, package.json, go.mod, etc.). La documentación debe ser un reflejo exacto del código existente, no de suposiciones."
+                ),
             ],
             rules=[
                 "NUNCA sobreescribas un archivo Scrum sin leerlo primero. Siempre lee → modifica → escribe.",

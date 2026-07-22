@@ -106,13 +106,14 @@ class TaskRunnerPhase:
                 console.print(f"       ⚠️ Tarea {task_id_str} bloqueada/saltada esperando a que sus dependencias se completen.")
                 continue
 
-            # Omitir tareas completadas si estamos reanudando
-            if task.get("status") in ("DONE", "HECHO") or task.get("state") in ("DONE", "HECHO"):
+            # Omitir tareas completadas o fallidas si estamos reanudando
+            if task.get("status") in ("DONE", "HECHO", "FAILED") or task.get("state") in ("DONE", "HECHO", "FAILED"):
+                status_lbl = "YA COMPLETADO" if task.get("status") in ("DONE", "HECHO") else "MARCADA COMO FALLIDA"
                 console.print(
                     f"[bold green]  [{task_num}/{len(tasks)}] {task_id_str}:[/bold green] "
-                    f"[dim]YA COMPLETADO (Saltando ejecución)[/dim]"
+                    f"[dim]{status_lbl} (Saltando ejecución)[/dim]"
                 )
-                self.orchestrator.state.blackboard.set(f"task_status_{task_id_str}", "completed")
+                self.orchestrator.state.blackboard.set(f"task_status_{task_id_str}", "completed" if "COMPLETADO" in status_lbl else "failed")
                 continue
 
             # FASE 4: Bucle de Retroalimentación Autónoma (Auto-Retry)
@@ -264,20 +265,29 @@ class TaskRunnerPhase:
                     )
                     system = system + infra_validation_prompt
 
+                last_task_result = ""
+                task_elapsed = 0.0
+                feedback = ""
+                short_desc = f"Tarea {task_id_str}: {task_desc[:40]}..."
+
                 # Lazo de compilación y depuración
                 max_attempts = 5
                 build_cmd = self.orchestrator._detect_compile_command()
+
+                # Hook pre-flight check para ARCHITECTURE.md y JELLYFISH_HISTORY.md
+                is_modifying_target_docs = (
+                    output_file.lower() in ("architecture.md", "jellyfish_history.md") or
+                    any(doc in task_desc.lower() for doc in ("architecture.md", "jellyfish_history.md"))
+                )
+                if is_modifying_target_docs:
+                    from core.project_manager import get_environment_and_dependencies_summary
+                    summary_context = get_environment_and_dependencies_summary(self.orchestrator.state)
+                    system = system + "\n\n" + summary_context
 
                 base_messages = [
                     {"role": "system", "content": system},
                     {"role": "user", "content": user_prompt}
                 ]
-
-                last_task_result = ""
-                task_elapsed = 0.0
-                feedback = ""
-                
-                short_desc = f"Tarea {task_id_str}: {task_desc[:40]}..."
 
                 try:
                     with TaskProgress(tui_engine, f"auto_task_{i}", short_desc, agent=agent_name) as progress:
@@ -529,8 +539,51 @@ class TaskRunnerPhase:
                             "status": "❌",
                         })
 
-                        # Solicitar intervención manual
-                        input("\n⚠️ Flujo autónomo bloqueado. Presiona Enter para intervención manual en la TUI...")
+                        # Sentinel Interactive Pause (SIP)
+                        self.orchestrator.state.set_pipeline_status("PIPELINE_PAUSED", {
+                            "task_id": task_id_str,
+                            "agent_name": agent_name,
+                            "error_log": last_error_log,
+                            "task_desc": original_task_desc,
+                            "output_file": output_file
+                        })
+                        
+                        from core.agency_orchestrator import AgencyOrchestrator
+                        ceo = AgencyOrchestrator(self.orchestrator.state)
+                        ceo.run_sentinel_session()
+                        
+                        # Si el usuario resolvió la pausa (ej. retrying con nuevas instrucciones, o salteando)
+                        if not self.orchestrator.state.is_pipeline_paused():
+                            import json
+                            json_filename = self.orchestrator.board_filename.replace(".md", ".json")
+                            json_path = os.path.join(self.orchestrator.project_path, json_filename)
+                            if os.path.isfile(json_path):
+                                try:
+                                    with open(json_path, "r", encoding="utf-8") as f:
+                                        updated_tasks = json.load(f)
+                                    for ut in updated_tasks:
+                                        if ut.get("id") == task_id_str:
+                                            task_desc = ut.get("task")
+                                            task["task"] = task_desc
+                                            task["status"] = ut.get("status")
+                                            task["state"] = ut.get("state")
+                                            break
+                                    
+                                    # Si la tarea fue marcada como DONE o FAILED
+                                    if task.get("status") in ("DONE", "HECHO", "FAILED") or task.get("state") in ("DONE", "HECHO", "FAILED"):
+                                        if task.get("status") == "FAILED" or task.get("state") == "FAILED":
+                                            self.orchestrator.state.blackboard.set(f"task_status_{task_id_str}", "failed")
+                                        else:
+                                            self.orchestrator.state.blackboard.set(f"task_status_{task_id_str}", "completed")
+                                        break
+                                except Exception:
+                                    pass
+                            
+                            # Si se seleccionó reintentar (sigue en TODO)
+                            task_retries = 0
+                            continue
+                        
+                        # Si sigue pausado por alguna razón (aborto), detenemos la ejecución
                         return
 
             if use_microbranch and success_task:

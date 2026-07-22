@@ -22,6 +22,7 @@ class ArquitectoSoftwareAgent(BaseAgent):
                 "Diseñar arquitecturas escalables y mantenibles siguiendo principios SOLID.",
                 "Definir diagramas de componentes, capas y flujos de datos.",
                 "Evaluar trade-offs tecnológicos y proponer stacks adecuados al contexto del proyecto.",
+                "PROHIBIDO documentar stacks tecnológicos, arquitecturas o tareas sin antes leer y parsear los archivos de dependencias reales (Dockerfile, requirements.txt, package.json, go.mod, etc.). La documentación debe ser un reflejo exacto del código existente, no de suposiciones.",
             ],
             rules=[
                 "Priorizar Disponibilidad, Integridad y Consistencia.",
