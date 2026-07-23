@@ -49,6 +49,23 @@ logging.getLogger("httpx").setLevel(logging.ERROR)
 logging.getLogger("httpcore").setLevel(logging.ERROR)
 logging.getLogger("asyncio").setLevel(logging.ERROR)
 
+
+def _purge_stale_log_backups():
+    """Elimina todos los archivos de log rotativos (jellyfish.log.1, .2, .3, ...).
+
+    Deja únicamente el log principal activo.
+    """
+    import glob
+    pattern = os.path.join(AGENCY_DIR, "jellyfish.log.*")
+    for path in glob.glob(pattern):
+        try:
+            os.remove(path)
+            logging.getLogger("jellyfish").info("Purged log backup: %s", os.path.basename(path))
+        except OSError:
+            pass
+
+_purge_stale_log_backups()
+
 from prompt_toolkit import PromptSession
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.completion import Completer, Completion
@@ -271,6 +288,121 @@ def refresh_header(force=False):
     )
 
 
+def _sentinel_forensic_boot_scan(state):
+    """Boot Hook Forense: escanea el directorio en busca de artefactos de colapso
+    (jellyfish_error_report_*.md, jellyfish_debug.log) de sesiones anteriores.
+
+    Si se encuentran, muestra una alerta visual rich al usuario y ofrece un menú
+    interactivo para revisar, ignorar o borrar los archivos forenses.
+
+    No invoca al LLM ni al agente @Sentinel directamente — es una función ligera
+    de detección y reporte que se ejecuta antes de que el LLM esté disponible.
+    """
+    import glob
+    from rich.panel import Panel
+    from rich.markdown import Markdown
+
+    forensic_files = []
+
+    # Escanear reportes de error
+    error_reports = glob.glob(os.path.join(AGENCY_DIR, "jellyfish_error_report_*.md"))
+    forensic_files.extend(error_reports)
+
+    # Escanear debug log
+    debug_log = os.path.join(AGENCY_DIR, "jellyfish_debug.log")
+    if os.path.isfile(debug_log) and os.path.getsize(debug_log) > 0:
+        forensic_files.append(debug_log)
+
+    # Escanear también en el proyecto activo si está configurado
+    if state.active_project and os.path.isdir(state.active_project):
+        proj_error_reports = glob.glob(os.path.join(state.active_project, "jellyfish_error_report_*.md"))
+        forensic_files.extend(proj_error_reports)
+
+        proj_debug_log = os.path.join(state.active_project, "jellyfish_debug.log")
+        if os.path.isfile(proj_debug_log) and os.path.getsize(proj_debug_log) > 0:
+            forensic_files.append(proj_debug_log)
+
+    # Deduplicar (por si AGENCY_DIR == active_project)
+    forensic_files = list(dict.fromkeys(forensic_files))
+
+    if not forensic_files:
+        return
+
+    # Construir resumen de archivos encontrados
+    file_list_md = ""
+    for fp in forensic_files:
+        basename = os.path.basename(fp)
+        size_kb = os.path.getsize(fp) / 1024
+        file_list_md += f"- `{basename}` ({size_kb:.1f} KB)\n"
+
+    console.print(Panel(
+        Markdown(
+            f"### 🛡️ @Sentinel — Análisis Forense de Arranque\n\n"
+            f"Se detectaron **{len(forensic_files)}** artefacto(s) de colapso de sesiones anteriores:\n\n"
+            f"{file_list_md}\n"
+            f"Estos archivos contienen trazas de errores y diagnósticos que pueden ayudar "
+            f"a identificar la causa del último fallo del sistema."
+        ),
+        title="[bold yellow]⚠️ ARTEFACTOS FORENSES DETECTADOS[/bold yellow]",
+        border_style="yellow"
+    ))
+
+    console.print("\n[bold yellow]Opciones:[/bold yellow]")
+    console.print("  [1] Ver el contenido de los reportes.")
+    console.print("  [2] Ignorar y continuar con el arranque normal.")
+    console.print("  [3] Borrar todos los archivos forenses y continuar.")
+
+    try:
+        choice = input("\n✍ Elige una opción [1-3] > ").strip()
+    except (KeyboardInterrupt, EOFError):
+        console.print("[dim]Continuando con el arranque normal...[/dim]")
+        return
+
+    if choice == "1":
+        for fp in forensic_files:
+            basename = os.path.basename(fp)
+            console.print(f"\n[bold cyan]{'─' * 60}[/bold cyan]")
+            console.print(f"[bold cyan]📄 {basename}[/bold cyan]")
+            console.print(f"[bold cyan]{'─' * 60}[/bold cyan]")
+            try:
+                with open(fp, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read(5000)  # Limitar a 5KB para no saturar la pantalla
+                if len(content) >= 5000:
+                    content += "\n\n[... TRUNCADO — archivo completo disponible en disco ...]"
+                console.print(Markdown(content))
+            except OSError as e:
+                console.print(f"[red]Error al leer {basename}: {e}[/red]")
+
+        console.print(f"\n[bold yellow]{'─' * 60}[/bold yellow]")
+        console.print("[bold yellow]¿Qué deseas hacer ahora?[/bold yellow]")
+        console.print("  [1] Borrar los archivos forenses y continuar.")
+        console.print("  [2] Conservar los archivos y continuar.")
+        try:
+            sub_choice = input("✍ Elige una opción [1-2] > ").strip()
+        except (KeyboardInterrupt, EOFError):
+            sub_choice = "2"
+
+        if sub_choice == "1":
+            for fp in forensic_files:
+                try:
+                    os.remove(fp)
+                except OSError:
+                    pass
+            console.print("[green]✓ Archivos forenses eliminados.[/green]")
+        else:
+            console.print("[dim]Archivos conservados. Continuando con el arranque...[/dim]")
+
+    elif choice == "3":
+        for fp in forensic_files:
+            try:
+                os.remove(fp)
+            except OSError:
+                pass
+        console.print("[green]✓ Archivos forenses eliminados. Continuando con el arranque...[/green]")
+    else:
+        console.print("[dim]Continuando con el arranque normal...[/dim]")
+
+
 def main():
     """Bucle principal de Jellyfish con TUI integrada.
 
@@ -282,7 +414,8 @@ def main():
     # --- Inicializar motor TUI ---
     tui_engine.init_terminal()
 
-
+    # --- Boot Hook Forense: Sentinel ---
+    _sentinel_forensic_boot_scan(state)
 
     # Renderizar header inicial
     refresh_header(force=True)
@@ -383,8 +516,9 @@ def main():
     finally:
         # Restaurar la terminal al salir
         tui_engine.restore_terminal()
-        from core.ui import handle_exit_flow
+        from core.ui import handle_exit_flow, sync_readme_on_exit
         handle_exit_flow(state)
+        sync_readme_on_exit(state)
         console.print("[bold purple]🪼 Jellyfish desconectado. Hasta pronto.[/bold purple]")
 
 

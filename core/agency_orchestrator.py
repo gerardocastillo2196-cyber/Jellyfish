@@ -137,15 +137,15 @@ class AgencyOrchestrator(BaseOrchestrator):
             console.print("  [2] Ignorar este error y marcar tarea como [FAILED].")
             console.print("  [3] Modificar código manualmente (abrir editor).")
             console.print("  [4] Modificar el System Prompt del agente encargado de esta tarea.")
-            console.print("  [exit] Salir de Jellyfish.")
+            console.print("  [5] Salir de Jellyfish (o escribe 'exit').")
             console.print("=" * 80)
             
             try:
-                choice = input("✍ Elige una opción > ").strip().lower()
+                choice = input("✍ Elige una opción [1-5] > ").strip().lower()
             except (KeyboardInterrupt, EOFError):
                 return "Intervención de Sentinel abortada por señal del terminal."
 
-            if choice == "exit":
+            if choice in ("5", "exit", "salir", "q", "quit"):
                 import sys
                 console.print("[bold purple]🪼 Jellyfish desconectado. Hasta pronto.[/bold purple]")
                 sys.exit(0)
@@ -185,7 +185,7 @@ class AgencyOrchestrator(BaseOrchestrator):
                     console.print("[yellow]Instrucciones vacías. Retornando al menú...[/yellow]")
                     continue
 
-            elif choice == "2":
+            elif choice in ("2", "ignorar", "ignore", "failed", "f"):
                 self.update_task_in_board(task_id, new_status="FAILED")
                 self.state.set_pipeline_status("OK")
                 self.state.load_agent("default")

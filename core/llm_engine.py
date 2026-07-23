@@ -289,7 +289,7 @@ def _parse_ollama_line(line_bytes: bytes) -> str:
     return ""
 
 
-def _prepare_payload(provider_name: str, url: str, model_name: str, messages: list, attempt: int = 1, state = None) -> dict:
+def _prepare_payload(provider_name: str, url: str, model_name: str, messages: list, attempt: int = 1, state = None, json_mode: bool = False, temperature: float | None = None) -> dict:
     is_cloud = provider_name != "ollama"
     is_native_anthropic = (provider_name == "claude" and "api.anthropic.com" in url)
 
@@ -314,8 +314,13 @@ def _prepare_payload(provider_name: str, url: str, model_name: str, messages: li
         "model": model_name,
         "stream": True,
     }
+    if json_mode:
+        if provider_name == "ollama":
+            payload["format"] = "json"
+        elif not is_native_anthropic:
+            payload["response_format"] = {"type": "json_object"}
     if is_cloud:
-        payload["temperature"] = max(0.0, 0.2 - 0.05 * (attempt - 1))
+        payload["temperature"] = temperature if temperature is not None else max(0.0, 0.2 - 0.05 * (attempt - 1))
     else:
         limit = getattr(state, "local_context_limit", 4096) if state is not None else 4096
         if not isinstance(limit, int):
@@ -326,7 +331,7 @@ def _prepare_payload(provider_name: str, url: str, model_name: str, messages: li
         
         payload["options"] = {
             "num_ctx": actual_num_ctx,
-            "temperature": max(0.0, 0.2 - 0.05 * (attempt - 1)),
+            "temperature": temperature if temperature is not None else max(0.0, 0.2 - 0.05 * (attempt - 1)),
         }
 
     # Consolidar todos los mensajes de sistema en uno solo para evitar alucinaciones
@@ -373,6 +378,8 @@ def _call_llm_silent(
     provider: str | None = None,
     model: str | None = None,
     timeout: float | None = None,
+    json_mode: bool = False,
+    temperature: float | None = None,
 ) -> str | None:
     """Llama al LLM sin mostrar streaming en pantalla (para subagentes internos).
 
@@ -387,6 +394,18 @@ def _call_llm_silent(
     url, headers = _get_provider_config(state, provider_name)
     is_cloud = provider_name != "ollama"
     model_name = model or state.model
+
+    # Si la cuota de la nube está en período de enfriamiento (cooldown activa por 429), enrutar directamente a Ollama
+    if is_cloud and getattr(state, "gemini_cooldown_until", 0) > time.time():
+        logger.info("Enfriamiento por cuota 429 activo en %s. Enrutando llamada directamente a Ollama.", provider_name)
+        try:
+            return _call_llm_silent(
+                state, messages, provider="ollama",
+                model=getattr(state, "ollama_model", "deepseek-r1:8b"),
+                timeout=timeout, json_mode=json_mode, temperature=temperature
+            )
+        except Exception as cooldown_err:
+            logger.warning("Fallback directo a Ollama por cooldown falló: %s", cooldown_err)
 
     # --- Caché L1 por turno: evitar llamadas duplicadas con los mismos mensajes ---
     import hashlib as _hashlib
@@ -410,7 +429,7 @@ def _call_llm_silent(
         actual_timeout = timeout
 
     for attempt in range(1, max_attempts + 1):
-        payload = _prepare_payload(provider_name, url, model_name, messages, attempt, state=state)
+        payload = _prepare_payload(provider_name, url, model_name, messages, attempt, state=state, json_mode=json_mode, temperature=temperature)
         try:
             full = ""
             parse_fn = (
@@ -424,10 +443,26 @@ def _call_llm_silent(
             # el status code, y luego procesamos el stream solo si es 200.
             # Esto evita el bug donde `continue` no escapaba del context manager.
             should_retry = False
+            retry_delay_suggested = None
+            is_rate_limit = False
             with client.stream("POST", url, headers=headers, json=payload, timeout=actual_timeout) as response:
-                if response.status_code == 429 or (500 <= response.status_code < 600):
+                if response.status_code == 429:
                     should_retry = True
-                    # Consumir el body para liberar la conexión
+                    is_rate_limit = True
+                    try:
+                        resp_bytes = response.read()
+                        resp_text = resp_bytes.decode("utf-8", errors="ignore")
+                        # Extraer sugerencia de reintento de Gemini "Please retry in X.Xs" o cabecera Retry-After
+                        match_delay = re.search(r'retry in ([0-9\.]+)s', resp_text, re.IGNORECASE)
+                        if match_delay:
+                            retry_delay_suggested = float(match_delay.group(1)) + 1.0
+                        else:
+                            # Si Gemini no especifica segundos exactos, pausar 60s hasta que la cuota por minuto se restablezca
+                            retry_delay_suggested = 60.0
+                    except Exception:
+                        retry_delay_suggested = 60.0
+                elif 500 <= response.status_code < 600:
+                    should_retry = True
                     try:
                         response.read()
                     except Exception:
@@ -436,7 +471,7 @@ def _call_llm_silent(
                     logger.warning(
                         "_call_llm_silent HTTP %s de %s", response.status_code, provider_name
                     )
-                    return None
+                    break
                 else:
                     # Status 200 — procesar stream normalmente
                     for line in response.iter_lines():
@@ -448,15 +483,23 @@ def _call_llm_silent(
 
             # Evaluar resultado FUERA del context manager del stream
             if should_retry:
-                delay = initial_delay * (backoff_factor ** (attempt - 1))
-                logger.warning(
-                    "_call_llm_silent HTTP retryable de %s. Reintentando en %.1fs (Intento %d/%d)...",
-                    provider_name, delay, attempt, max_attempts
-                )
+                delay = retry_delay_suggested if retry_delay_suggested else initial_delay * (backoff_factor ** (attempt - 1))
+                if is_rate_limit:
+                    setattr(state, "gemini_cooldown_until", time.time() + 120.0)
+                    if attempt >= 2:
+                        console.print("\n[yellow]⚠️ Cuota de Gemini (429) persistente. Conmutando a Ollama de inmediato...[/yellow]")
+                        logger.warning("Cuota Gemini 429 persistente tras 2 intentos. Activando cooldown de 2 min...")
+                        break
+                    console.print(f"\n[yellow]⏳ Límite de peticiones (RPM) en Gemini alcanzado. Pausando {delay:.0f}s para restaurar cuota...[/yellow]")
+                    logger.warning("Cuota Gemini 429 excedida. Pausando %.1fs (Intento %d/%d)...", delay, attempt, max_attempts)
+                else:
+                    logger.warning("_call_llm_silent HTTP retryable de %s. Reintentando en %.1fs (Intento %d/%d)...", provider_name, delay, attempt, max_attempts)
                 time.sleep(delay)
                 continue
 
             if full:
+                # Sanitizar etiquetas de razonamiento <think>...</think> (DeepSeek-R1 / modelos locales)
+                full = re.sub(r'<think>.*?</think>', '', full, flags=re.DOTALL).strip()
                 tokens_input = sum(estimate_tokens(m.get("content", "")) for m in messages)
                 tokens_output = estimate_tokens(full)
                 total_tokens = tokens_input + tokens_output
@@ -475,7 +518,6 @@ def _call_llm_silent(
                     )
                     time.sleep(delay)
                     continue
-                return None
 
         except (httpx.ConnectError, httpx.TimeoutException, httpx.RequestError) as e:
             if provider_name == "ollama" and isinstance(e, httpx.TimeoutException):
@@ -492,7 +534,25 @@ def _call_llm_silent(
                 time.sleep(delay)
             else:
                 logger.error("Error definitivo en _call_llm_silent tras %d intentos: %s", max_attempts, e)
-                return None
+
+    # Fallback automático a Ollama si el proveedor en la nube agotó cuota (429) o falló
+    if provider_name != "ollama":
+        logger.warning(
+            "_call_llm_silent: El proveedor principal '%s' no produjo respuesta (cuota 429/error). Ejecutando fallback a Ollama...",
+            provider_name
+        )
+        try:
+            return _call_llm_silent(
+                state,
+                messages,
+                provider="ollama",
+                model=getattr(state, "ollama_model", "deepseek-r1:8b"),
+                timeout=timeout,
+                json_mode=json_mode,
+                temperature=temperature
+            )
+        except Exception as fallback_err:
+            logger.warning("Fallback a Ollama falló en _call_llm_silent: %s", fallback_err)
 
     return None
 

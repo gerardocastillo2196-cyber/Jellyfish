@@ -17,6 +17,71 @@ class ProductOwnerPhase:
     def __init__(self, orchestrator):
         self.orchestrator = orchestrator
 
+    def _build_md_backlog(self, backlog_dict: dict) -> str:
+        md = f"# Backlog: {backlog_dict.get('proyecto', 'Proyecto Jellyfish')}\n\n"
+        md += f"**Visión:** {backlog_dict.get('vision', '')}\n\n"
+        md += "## Historias de Usuario\n\n"
+        for us in backlog_dict.get("user_stories", []):
+            md += f"### {us.get('id')}: {us.get('titulo')}\n"
+            md += f"- **Como:** {us.get('como')}\n"
+            md += f"- **Quiero:** {us.get('quiero')}\n"
+            md += f"- **Para:** {us.get('para')}\n"
+            if "prioridad" in us:
+                md += f"- **Prioridad (MoSCoW):** {us.get('prioridad')}\n"
+            elif "priority" in us:
+                md += f"- **Prioridad (MoSCoW):** {us.get('priority')}\n"
+            md += "\n#### Criterios de Aceptación\n"
+            for ca in us.get("criterios_aceptacion", []):
+                md += f"- {ca}\n"
+            md += "\n#### Contexto RAG\n"
+            for rag_ctx in us.get("contexto_rag_necesario", []):
+                md += f"- `{rag_ctx}`\n"
+            md += "\n#### Definition of Done\n"
+            for dod in us.get("definition_of_done", []):
+                md += f"- {dod}\n"
+            md += "\n---\n\n"
+        return md
+
+    def extract_json_block(self, text: str) -> dict:
+        """Extrae de manera robusta el bloque JSON {...} de un texto y lo devuelve como dict.
+
+        Lanza ValueError o json.JSONDecodeError si no se encuentra o no se puede parsear.
+        """
+        if not text:
+            raise ValueError("Texto vacío.")
+            
+        # Limpiar bloques de código markdown si están presentes
+        cleaned_text = re.sub(r'```(?:json)?', '', text).strip()
+        
+        match = re.search(r'(\{.*\})', cleaned_text, re.DOTALL)
+        if not match:
+            raise ValueError("No se encontró ningún bloque JSON {...} en la respuesta.")
+            
+        json_str = match.group(1).strip()
+        
+        # 1. Intentar parseo directo
+        try:
+            return json.loads(json_str)
+        except Exception:
+            pass
+
+        # 2. Limpiar comas flotantes/finales (trailing commas: ,} o ,]) comúnmente generadas por LLMs
+        sanitized_str = re.sub(r',\s*([\}\]])', r'\1', json_str)
+        try:
+            return json.loads(sanitized_str)
+        except Exception:
+            pass
+
+        # 3. Intentar reparar comillas simples si el LLM las usó en las claves
+        try:
+            fixed_quotes = re.sub(r"(?<=[\{\,\s])'([a-zA-Z0-9_]+)':", r'"\1":', sanitized_str)
+            return json.loads(fixed_quotes)
+        except Exception:
+            pass
+
+        # Si todas las desinfecciones fallan, ejecutar el parseo estándar para propagar el traceback original
+        return json.loads(json_str)
+
     def run(self, user_idea: str) -> bool:
         """Genera BACKLOG.md y solicita aprobación del usuario."""
         console.print("\n━━━ FASE 1: 📝 Product Owner ━━━")
@@ -69,11 +134,70 @@ class ProductOwnerPhase:
                     self.orchestrator.state,
                     refinement_history,
                     provider=self.orchestrator.state.provider,
-                    model=self.orchestrator.state.model
+                    model=self.orchestrator.state.model,
+                    timeout=300.0
                 )
             
             if not response:
-                console.print("[yellow]⚠ El Product Owner no respondió. Saltando refinamiento.[/yellow]")
+                if user_idea.startswith("[INTENT:") or len(user_idea) > 150:
+                    logger.info("El prompt/DSL entregado contiene contexto técnico suficiente. Continuando con la generación de backlog.")
+                    response = "READY"
+                else:
+                    console.print("[yellow]⚠ El Product Owner no respondió. Activando cuestionario de fallback automático...[/yellow]")
+                
+                # Cuestionario de fallback predeterminado según el dominio
+                fallback_questions = []
+                idea_lower = user_idea.lower()
+                
+                if any(k in idea_lower for k in ("android", "ios", "móvil", "mobile", "app")):
+                    fallback_questions = [
+                        "¿Qué framework o tecnología prefieres para las aplicaciones móviles? (ej. React Native, Flutter, Swift/Kotlin nativo)",
+                        "¿La aplicación móvil requiere soporte para funcionamiento offline (sin conexión a internet)?",
+                        "¿Cómo deseas gestionar la autenticación de usuarios en el backend? (ej. JWT, OAuth2, Firebase Auth)"
+                    ]
+                elif any(k in idea_lower for k in ("docker", "compose", "servidor", "server", "deploy", "despliegue")):
+                    fallback_questions = [
+                        "¿Quieres que el despliegue incluya archivos Dockerfile y docker-compose completos y listos para producción?",
+                        "¿Qué puerto/servidor web backend prefieres utilizar para el despliegue? (ej. Nginx, Node.js, Python Gunicorn)",
+                        "¿Qué base de datos prefieres para almacenar la información? (ej. PostgreSQL, MySQL, SQLite)"
+                    ]
+                elif any(k in idea_lower for k in ("web", "frontend", "react", "vue", "next")):
+                    fallback_questions = [
+                        "¿Qué framework frontend prefieres utilizar para el panel web o de administración? (ej. React, Next.js, Vue, vanilla HTML/JS)",
+                        "¿Prefieres un diseño responsivo adaptado para dispositivos móviles o centrado en escritorio?",
+                        "¿Qué herramientas de estilo o CSS prefieres utilizar? (ej. CSS puro, TailwindCSS)"
+                    ]
+                else:
+                    # Fallback genérico de la industria
+                    fallback_questions = [
+                        "¿Qué tecnologías base prefieres utilizar para el frontend (ej. React/Next.js) y backend (ej. Python/Node.js)?",
+                        "¿Qué base de datos prefieres utilizar para persistir la información? (ej. PostgreSQL, MySQL, SQLite)",
+                        "¿Prefieres que el proyecto esté listo para levantarse en contenedores Docker?"
+                    ]
+                
+                # Ejecutar el refinamiento interactivo usando estas preguntas de fallback
+                for question in fallback_questions:
+                    from rich.panel import Panel
+                    console.print()
+                    console.print(Panel(
+                        f"[bold cyan]{question}[/bold cyan]",
+                        title="[bold yellow]🤖 Product Owner (Fallback de Refinamiento)[/bold yellow]",
+                        border_style="cyan"
+                    ))
+                    console.print()
+                    
+                    try:
+                        user_input = input("✍ Responde al PO (o escribe /skip o /ready para continuar) > ").strip()
+                    except (KeyboardInterrupt, EOFError):
+                        console.print("\n[yellow]⚠ Refinamiento de fallback cancelado por el usuario. Continuando...[/yellow]")
+                        break
+                        
+                    if not user_input or user_input.lower() in ("/skip", "/ready"):
+                        break
+                        
+                    refinement_log.append(f"Pregunta PO Fallback: {question}")
+                    refinement_log.append(f"Respuesta Usuario: {user_input}")
+                
                 break
                 
             clean_response = response.strip().replace(".", "").replace("!", "").upper()
@@ -154,7 +278,7 @@ class ProductOwnerPhase:
         )
 
         with TaskProgress(tui_engine, "auto_po", "Product Owner: Redactando backlog estructurado (JSON)..."):
-            result = self.orchestrator._call_agent(system, po_prompt)
+            result = self.orchestrator._call_agent(system, po_prompt, json_mode=True, timeout=180.0, temperature=0.2)
 
         elapsed = time.perf_counter() - t0
 
@@ -163,47 +287,43 @@ class ProductOwnerPhase:
             console.print("✗ Product Owner no produjo resultado.")
             return False
 
-        # Extraer JSON del bloque de código si está envuelto en ```json ... ```
-        json_clean = result.strip()
-        match = re.search(r'\{.*\}', json_clean, re.DOTALL)
-        if match:
-            json_clean = match.group(0)
-
         # Validar y escribir BACKLOG.json
-        # Validar y escribir BACKLOG.json
+        parsed_backlog = None
         try:
-            parsed_backlog = json.loads(json_clean)
-            self.orchestrator._write_project_file("BACKLOG.json", json.dumps(parsed_backlog, indent=2, ensure_ascii=False))
-            # Crear un BACKLOG.md legible para compatibilidad visual con humanos
-            def _build_md_backlog(backlog_dict: dict) -> str:
-                md = f"# Backlog: {backlog_dict.get('proyecto', 'Proyecto Jellyfish')}\n\n"
-                md += f"**Visión:** {backlog_dict.get('vision', '')}\n\n"
-                md += "## Historias de Usuario\n\n"
-                for us in backlog_dict.get("user_stories", []):
-                    md += f"### {us.get('id')}: {us.get('titulo')}\n"
-                    md += f"- **Como:** {us.get('como')}\n"
-                    md += f"- **Quiero:** {us.get('quiero')}\n"
-                    md += f"- **Para:** {us.get('para')}\n"
-                    if "prioridad" in us:
-                        md += f"- **Prioridad (MoSCoW):** {us.get('prioridad')}\n"
-                    elif "priority" in us:
-                        md += f"- **Prioridad (MoSCoW):** {us.get('priority')}\n"
-                    md += "\n#### Criterios de Aceptación\n"
-                    for ca in us.get("criterios_aceptacion", []):
-                        md += f"- {ca}\n"
-                    md += "\n#### Contexto RAG\n"
-                    for rag_ctx in us.get("contexto_rag_necesario", []):
-                        md += f"- `{rag_ctx}`\n"
-                    md += "\n#### Definition of Done\n"
-                    for dod in us.get("definition_of_done", []):
-                        md += f"- {dod}\n"
-                    md += "\n---\n\n"
-                return md
-            
-            md_backlog = _build_md_backlog(parsed_backlog)
-            self.orchestrator._write_project_file("BACKLOG.md", md_backlog)
+            parsed_backlog = self.extract_json_block(result)
         except Exception as e:
-            logger.error("Error al parsear el JSON de BACKLOG: %s. Contenido: %s", e, result)
+            logger.warning("Fallo al parsear JSON inicial del Product Owner: %s. Iniciando bucle de auto-corrección...", e)
+            console.print("[yellow]⚠ Error de sintaxis JSON en la respuesta. Iniciando reintento de auto-corrección...[/yellow]")
+            
+            # Reintento de Sintaxis (1 intento)
+            correction_system = (
+                "Error de sintaxis JSON. Devuelve ÚNICAMENTE la estructura JSON válida con las historias de usuario."
+            )
+            correction_user = (
+                f"RESPUESTA ANTERIOR CON ERRORES:\n```\n{result}\n```\n\n"
+                f"ERROR DE PARSEO OCURRIDO:\n{str(e)}\n\n"
+                f"Por favor, corrige y devuelve ÚNICAMENTE la estructura JSON pura y válida sin textos decorativos."
+            )
+            
+            try:
+                with TaskProgress(tui_engine, "auto_po_correction", "Product Owner: Corrigiendo sintaxis JSON..."):
+                    retry_result = self.orchestrator._call_agent(correction_system, correction_user, json_mode=True, timeout=180.0, temperature=0.2)
+                if retry_result:
+                    parsed_backlog = self.extract_json_block(retry_result)
+                    result = retry_result  # Guardar el resultado corregido para compatibilidad
+            except Exception as e_retry:
+                logger.error("Fallo también el reintento de auto-corrección de JSON del Backlog: %s", e_retry)
+
+        if parsed_backlog is not None:
+            try:
+                self.orchestrator._write_project_file("BACKLOG.json", json.dumps(parsed_backlog, indent=2, ensure_ascii=False))
+                md_backlog = self._build_md_backlog(parsed_backlog)
+                self.orchestrator._write_project_file("BACKLOG.md", md_backlog)
+            except Exception as e_write:
+                logger.error("Error al escribir archivos de BACKLOG tras parsing exitoso: %s", e_write)
+                parsed_backlog = None
+
+        if parsed_backlog is None:
             console.print("❌ Error al parsear backlog JSON generado por el PO. Guardando salida cruda.")
             self.orchestrator._write_project_file("BACKLOG.json", json.dumps({"error": "Falló el parsing del LLM", "raw_output": result}))
             self.orchestrator._write_project_file("BACKLOG.md", result)
@@ -228,7 +348,7 @@ class ProductOwnerPhase:
             except (KeyboardInterrupt, EOFError):
                 feedback = "y"
                 
-            if feedback.lower() in ("y", "aprobado"):
+            if feedback.lower() in ("y", "aprobado", "aprobar", "ok", "si", "sí", "confirmar", "listo", "ready", ""):
                 backlog_approved = True
                 break
                 
@@ -253,24 +373,48 @@ class ProductOwnerPhase:
             )
             
             with TaskProgress(tui_engine, "auto_po_adjust", "Product Owner: Ajustando backlog con tu feedback..."):
-                adjust_result = self.orchestrator._call_agent(adjustment_system, adjustment_user)
+                adjust_result = self.orchestrator._call_agent(adjustment_system, adjustment_user, json_mode=True, timeout=180.0, temperature=0.2)
                 
             if not adjust_result:
                 console.print("[red]❌ El Product Owner no pudo ajustar el backlog. Intentando mantener el backlog actual.[/red]")
                 continue
                 
-            json_clean = adjust_result.strip()
-            match = re.search(r'\{.*\}', json_clean, re.DOTALL)
-            if match:
-                json_clean = match.group(0)
-                
+            parsed_backlog_adjusted = None
             try:
-                parsed_backlog = json.loads(json_clean)
-                self.orchestrator._write_project_file("BACKLOG.json", json.dumps(parsed_backlog, indent=2, ensure_ascii=False))
-                md_backlog = _build_md_backlog(parsed_backlog)
-                self.orchestrator._write_project_file("BACKLOG.md", md_backlog)
+                parsed_backlog_adjusted = self.extract_json_block(adjust_result)
             except Exception as e:
-                logger.error("Error al parsear el JSON de BACKLOG ajustado: %s", e)
+                logger.warning("Fallo al parsear JSON ajustado del Product Owner: %s. Iniciando bucle de auto-corrección...", e)
+                console.print("[yellow]⚠ Error de sintaxis JSON en el ajuste. Iniciando reintento de auto-corrección...[/yellow]")
+                
+                # Reintento de Sintaxis (1 intento)
+                correction_system = (
+                    "Error de sintaxis JSON. Devuelve ÚNICAMENTE la estructura JSON válida con las historias de usuario."
+                )
+                correction_user = (
+                    f"RESPUESTA DE AJUSTE ANTERIOR CON ERRORES:\n```\n{adjust_result}\n```\n\n"
+                    f"ERROR DE PARSEO OCURRIDO:\n{str(e)}\n\n"
+                    f"Por favor, corrige y devuelve ÚNICAMENTE la estructura JSON pura y válida sin textos decorativos."
+                )
+                
+                try:
+                    with TaskProgress(tui_engine, "auto_po_adjust_correction", "Product Owner: Corrigiendo sintaxis JSON..."):
+                        retry_adjust = self.orchestrator._call_agent(correction_system, correction_user, json_mode=True, timeout=180.0, temperature=0.2)
+                    if retry_adjust:
+                        parsed_backlog_adjusted = self.extract_json_block(retry_adjust)
+                        adjust_result = retry_adjust
+                except Exception as e_retry:
+                    logger.error("Fallo también el reintento de auto-corrección de JSON ajustado del Backlog: %s", e_retry)
+
+            if parsed_backlog_adjusted is not None:
+                try:
+                    parsed_backlog = parsed_backlog_adjusted
+                    self.orchestrator._write_project_file("BACKLOG.json", json.dumps(parsed_backlog, indent=2, ensure_ascii=False))
+                    md_backlog = self._build_md_backlog(parsed_backlog)
+                    self.orchestrator._write_project_file("BACKLOG.md", md_backlog)
+                except Exception as e_write:
+                    logger.error("Error al escribir archivos de BACKLOG ajustado tras parsing exitoso: %s", e_write)
+                    console.print("[red]❌ Error al integrar el feedback en el JSON. Reintentando...[/red]")
+            else:
                 console.print("[red]❌ Error al integrar el feedback en el JSON. Reintentando...[/red]")
 
         console.print("✓ Backlog aprobado.\n")

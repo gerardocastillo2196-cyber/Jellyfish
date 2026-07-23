@@ -144,58 +144,52 @@ def _scan_available_agents(state: JellyfishState = None) -> list[dict]:
 def _parse_sprint_tasks(board_content: str) -> list[dict]:
     """Parsea las tareas del tablero de forma defensiva y tolerante a variaciones."""
     tasks = []
+    if not board_content:
+        return tasks
+
     in_todo = False
     lines = board_content.split("\n")
     
+    # Pasada 1: Parseo con detección de encabezado
     for line in lines:
         stripped = line.strip()
         
-        # Detectar inicio/fin de sección de tareas pendientes (tolerante a idiomas)
+        # Detectar inicio/fin de sección de tareas pendientes (tolerante a idiomas y formatos)
         if stripped.startswith("#"):
-            # Limpiar emojis y caracteres especiales, convertir a mayúsculas
             clean_header = re.sub(r'[^\w\s]', ' ', stripped).upper()
-            is_todo_header = any(kw in clean_header for kw in ["TODO", "POR HACER", "PENDIENTE", "TRACK", "BACKLOG", "HACER"])
+            is_todo_header = any(kw in clean_header for kw in ["TODO", "POR HACER", "PENDIENTE", "TRACK", "BACKLOG", "HACER", "SPRINT", "TABLERO", "BOARD", "TAREAS", "WORK", "PLAN"])
             
             if is_todo_header:
                 in_todo = True
                 continue
             elif in_todo:
-                # Si ya estábamos en la sección de pendientes y encontramos otro encabezado principal,
-                # significa que salimos de la sección de TODO.
-                # Para evitar salir ante subencabezados muy pequeños, validamos que comience con ## o #
                 if stripped.startswith("##") or stripped.startswith("# "):
                     break
 
         if not in_todo or not stripped.startswith("|"):
             continue
 
-        # Separar por |
         cells = [c.strip() for c in stripped.split("|")]
-        # Quitar celdas vacías externas si existen (delimitadores de tabla | ... |)
         if cells and cells[0] == "":
             cells.pop(0)
         if cells and cells[-1] == "":
             cells.pop()
 
-        if not cells:
+        if not cells or len(cells) < 2:
             continue
 
-        # Ignorar separadores de tabla Markdown |---|
         if all(all(char in ('-', ':', ' ') for char in cell) for cell in cells if cell):
             continue
 
-        # Ignorar cabeceras de texto de la tabla (por ejemplo: ID, Tarea, Asignado) utilizando coincidencia exacta
         col0_clean = re.sub(r'[^\w\s]', '', cells[0]).upper().strip()
         col1_clean = re.sub(r'[^\w\s]', '', cells[1]).upper().strip() if len(cells) > 1 else ""
         if col0_clean in ("ID", "TASK ID", "TASK_ID", "CODIGO", "CÓDIGO", "CODE") or \
            col1_clean in ("TAREA", "TASK", "DESCRIPCION", "DESCRIPCIÓN", "DESCRIPTION"):
             continue
 
-        # Ignorar filas placeholder o vacías
         if not cells[0] or cells[0] in ("—", "-", "") or (len(cells) > 1 and (not cells[1] or cells[1] in ("—", "-", ""))):
             continue
 
-        # Sanitización de datos extraídos
         task_id = cells[0].replace("*", "").replace("`", "").strip()
         task_desc = cells[1].strip()
         
@@ -207,29 +201,23 @@ def _parse_sprint_tasks(board_content: str) -> list[dict]:
             
         estimate = "M"
         output_file = "src/output.md"
-        
         dependencies = []
         if len(cells) == 4:
-            # La columna de estimación fue omitida: ID, Tarea, Agente, Entregable
             output_file = cells[3].replace("`", "").replace("*", "").strip()
         elif len(cells) == 5:
-            # Estructura estándar: ID, Tarea, Agente, Estimación, Entregable
             estimate = cells[3].replace("`", "").replace("*", "").strip()
             output_file = cells[4].replace("`", "").replace("*", "").strip()
         elif len(cells) >= 6:
-            # Estructura estándar con dependencias: ID, Tarea, Agente, Estimación, Entregable, Dependencias
             estimate = cells[3].replace("`", "").replace("*", "").strip()
             output_file = cells[4].replace("`", "").replace("*", "").strip()
             dep_cell = cells[5].replace("`", "").replace("*", "").strip()
             if dep_cell and dep_cell.lower() not in ("ninguna", "ninguno", "-", "none", ""):
                 dependencies = [d.strip().upper() for d in dep_cell.split(",") if d.strip()]
             
-        # Detección inteligente si se cruzaron o desplazaron las columnas de Estimación y Entregable
         if estimate and ("." in estimate or "/" in estimate or "\\" in estimate) and (not output_file or output_file == "src/output.md"):
             output_file = estimate
             estimate = "M"
             
-        # Valores por defecto si quedaron vacíos después de sanitizar
         if not estimate:
             estimate = "M"
         if not output_file:
@@ -242,8 +230,46 @@ def _parse_sprint_tasks(board_content: str) -> list[dict]:
                 "agent": agent_name,
                 "estimate": estimate,
                 "output_file": output_file,
-                "dependencies": dependencies
+                "dependencies": dependencies,
+                "status": "TODO"
             })
+
+    # Pasada 2: Si no se encontraron tareas por encabezado, escanear cualquier fila de tabla Markdown
+    if not tasks:
+        for line in lines:
+            stripped = line.strip()
+            if not stripped.startswith("|"):
+                continue
+            cells = [c.strip() for c in stripped.split("|")]
+            if cells and cells[0] == "":
+                cells.pop(0)
+            if cells and cells[-1] == "":
+                cells.pop()
+            if not cells or len(cells) < 2:
+                continue
+            if all(all(char in ('-', ':', ' ') for char in cell) for cell in cells if cell):
+                continue
+            col0_clean = re.sub(r'[^\w\s]', '', cells[0]).upper().strip()
+            if col0_clean in ("ID", "TASK ID", "TASK_ID", "CODIGO", "CÓDIGO", "CODE"):
+                continue
+            if not cells[0] or cells[0] in ("—", "-", "") or (len(cells) > 1 and (not cells[1] or cells[1] in ("—", "-", ""))):
+                continue
+            
+            task_id = cells[0].replace("*", "").replace("`", "").strip()
+            task_desc = cells[1].strip()
+            if task_id and task_desc and (task_id.startswith("T") or task_id.isdigit()):
+                agent_name = cells[2].lower().replace("@", "").replace("*", "").replace("`", "").strip() if len(cells) > 2 else "default"
+                estimate = cells[3].replace("`", "").replace("*", "").strip() if len(cells) > 3 else "M"
+                output_file = cells[4].replace("`", "").replace("*", "").strip() if len(cells) > 4 else "src/main.py"
+                tasks.append({
+                    "id": task_id,
+                    "task": task_desc,
+                    "agent": agent_name if agent_name else "default",
+                    "estimate": estimate if estimate else "M",
+                    "output_file": output_file if output_file else "src/main.py",
+                    "dependencies": [],
+                    "status": "TODO"
+                })
 
     return tasks
 
@@ -315,7 +341,7 @@ class ProjectOrchestrator:
             console.print(f"Error escribiendo {filename_clean}: {e}")
             return False
 
-    def _call_agent(self, system_prompt: str, user_prompt: str) -> str:
+    def _call_agent(self, system_prompt: str, user_prompt: str, json_mode: bool = False, timeout: float | None = None, temperature: float | None = None) -> str:
         """Llama al LLM en modo silencioso garantizando que nunca retorne un string vacío."""
         messages = [
             {"role": "system", "content": system_prompt},
@@ -326,9 +352,30 @@ class ProjectOrchestrator:
                 self.state, messages,
                 provider=self.state.provider,
                 model=self.state.model,
+                json_mode=json_mode,
+                timeout=timeout,
+                temperature=temperature,
             )
             if not response or not response.strip():
                 logger.error(f"⚠️ El modelo {self.state.model} ({self.state.provider}) retornó un output vacío.")
+                if json_mode:
+                    import json
+                    return json.dumps({
+                        "proyecto": "Sistema de Aplicación",
+                        "vision": f"Sistema basado en la especificación técnica del requerimiento: {user_prompt[:100]}...",
+                        "user_stories": [
+                            {
+                                "id": "US-001",
+                                "titulo": "Arquitectura y Configuración Base del Sistema",
+                                "como": "Desarrollador del sistema",
+                                "quiero": "Andamiar la arquitectura base y dependencias iniciales del proyecto",
+                                "para": "Establecer la estructura fundamental del sistema",
+                                "criterios_aceptacion": ["Crear configuraciones y estructura base del proyecto"],
+                                "contexto_rag_necesario": ["README.md"],
+                                "definition_of_done": ["Compila con éxito"]
+                            }
+                        ]
+                    }, ensure_ascii=False)
                 # Fallback automático de contingencia para que la Agencia Autónoma continúe sin detenerse
                 return (
                     "## 📋 BACKLOG RECOVERY\n\n"
@@ -1122,14 +1169,21 @@ class ProjectOrchestrator:
             if backlog_content:
                 user_idea = backlog_content[:3000]
         else:
-            # Eliminar tableros viejos si el usuario decidió planificar un requerimiento nuevo desde cero
+            # Eliminar tableros viejos y artefactos de src/ si el usuario decidió planificar un requerimiento nuevo desde cero
             for f in (board_path, json_board_path):
                 if os.path.isfile(f):
                     try:
                         os.remove(f)
                     except Exception:
                         pass
-            console.print("[bold cyan]🧹 Tablero anterior limpiado. Iniciando planificación del nuevo requerimiento...[/bold cyan]")
+            src_dir = os.path.join(self.project_path, "src")
+            if os.path.isdir(src_dir):
+                import shutil
+                try:
+                    shutil.rmtree(src_dir)
+                except Exception:
+                    pass
+            console.print("[bold cyan]🧹 Tablero anterior y artefactos limpiados. Iniciando planificación del nuevo requerimiento...[/bold cyan]")
 
             # Fase 1: Product Owner
             if not self._run_product_owner(user_idea):
