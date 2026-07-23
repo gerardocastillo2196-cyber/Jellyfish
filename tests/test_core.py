@@ -212,6 +212,8 @@ class TestTokenBudget:
     def test_history_trimmed_when_over_budget(self):
         from core.state import JellyfishState
         state = JellyfishState()
+        state.active_project = ""
+        state.history_summary = ""
         state.static_history = []  # vaciar contexto estático para el test
 
         # Agregar mensajes que superen el presupuesto
@@ -298,6 +300,29 @@ class TestTokenBudget:
             assert state.history[-1]["content"] == "msg 9"
         finally:
             os.environ.pop("JELLYFISH_MAX_HISTORY_SIZE", None)
+
+    def test_sliding_window_strict_messages(self):
+        from core.state import JellyfishState
+        import core.state as s
+        import os
+        orig_limit = s._SLIDING_WINDOW_MAX_MESSAGES
+        s._SLIDING_WINDOW_MAX_MESSAGES = 4
+        try:
+            state = JellyfishState()
+            state.active_project = ""
+            state.history_summary = ""
+            state.static_history = []
+            state.history.clear()
+            for i in range(10):
+                state.history.append({"role": "user", "content": f"msg {i}"})
+            
+            full_history = state.get_full_history()
+            # Debería retornar a lo sumo 4 mensajes de conversación
+            assert len(full_history) == 4
+            assert full_history[0]["content"] == "msg 6"
+            assert full_history[-1]["content"] == "msg 9"
+        finally:
+            s._SLIDING_WINDOW_MAX_MESSAGES = orig_limit
 
 
 
@@ -1526,6 +1551,70 @@ class TestResilientLLMFallback:
             assert saved["user_stories"][1]["titulo"] == "Reportes"
 
     @patch("core.llm_engine._call_llm_silent")
+    @patch("builtins.input")
+    def test_product_owner_json_self_correction(self, mock_input, mock_call_llm):
+        from core.state import JellyfishState
+        from core.project_orchestrator import ProjectOrchestrator
+        from core.orchestration.product_owner import ProductOwnerPhase
+        from unittest.mock import MagicMock
+        import tempfile
+        import os
+        import json
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = JellyfishState()
+            state.active_project = temp_dir
+            orchestrator = ProjectOrchestrator(state)
+            orchestrator.project_path = temp_dir
+            orchestrator._load_agent_prompt = MagicMock(return_value="Agent prompt text")
+            orchestrator._get_last_exit_code = MagicMock(return_value=0)
+            orchestrator._get_circuit_breaker_count = MagicMock(return_value=0)
+
+            # Silenciar refinamiento
+            mock_call_llm.return_value = "READY"
+
+            # Simular primer output malformado y el segundo corregido con éxito
+            malformed_json_res = "Este es un JSON con error: { \"invalid\": }"
+            valid_json_res = (
+                "{\n"
+                '  "proyecto": "NaturaMedics",\n'
+                '  "vision": "Clinic app",\n'
+                '  "user_stories": [\n'
+                "    {\n"
+                '      "id": "US-001",\n'
+                '      "titulo": "US 1",\n'
+                '      "como": "User",\n'
+                '      "quiero": "Action",\n'
+                '      "para": "Benefit",\n'
+                '      "criterios_aceptacion": ["c1"],\n'
+                '      "contexto_rag_necesario": [],\n'
+                '      "definition_of_done": []\n'
+                "    }\n"
+                "  ]\n"
+                "}"
+            )
+            orchestrator._call_agent = MagicMock(side_effect=[malformed_json_res, valid_json_res])
+
+            # Aprobación final
+            mock_input.return_value = "y"
+
+            def write_file_side_effect(fn, content):
+                with open(os.path.join(temp_dir, fn), "w") as f:
+                    f.write(content)
+                return True
+            orchestrator._write_project_file = MagicMock(side_effect=write_file_side_effect)
+
+            phase = ProductOwnerPhase(orchestrator)
+            res = phase.run("Crear app NaturaMedics")
+
+            assert res is True
+            assert os.path.exists(os.path.join(temp_dir, "BACKLOG.json"))
+            with open(os.path.join(temp_dir, "BACKLOG.json"), "r") as f:
+                saved = json.load(f)
+            assert saved["proyecto"] == "NaturaMedics"
+            assert len(saved["user_stories"]) == 1
+
+    @patch("core.llm_engine._call_llm_silent")
     def test_scrum_master_auto_healing_mapping(self, mock_call_llm):
         from core.state import JellyfishState
         from core.project_orchestrator import ProjectOrchestrator
@@ -1730,6 +1819,66 @@ class TestResilientLLMFallback:
                 saved_map = json.load(f)
             assert saved_map["Crear Login"] == "[SECURITY:LOGIN]"
             assert state.new_intents == {}
+
+    @patch("core.translator._call_llm_silent")
+    @patch("builtins.input")
+    def test_intent_translator_turns_limit(self, mock_input, mock_call_llm):
+        from core.state import JellyfishState
+        from core.translator import IntentTranslator
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = JellyfishState()
+            state.active_project = temp_dir
+
+            # Simular un flujo donde el LLM siempre detecta ambigüedad y pide MORE,
+            # pero el límite MAX_TRANSLATOR_TURNS = 3 debe detener las aclaraciones.
+            mock_call_llm.side_effect = [
+                "AMBIGUOUS",       # translate() intento 1
+                "Pregunta 1",      # _run_refinement_loop() intento 1
+                "MORE",            # checker del intento 1
+                "Pregunta 2",      # _run_refinement_loop() intento 2
+                "[DEFAULT:TOKEN]"  # translate() final (con turn_count >= 3)
+            ]
+
+            mock_input.side_effect = ["respuesta vaga 1", "respuesta vaga 2"]
+
+            translator = IntentTranslator(state)
+            token = translator.translate("instruccion vaga")
+
+            assert token == "[DEFAULT:TOKEN]"
+
+    @patch("core.translator._call_llm_silent")
+    def test_intent_translator_dsl_generation(self, mock_call_llm):
+        from core.state import JellyfishState
+        from core.translator import IntentTranslator
+        import tempfile
+        import os
+        import json
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = JellyfishState()
+            state.active_project = temp_dir
+
+            dsl_output = (
+                "[INTENT: NEW_PROJECT]\n"
+                "SCOPE: Naturamedics\n"
+                "ARCH: React Native + FastAPI\n"
+                "MODULES: [auth, booking, chat]\n"
+                "CONSTRAINTS: [offline_mode, encryption]"
+            )
+            mock_call_llm.return_value = dsl_output
+
+            translator = IntentTranslator(state)
+            token = translator.translate("Quiero un sistema de clinicas llamado Naturamedics con React Native y FastAPI")
+
+            assert token == dsl_output
+            # Verificar que se haya guardado en el archivo
+            with open(os.path.join(temp_dir, "intent_map.json"), "r", encoding="utf-8") as f:
+                saved_map = json.load(f)
+            assert saved_map["Quiero un sistema de clinicas llamado Naturamedics con React Native y FastAPI"] == dsl_output
+            assert getattr(state, "new_intents")["Quiero un sistema de clinicas llamado Naturamedics con React Native y FastAPI"] == dsl_output
+
 
 
 

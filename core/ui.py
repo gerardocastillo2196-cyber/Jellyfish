@@ -487,7 +487,8 @@ def handle_exit_flow(state) -> None:
     analysis = None
     try:
         with TaskProgress(tui_engine, "error_diagnose", "Generando diagnóstico de errores..."):
-            analysis = _call_llm_silent(state, messages, timeout=12.0)
+            target_provider = "ollama" if getattr(state, "gemini_cooldown_until", 0) > time.time() else state.provider
+            analysis = _call_llm_silent(state, messages, provider=target_provider, timeout=10.0)
     except Exception as le:
         logger.error("Error al invocar LLM para diagnóstico: %s", le)
 
@@ -539,4 +540,47 @@ def handle_exit_flow(state) -> None:
             console.print(f"✓ Reporte guardado con éxito en: [bold]{link_text}[/bold]\n")
         except OSError as e:
             console.print(f"Error al escribir el archivo de reporte: {e}\n")
+
+
+def sync_readme_on_exit(state) -> None:
+    """Actualiza el README.md al final de la ejecución, sincronizando la fecha
+    y reflejando la arquitectura base actual (REPL interactivo + multi-agencia).
+
+    Solo modifica la primera línea (header de versión) y la última línea
+    (timestamp de actualización), preservando todo el contenido intermedio.
+    """
+    import time
+    readme_path = os.path.join(AGENCY_DIR, "README.md")
+    if not os.path.isfile(readme_path):
+        return
+
+    try:
+        with open(readme_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    except OSError:
+        return
+
+    if not lines:
+        return
+
+    # Actualizar la última línea con el timestamp actual
+    timestamp_line = f"\n*Última actualización de especificación técnica: {time.strftime('%Y-%m-%d %H:%M:%S')} — Arquitectura: REPL Interactivo + Orquestación Multi-Agencia*\n"
+
+    # Buscar si la última línea ya es el timestamp
+    last_idx = len(lines) - 1
+    while last_idx >= 0 and not lines[last_idx].strip():
+        last_idx -= 1
+
+    if last_idx >= 0 and lines[last_idx].strip().startswith("*Última actualización"):
+        lines[last_idx] = timestamp_line
+    else:
+        lines.append(timestamp_line)
+
+    try:
+        with open(readme_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        logger.info("README.md sincronizado con timestamp de salida.")
+    except OSError as e:
+        logger.warning("No se pudo sincronizar README.md: %s", e)
+
 

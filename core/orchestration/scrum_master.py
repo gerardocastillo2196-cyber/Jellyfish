@@ -207,7 +207,8 @@ class ScrumMasterPhase:
             "4. Define un archivo de código fuente real para el entregable de la tarea (ej: src/main.dart, app/server.js, lib/database.py). Usa extensión .md SOLO si la tarea es puramente de documentación, investigación o arquitectura.\n"
             "5. TRASPASOS INTER-AGENCIA (HANDOFFS): Si una tarea técnica excede las capacidades de tu agencia actual (agencia activa: '{self.orchestrator.state.active_agency}'), "
             "puedes definir como 'Entregable' un archivo que servirá de insumo para otra agencia (ej: un COPY_LANDING.md generado por MKT para que DEV lo consuma).\n"
-            "6. DEFINICIÓN DE DEPENDENCIAS (DAG): En la sexta columna, especifica los IDs de las tareas predecesoras que deben completarse antes de iniciar esta tarea, separados por coma (ej. 'T-001' o 'T-001, T-002'). Si no tiene dependencias, escribe 'Ninguna'.\n\n"
+            "6. DEFINICIÓN DE DEPENDENCIAS (DAG): En la sexta columna, especifica los IDs de las tareas predecesoras que deben completarse antes de iniciar esta tarea, separados por coma (ej. 'T-001' o 'T-001, T-002'). Si no tiene dependencias, escribe 'Ninguna'.\n"
+            "7. MAPEO OBLIGATORIO DE HISTORIAS DE USUARIO: En la columna 'Tarea', DEBES incluir explícitamente el ID de la Historia de Usuario correspondiente entre corchetes, por ejemplo: '[US-001] Crear pantalla de login' o '[US-002] Desarrollar API de autenticación'.\n\n"
             "REQUISITOS DE CALIDAD Y RIQUEZA DE CONTENIDO:\n"
             "Queremos un tablero de sprint extremadamente rico en detalles técnicos. Sigue estas directrices:\n"
             "- Las descripciones de las tareas en la tabla deben ser detalladas y explícitas sobre qué construir (no usar resúmenes vagos).\n"
@@ -219,9 +220,9 @@ class ScrumMasterPhase:
             "## 📋 POR HACER (TODO)\n"
             "| ID | Tarea | Asignado | Estimación | Entregable | Dependencias |\n"
             "|---|---|---|---|---|---|\n"
-            "| T-001 | Diseñar la arquitectura del sistema | @arquitecto_software | M | ARCHITECTURE.md | Ninguna |\n"
-            "| T-002 | Implementar modelos de datos | @backend_dev | L | src/database/models.js | T-001 |\n"
-            "| T-003 | Crear componente de Login | @frontend_dev | S | lib/components/Login.tsx | T-002 |\n"
+            "| T-001 | [US-001] Diseñar la arquitectura del sistema | @arquitecto_software | M | ARCHITECTURE.md | Ninguna |\n"
+            "| T-002 | [US-001] Implementar modelos de datos | @backend_dev | L | src/database/models.js | T-001 |\n"
+            "| T-003 | [US-002] Crear componente de Login | @frontend_dev | S | lib/components/Login.tsx | T-002 |\n"
             "```\n\n"
             "IMPORTANTE:\n"
             "- La columna 'Asignado' DEBE ser exactamente un @nombre de la lista de agentes. "
@@ -325,15 +326,18 @@ class ScrumMasterPhase:
                 model=self.orchestrator.state.model
             )
             if healed_board:
-                result = healed_board
-                self.orchestrator._write_project_file(target_board, result)
-                tasks = _parse_sprint_tasks(result)
-                console.print("[green]✓ Auto-Healing del Tablero completado con éxito.[/green]")
+                healed_tasks = _parse_sprint_tasks(healed_board)
+                if healed_tasks:
+                    result = healed_board
+                    self.orchestrator._write_project_file(target_board, result)
+                    tasks = healed_tasks
+                    console.print("[green]✓ Auto-Healing del Tablero completado con éxito.[/green]")
+                else:
+                    logger.warning("Auto-Healing no produjo tareas parseables válidas. Preservando tareas generadas inicialmente.")
 
         if not tasks:
-            self.orchestrator.metrics.append({"fase": "📋 Scrum Master", "detalle": "ERROR — No se encontraron tareas tras Auto-Healing", "tiempo": elapsed, "status": "❌"})
-            console.print(f"❌ Error: El Scrum Master no pudo generar tareas válidas en {target_board} incluso tras Auto-Healing.")
-            return False
+            console.print("[yellow]⚠ Sintetizando tablero de tareas de contingencia directamente a partir del Backlog...[/yellow]")
+            tasks = self._synthesize_fallback_board(target_board, backlog)
 
         # Sprint 13 — Resolver asignaciones @autodetect programáticamente (Python puro, 0 tokens)
         active_agency = getattr(self.orchestrator.state, "active_agency", "")
@@ -354,6 +358,62 @@ class ScrumMasterPhase:
         console.print(f"[dim]   Equipo seleccionado: {', '.join(f'@{a}' for a in sorted(unique_agents))}[/dim]")
         console.print(f"[dim]   Tareas planificadas: {len(tasks)}[/dim]")
         return True
+
+    def _synthesize_fallback_board(self, target_board: str, backlog_str: str) -> list[dict]:
+        """Sintetiza tareas de contingencia directamente desde las Historias de Usuario de BACKLOG.json/md."""
+        import json
+        tasks = []
+        user_stories = []
+        try:
+            data = json.loads(backlog_str)
+            user_stories = data.get("user_stories", [])
+        except Exception:
+            pass
+
+        if not user_stories:
+            user_stories = [{
+                "id": "US-001",
+                "titulo": "Implementación de Arquitectura y Estructura Base",
+                "como": "Desarrollador del sistema",
+                "quiero": "Andamiar el proyecto con los componentes solicitados",
+                "para": "Iniciar desarrollo del sistema"
+            }]
+
+        board_lines = [
+            "## 📋 POR HACER (TODO)",
+            "| ID | Tarea | Asignado | Estimación | Entregable | Dependencias |",
+            "|---|---|---|---|---|---|"
+        ]
+
+        for idx, us in enumerate(user_stories, start=1):
+            t_id = f"T-{idx:03d}"
+            us_id = us.get("id", f"US-{idx:03d}")
+            title = us.get("titulo", "Desarrollar componente de aplicación")
+            task_desc = f"[{us_id}] {title}"
+            output_file = f"src/feature_{idx}.py"
+            
+            tasks.append({
+                "id": t_id,
+                "task": task_desc,
+                "agent": "@autodetect",
+                "estimate": "M",
+                "output_file": output_file,
+                "dependencies": [],
+                "status": "TODO"
+            })
+            board_lines.append(f"| {t_id} | {task_desc} | @autodetect | M | {output_file} | Ninguna |")
+
+        board_lines.extend([
+            "",
+            "## ⏳ EN PROCESO (IN PROGRESS)",
+            "",
+            "## ✅ HECHO (DONE)",
+            ""
+        ])
+
+        synthetic_md = "\n".join(board_lines)
+        self.orchestrator._write_project_file(target_board, synthetic_md)
+        return tasks
 
     def run_retrospective(self) -> None:
         """Analiza DAILY.md y guarda aprendizajes en retrospective_rules.md para futuros sprints."""

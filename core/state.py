@@ -119,6 +119,11 @@ _CHARS_PER_TOKEN = 4
 _MODEL_TOKEN_LIMIT = int(os.getenv("JELLYFISH_CONTEXT_LIMIT", "8192"))
 _HISTORY_CHAR_BUDGET = int(_MODEL_TOKEN_LIMIT * 0.80 * _CHARS_PER_TOKEN)
 
+# Ventana deslizante estricta: número máximo de mensajes de conversación
+# que se inyectan al LLM, independiente del presupuesto de caracteres.
+# Protege contra OOM en modelos LLaMA pesados con ventanas de contexto pequeñas.
+_SLIDING_WINDOW_MAX_MESSAGES = int(os.getenv("JELLYFISH_SLIDING_WINDOW", "30"))
+
 # Sprint 8.0 — Flag global de actividad LLM para el spinner del header
 _llm_busy = False
 
@@ -150,7 +155,7 @@ class PersistedHistoryList(list):
         self.state = state
 
     def _truncate(self):
-        max_size = int(os.getenv("JELLYFISH_MAX_HISTORY_SIZE", "50"))
+        max_size = int(os.getenv("JELLYFISH_MAX_HISTORY_SIZE", "30"))
         if len(self) > max_size:
             diff = len(self) - max_size
             for _ in range(diff):
@@ -659,6 +664,15 @@ class JellyfishState:
                 break
             selected.insert(0, msg)
             used_chars += msg_chars
+
+        # Ventana deslizante estricta: recortar a _SLIDING_WINDOW_MAX_MESSAGES
+        if len(selected) > _SLIDING_WINDOW_MAX_MESSAGES:
+            excess = len(selected) - _SLIDING_WINDOW_MAX_MESSAGES
+            selected = selected[excess:]
+            logger.debug(
+                "Sliding window: %d mensajes recortados (límite: %d).",
+                excess, _SLIDING_WINDOW_MAX_MESSAGES
+            )
 
         if len(selected) < len(self.history):
             dropped = len(self.history) - len(selected)
