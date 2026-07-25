@@ -21,6 +21,9 @@ DEFAULT_TIMEOUT = 120
 # Sprint 1.3 — Lista negra de comandos destructivos (regex).
 # Estos patrones nunca se ejecutarán, sin importar la confirmación del usuario.
 _DESTRUCTIVE_PATTERNS: list[re.Pattern] = [
+    # 0. Comandos privileged (sudo / su / doas) y escrituras en directorios de sistema
+    re.compile(r"\b(sudo|su|doas)\b", re.IGNORECASE),
+    re.compile(r">\s*/(?:root|etc|usr|boot|sys|proc|dev)\b", re.IGNORECASE),
     # 1. Eliminaciones masivas fuera del scope o destructivas (rm recursivo)
     re.compile(r"\brm\s+(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)\b", re.IGNORECASE),
     # 2. Comandos de formateo o manipulación cruda de discos
@@ -289,12 +292,8 @@ def run_terminal_command(
                     return await session.prompt_async("\n❯ Decisión [y/n/a]: ", validator=YesNoAlwaysValidator())
             decision = asyncio.run(asyncio.wait_for(get_decision(), timeout=60)).strip().lower()
         except TimeoutError:
-            if is_network:
-                decision = 'n'
-                screen_console.print("\n✗ Tiempo de espera agotado (60s). Comando de RED denegado por seguridad.")
-            else:
-                decision = 'y'
-                screen_console.print("\n✓ Tiempo de espera agotado (60s). Comando aceptado automáticamente.")
+            decision = 'n'
+            screen_console.print("\n✗ Tiempo de espera agotado (60s). Comando denegado por seguridad (Default Deny).")
         except (KeyboardInterrupt, EOFError):
             decision = 'n'
             screen_console.print("\n✗ Comando denegado por interrupción.")

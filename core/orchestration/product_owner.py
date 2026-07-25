@@ -26,10 +26,12 @@ class ProductOwnerPhase:
             md += f"- **Como:** {us.get('como')}\n"
             md += f"- **Quiero:** {us.get('quiero')}\n"
             md += f"- **Para:** {us.get('para')}\n"
-            if "prioridad" in us:
-                md += f"- **Prioridad (MoSCoW):** {us.get('prioridad')}\n"
-            elif "priority" in us:
-                md += f"- **Prioridad (MoSCoW):** {us.get('priority')}\n"
+            prioridad = us.get('prioridad') or us.get('priority') or 'Must-have'
+            md += f"- **Prioridad (MoSCoW):** {prioridad}\n"
+            if "estimacion" in us:
+                md += f"- **Estimación:** {us.get('estimacion')}\n"
+            elif "estimation" in us:
+                md += f"- **Estimación:** {us.get('estimation')}\n"
             md += "\n#### Criterios de Aceptación\n"
             for ca in us.get("criterios_aceptacion", []):
                 md += f"- {ca}\n"
@@ -42,8 +44,9 @@ class ProductOwnerPhase:
             md += "\n---\n\n"
         return md
 
+
     def extract_json_block(self, text: str) -> dict:
-        """Extrae de manera robusta el bloque JSON {...} de un texto y lo devuelve como dict.
+        """Extrae de manera robusta el bloque JSON {...} o [...] de un texto y lo devuelve como dict.
 
         Lanza ValueError o json.JSONDecodeError si no se encuentra o no se puede parsear.
         """
@@ -53,34 +56,51 @@ class ProductOwnerPhase:
         # Limpiar bloques de código markdown si están presentes
         cleaned_text = re.sub(r'```(?:json)?', '', text).strip()
         
-        match = re.search(r'(\{.*\})', cleaned_text, re.DOTALL)
+        match = re.search(r'(\{.*\}|\[.*\])', cleaned_text, re.DOTALL)
         if not match:
-            raise ValueError("No se encontró ningún bloque JSON {...} en la respuesta.")
+            raise ValueError("No se encontró ningún bloque JSON ({...} o [...]) en la respuesta.")
             
         json_str = match.group(1).strip()
         
+        parsed = None
         # 1. Intentar parseo directo
         try:
-            return json.loads(json_str)
+            parsed = json.loads(json_str)
         except Exception:
             pass
 
         # 2. Limpiar comas flotantes/finales (trailing commas: ,} o ,]) comúnmente generadas por LLMs
-        sanitized_str = re.sub(r',\s*([\}\]])', r'\1', json_str)
-        try:
-            return json.loads(sanitized_str)
-        except Exception:
-            pass
+        if parsed is None:
+            sanitized_str = re.sub(r',\s*([\}\]])', r'\1', json_str)
+            try:
+                parsed = json.loads(sanitized_str)
+            except Exception:
+                pass
 
         # 3. Intentar reparar comillas simples si el LLM las usó en las claves
-        try:
-            fixed_quotes = re.sub(r"(?<=[\{\,\s])'([a-zA-Z0-9_]+)':", r'"\1":', sanitized_str)
-            return json.loads(fixed_quotes)
-        except Exception:
-            pass
+        if parsed is None:
+            try:
+                fixed_quotes = re.sub(r"(?<=[\{\,\s])'([a-zA-Z0-9_]+)':", r'"\1":', json_str)
+                parsed = json.loads(fixed_quotes)
+            except Exception:
+                pass
 
-        # Si todas las desinfecciones fallan, ejecutar el parseo estándar para propagar el traceback original
-        return json.loads(json_str)
+        # 4. Si fallaron los desinfectores, forzar json.loads directo para propagar excepción original
+        if parsed is None:
+            parsed = json.loads(json_str)
+
+        # Si el JSON resultador es una lista, envolver en dict con user_stories
+        if isinstance(parsed, list):
+            return {
+                "proyecto": "Proyecto Jellyfish",
+                "vision": "Generado desde lista de historias de usuario",
+                "user_stories": parsed
+            }
+
+        if not isinstance(parsed, dict):
+            raise ValueError(f"Se esperaba un objeto JSON (dict) pero se obtuvo {type(parsed).__name__}")
+
+        return parsed
 
     def run(self, user_idea: str) -> bool:
         """Genera BACKLOG.md y solicita aprobación del usuario."""
@@ -244,6 +264,7 @@ class ProductOwnerPhase:
             "[INSTRUCCIONES ESPECÍFICAS]\n"
             "Tu ÚNICO entregable es una especificación estructurada en formato JSON puro. "
             "NO generes texto conversacional, ni explicaciones, ni bloques de código adicionales fuera del JSON.\n\n"
+            "Cada historia de usuario DEBE contener explícitamente los campos 'prioridad' (MoSCoW: Must-have, Should-have, Could-have, Won't-have) y 'estimacion' (ej. M, 5 pts, XS, S, L, XL).\n\n"
             "El JSON debe tener exactamente la siguiente estructura:\n"
             "{\n"
             '  "proyecto": "Nombre del proyecto",\n'
@@ -255,6 +276,8 @@ class ProductOwnerPhase:
             '      "como": "Rol del usuario",\n'
             '      "quiero": "Acción deseada",\n'
             '      "para": "Beneficio esperado",\n'
+            '      "prioridad": "Must-have",\n'
+            '      "estimacion": "M",\n'
             '      "criterios_aceptacion": [\n'
             '        "Dado que..., cuando..., entonces..."\n'
             "      ],\n"
@@ -287,48 +310,60 @@ class ProductOwnerPhase:
             console.print("✗ Product Owner no produjo resultado.")
             return False
 
-        # Validar y escribir BACKLOG.json
+        # Validar y escribir BACKLOG.json con bucle estricto de reintentos (MAX_JSON_RETRIES = 3)
+        MAX_JSON_RETRIES = 3
         parsed_backlog = None
-        try:
-            parsed_backlog = self.extract_json_block(result)
-        except Exception as e:
-            logger.warning("Fallo al parsear JSON inicial del Product Owner: %s. Iniciando bucle de auto-corrección...", e)
-            console.print("[yellow]⚠ Error de sintaxis JSON en la respuesta. Iniciando reintento de auto-corrección...[/yellow]")
-            
-            # Reintento de Sintaxis (1 intento)
-            correction_system = (
-                "Error de sintaxis JSON. Devuelve ÚNICAMENTE la estructura JSON válida con las historias de usuario."
-            )
-            correction_user = (
-                f"RESPUESTA ANTERIOR CON ERRORES:\n```\n{result}\n```\n\n"
-                f"ERROR DE PARSEO OCURRIDO:\n{str(e)}\n\n"
-                f"Por favor, corrige y devuelve ÚNICAMENTE la estructura JSON pura y válida sin textos decorativos."
-            )
-            
-            try:
-                with TaskProgress(tui_engine, "auto_po_correction", "Product Owner: Corrigiendo sintaxis JSON..."):
-                    retry_result = self.orchestrator._call_agent(correction_system, correction_user, json_mode=True, timeout=180.0, temperature=0.2)
-                if retry_result:
-                    parsed_backlog = self.extract_json_block(retry_result)
-                    result = retry_result  # Guardar el resultado corregido para compatibilidad
-            except Exception as e_retry:
-                logger.error("Fallo también el reintento de auto-corrección de JSON del Backlog: %s", e_retry)
+        current_result = result
+        last_error = None
 
-        if parsed_backlog is not None:
+        for attempt in range(1, MAX_JSON_RETRIES + 1):
             try:
-                self.orchestrator._write_project_file("BACKLOG.json", json.dumps(parsed_backlog, indent=2, ensure_ascii=False))
-                md_backlog = self._build_md_backlog(parsed_backlog)
-                self.orchestrator._write_project_file("BACKLOG.md", md_backlog)
-            except Exception as e_write:
-                logger.error("Error al escribir archivos de BACKLOG tras parsing exitoso: %s", e_write)
-                parsed_backlog = None
+                parsed_backlog = self.extract_json_block(current_result)
+                if parsed_backlog and isinstance(parsed_backlog, dict) and "user_stories" in parsed_backlog and isinstance(parsed_backlog["user_stories"], list):
+                    result = current_result
+                    break
+                else:
+                    raise ValueError("JSON extraído carece de la lista 'user_stories'.")
+            except Exception as e:
+                last_error = str(e)
+                logger.warning("Fallo intento %d/%d al parsear JSON del Product Owner: %s", attempt, MAX_JSON_RETRIES, e)
+                if attempt < MAX_JSON_RETRIES:
+                    console.print(f"[yellow]⚠ Intento {attempt}/{MAX_JSON_RETRIES}: Error de sintaxis JSON en la respuesta. Solicitando corrección...[/yellow]")
+                    correction_system = (
+                        "Error de sintaxis JSON. Devuelve ÚNICAMENTE una estructura JSON válida con las historias de usuario."
+                    )
+                    correction_user = (
+                        f"RESPUESTA ANTERIOR CON ERRORES:\n```\n{current_result}\n```\n\n"
+                        f"ERROR DE PARSEO OCURRIDO:\n{last_error}\n\n"
+                        f"Por favor, corrige y devuelve ÚNICAMENTE la estructura JSON pura y válida sin textos decorativos."
+                    )
+                    try:
+                        with TaskProgress(tui_engine, "auto_po_correction", f"Product Owner: Reintento {attempt+1}/{MAX_JSON_RETRIES} de sintaxis JSON..."):
+                            current_result = self.orchestrator._call_agent(correction_system, correction_user, json_mode=True, timeout=180.0, temperature=0.2)
+                    except Exception as e_call:
+                        logger.error("Error al llamar al LLM para corrección de JSON: %s", e_call)
 
         if parsed_backlog is None:
-            console.print("❌ Error al parsear backlog JSON generado por el PO. Guardando salida cruda.")
-            self.orchestrator._write_project_file("BACKLOG.json", json.dumps({"error": "Falló el parsing del LLM", "raw_output": result}))
-            self.orchestrator._write_project_file("BACKLOG.md", result)
-            parsed_backlog = {"error": "Falló el parsing del LLM", "raw_output": result, "user_stories": []}
-            md_backlog = result
+            console.print("\n[bold red]🚨 HARD CRASH: Tolerancia cero en parseo JSON de Product Owner.[/bold red]")
+            console.print(f"[red]No fue posible obtener un BACKLOG.json válido tras {MAX_JSON_RETRIES} intentos de sintaxis. Último error: {last_error}[/red]")
+            # Alerta crítica y pausa en Sentinel
+            self.orchestrator.state.set_pipeline_status("PIPELINE_PAUSED", {
+                "task_id": "PO-BACKLOG-001",
+                "agent_name": "product_owner",
+                "error_log": f"HARD CRASH PO: Imposible parsear JSON del Backlog tras {MAX_JSON_RETRIES} intentos.\nSalida LLM:\n{current_result}\nError: {last_error}",
+                "task_desc": "Generar especificación BACKLOG.json válida",
+                "output_file": "BACKLOG.json"
+            })
+            self.orchestrator.metrics.append({"fase": "📝 Product Owner", "detalle": f"HARD CRASH ({last_error[:30]}...)", "tiempo": elapsed, "status": "❌"})
+            return False
+
+        try:
+            self.orchestrator._write_project_file("BACKLOG.json", json.dumps(parsed_backlog, indent=2, ensure_ascii=False))
+            md_backlog = self._build_md_backlog(parsed_backlog)
+            self.orchestrator._write_project_file("BACKLOG.md", md_backlog)
+        except Exception as e_write:
+            logger.error("Error al escribir archivos de BACKLOG tras parsing exitoso: %s", e_write)
+            return False
 
         tokens = estimate_tokens(result)
         console.print(f"✓ BACKLOG.json generado [dim]({tokens:,} tokens · {elapsed:.1f}s)[/dim]")
@@ -380,30 +415,27 @@ class ProductOwnerPhase:
                 continue
                 
             parsed_backlog_adjusted = None
-            try:
-                parsed_backlog_adjusted = self.extract_json_block(adjust_result)
-            except Exception as e:
-                logger.warning("Fallo al parsear JSON ajustado del Product Owner: %s. Iniciando bucle de auto-corrección...", e)
-                console.print("[yellow]⚠ Error de sintaxis JSON en el ajuste. Iniciando reintento de auto-corrección...[/yellow]")
-                
-                # Reintento de Sintaxis (1 intento)
-                correction_system = (
-                    "Error de sintaxis JSON. Devuelve ÚNICAMENTE la estructura JSON válida con las historias de usuario."
-                )
-                correction_user = (
-                    f"RESPUESTA DE AJUSTE ANTERIOR CON ERRORES:\n```\n{adjust_result}\n```\n\n"
-                    f"ERROR DE PARSEO OCURRIDO:\n{str(e)}\n\n"
-                    f"Por favor, corrige y devuelve ÚNICAMENTE la estructura JSON pura y válida sin textos decorativos."
-                )
-                
+            current_adjust = adjust_result
+            adjust_error = None
+            for adjust_attempt in range(1, MAX_JSON_RETRIES + 1):
                 try:
-                    with TaskProgress(tui_engine, "auto_po_adjust_correction", "Product Owner: Corrigiendo sintaxis JSON..."):
-                        retry_adjust = self.orchestrator._call_agent(correction_system, correction_user, json_mode=True, timeout=180.0, temperature=0.2)
-                    if retry_adjust:
-                        parsed_backlog_adjusted = self.extract_json_block(retry_adjust)
-                        adjust_result = retry_adjust
-                except Exception as e_retry:
-                    logger.error("Fallo también el reintento de auto-corrección de JSON ajustado del Backlog: %s", e_retry)
+                    parsed_backlog_adjusted = self.extract_json_block(current_adjust)
+                    if parsed_backlog_adjusted and isinstance(parsed_backlog_adjusted, dict) and "user_stories" in parsed_backlog_adjusted:
+                        break
+                    else:
+                        raise ValueError("JSON de ajuste carece de 'user_stories'.")
+                except Exception as e:
+                    adjust_error = str(e)
+                    logger.warning("Fallo al parsear JSON ajustado intento %d/%d: %s", adjust_attempt, MAX_JSON_RETRIES, e)
+                    if adjust_attempt < MAX_JSON_RETRIES:
+                        console.print(f"[yellow]⚠ Intento {adjust_attempt}/{MAX_JSON_RETRIES}: Error de sintaxis JSON en el ajuste. Reintentando...[/yellow]")
+                        correction_system = "Error de sintaxis JSON. Devuelve ÚNICAMENTE la estructura JSON válida con las historias de usuario."
+                        correction_user = f"RESPUESTA ANTERIOR:\n```\n{current_adjust}\n```\n\nERROR:\n{adjust_error}\n\nCorrige y devuelve JSON puro."
+                        try:
+                            with TaskProgress(tui_engine, "auto_po_adjust_correction", f"Product Owner: Reintento {adjust_attempt+1}/{MAX_JSON_RETRIES} de ajuste JSON..."):
+                                current_adjust = self.orchestrator._call_agent(correction_system, correction_user, json_mode=True, timeout=180.0, temperature=0.2)
+                        except Exception:
+                            pass
 
             if parsed_backlog_adjusted is not None:
                 try:
@@ -415,7 +447,7 @@ class ProductOwnerPhase:
                     logger.error("Error al escribir archivos de BACKLOG ajustado tras parsing exitoso: %s", e_write)
                     console.print("[red]❌ Error al integrar el feedback en el JSON. Reintentando...[/red]")
             else:
-                console.print("[red]❌ Error al integrar el feedback en el JSON. Reintentando...[/red]")
+                console.print(f"[red]❌ Error al integrar el feedback en el JSON tras {MAX_JSON_RETRIES} intentos: {adjust_error}. Manteniendo backlog previo.[/red]")
 
         console.print("✓ Backlog aprobado.\n")
         return True
@@ -432,12 +464,13 @@ class ProductOwnerPhase:
         system_prompt = (
             "Eres un QA Engineer experto en Metodologías Ágiles.\n"
             "Tu tarea es auditar el BACKLOG.md y determinar si cumple con el 'Definition of Ready' (DoR).\n"
-            "El Backlog está listo si:\n"
-            "1. Contiene al menos 4 historias de usuario claras o especificaciones suficientes.\n"
-            "2. Cada historia contiene criterios de aceptación detallados y prioritarios (MoSCoW).\n"
+            "El Backlog está listo (ready: true) si:\n"
+            "1. Contiene historias de usuario claras con criterios de aceptación detallados (Gherkin).\n"
+            "2. Cada historia contiene explícitamente su prioridad clasificada según la metodología MoSCoW (Must-have, Should-have, Could-have, Won't-have) y su estimación.\n"
             "3. No hay requerimientos ambiguos o contradictorios.\n\n"
+            "REGLA DE APROBACIÓN AUTOMÁTICA: Si las historias cuentan con la etiqueta de Prioridad MoSCoW y Criterios de Aceptación, DEBES aprobar automáticamente el DoR con ready: true, sin emitir advertencias innecesarias ni requerir metodologías no definidas.\n\n"
             "Debes responder en formato JSON puro. Ejemplo:\n"
-            '{"ready": true, "reason": "El backlog está completo e incluye criterios Gherkin."}\n'
+            '{"ready": true, "reason": "El backlog está completo, incluye prioridad MoSCoW y criterios Gherkin."}\n'
             'O si no está listo:\n'
             '{"ready": false, "reason": "Faltan los criterios de aceptación en la historia US-003."}'
         )

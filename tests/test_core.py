@@ -18,6 +18,8 @@ Ejecutar con:
 import json
 import os
 import sys
+import tempfile
+from unittest.mock import patch, MagicMock
 import pytest
 import dotenv
 dotenv.load_dotenv = lambda *args, **kwargs: None
@@ -1878,6 +1880,109 @@ class TestResilientLLMFallback:
                 saved_map = json.load(f)
             assert saved_map["Quiero un sistema de clinicas llamado Naturamedics con React Native y FastAPI"] == dsl_output
             assert getattr(state, "new_intents")["Quiero un sistema de clinicas llamado Naturamedics con React Native y FastAPI"] == dsl_output
+
+    def test_extract_json_block_robustness(self):
+        from core.orchestration.product_owner import ProductOwnerPhase
+        from unittest.mock import MagicMock
+
+        phase = ProductOwnerPhase(MagicMock())
+        # Markdown residual alrededor de JSON
+        raw = "```json\n{\n  \"proyecto\": \"TestApp\",\n  \"vision\": \"Visión\",\n  \"user_stories\": [{\"id\": \"US-101\", \"titulo\": \"Test\"}]\n}\n```"
+        block = phase.extract_json_block(raw)
+        assert block["proyecto"] == "TestApp"
+        assert block["user_stories"][0]["id"] == "US-101"
+
+    @patch("core.project_orchestrator.ProjectOrchestrator._run_environment_probe")
+    def test_environment_blocking_validation(self, mock_probe):
+        from core.state import JellyfishState
+        from core.project_orchestrator import ProjectOrchestrator
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = JellyfishState()
+            state.active_project = temp_dir
+            orchestrator = ProjectOrchestrator(state)
+
+            # Simular capacidades donde node y npm no existen
+            mock_probe.return_value = {
+                "python_version": "Python 3.10",
+                "node_version": "No disponible",
+                "npm_version": "No disponible",
+                "gradle_version": "No disponible"
+            }
+
+            # Idea que requiere React Native (Node.js y npm)
+            result = orchestrator._validate_environment_blocking("Quiero una app movil en React Native")
+            assert result is False
+            assert state.is_pipeline_paused() is True
+
+
+def test_static_context_budget_limit():
+    """Verifica que refresh_static_context respete el presupuesto estricto MAX_STATIC_CHARS (16,000 chars)."""
+    from core.state import JellyfishState
+    with tempfile.TemporaryDirectory() as temp_dir:
+        state = JellyfishState()
+        state.active_project = temp_dir
+        
+        # Crear un archivo de diseño gigante de 30KB
+        huge_doc = os.path.join(temp_dir, "DESIGN_TOKENS.md")
+        with open(huge_doc, "w", encoding="utf-8") as f:
+            f.write("# Design System Giant\n" + ("A" * 30_000))
+            
+        state.refresh_static_context()
+        
+        total_chars = sum(len(m.get("content", "")) for m in state.static_history)
+        # El contexto estático total no debe exceder sustancialmente los 16,000 caracteres del presupuesto
+        assert total_chars < 22_000
+        # Verificar que el truncamiento fue registrado
+        doc_msg = [m for m in state.static_history if "DESIGN_TOKENS.md" in m.get("content", "")][0]
+        assert "[TRUNCADO POR PRESUPUESTO ESTÁTICO DE 16K CHARS / 4K TOKENS]" in doc_msg["content"]
+
+
+def test_sentinel_session_decoupled_control():
+    """Verifica que run_sentinel_session retorne señales de control síncronas sin invocar al LLM."""
+    from core.state import JellyfishState
+    with tempfile.TemporaryDirectory() as temp_dir:
+        state = JellyfishState()
+        state.active_project = temp_dir
+        state.set_pipeline_status("PIPELINE_PAUSED", {
+            "task_id": "US-001",
+            "agent_name": "developer",
+            "error_log": "Error de prueba",
+            "task_desc": "Tarea de prueba",
+            "output_file": "app.py"
+        })
+        
+        from core.agency_orchestrator import AgencyOrchestrator
+        ceo = AgencyOrchestrator(state)
+        
+        # Simular usuario seleccionando opción 2 (ignorar -> [FORCE_CONTINUE])
+        with patch("builtins.input", return_value="2"):
+            res = ceo.run_sentinel_session()
+            assert res == "[FORCE_CONTINUE]"
+            assert state.is_pipeline_paused() is False
+
+
+def test_flush_crash_reports():
+    """Verifica que _flush_crash_reports escriba el informe forense .md en disco."""
+    from core.state import JellyfishState
+    with tempfile.TemporaryDirectory() as temp_dir:
+        from jellyfish import _flush_crash_reports
+        state = JellyfishState()
+        state.active_project = temp_dir
+        state.captured_errors = ["Traceback ficticio: Error de división por cero"]
+        
+        _flush_crash_reports(state)
+        
+        import glob
+        reports = glob.glob(os.path.join(temp_dir, "jellyfish_error_report_*.md"))
+        assert len(reports) == 1
+        with open(reports[0], "r", encoding="utf-8") as f:
+            content = f.read()
+        assert "Reporte Forense de Error" in content
+        assert "Traceback ficticio: Error de división por cero" in content
+
+
 
 
 

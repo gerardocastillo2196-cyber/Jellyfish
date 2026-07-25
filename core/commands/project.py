@@ -18,10 +18,17 @@ _SCRUM_METHODOLOGY_TEMPLATE = """\
 - **Product Owner (Usuario):** Define las prioridades del backlog y acepta o rechaza entregables.
 - **Development Team (Agentes):** Ejecutan las tareas del sprint activo.
 
+## Priorización Oficial (Metodología MoSCoW)
+Todas las historias de usuario en el backlog se priorizan obligatoriamente bajo el esquema MoSCoW:
+- **Must-have (🔴):** Requerimientos críticos e indispensables para la versión.
+- **Should-have (🟡):** Requerimientos de alta importancia pero no bloqueantes inmediatamente.
+- **Could-have (🟢):** Funcionalidades deseables si hay tiempo/recursos disponibles.
+- **Won't-have (⚪):** Requerimientos explícitamente descartados o diferidos para futuros lanzamientos.
+
 ## Artefactos
 | Artefacto | Archivo | Propósito |
 |---|---|---|
-| Product Backlog | `BACKLOG.md` | Lista priorizada de todas las historias de usuario / requerimientos. |
+| Product Backlog | `BACKLOG.md` | Lista priorizada de todas las historias de usuario / requerimientos con estándar MoSCoW. |
 | Sprint Board | `SPRINT_BOARD.md` | Tablero Kanban con el estado de las tareas del sprint activo. |
 | Daily Log | `DAILY.md` | Bitácora de standups y comunicación entre agentes. |
 
@@ -32,8 +39,15 @@ _SCRUM_METHODOLOGY_TEMPLATE = """\
 4. **Sprint Retrospective:** Se evalúa el proceso y se proponen mejoras.
 
 ## Estimación
-- Se usa la escala T-shirt: `XS`, `S`, `M`, `L`, `XL`.
-- Cada historia en `BACKLOG.md` debe incluir su estimación.
+- Se usa la escala T-shirt (`XS`, `S`, `M`, `L`, `XL`) o puntos de historia.
+- Cada historia en `BACKLOG.md` debe incluir su estimación y su prioridad MoSCoW.
+
+## Definition of Ready (DoR)
+Una Historia de Usuario se considera **READY** para el sprint cuando:
+1. Cuenta con descripción estructurada y criterios de aceptación claros en sintaxis Gherkin.
+2. Contiene su correspondiente priorización MoSCoW (Must-have, Should-have, Could-have, Won't-have).
+3. Posee una estimación de esfuerzo.
+4. El @QA Agent valida y aprueba el backlog automáticamente sin requerir intervención manual.
 
 ## Definition of Done (DoD)
 Una tarea se considera **DONE** cuando:
@@ -50,13 +64,13 @@ Una tarea se considera **DONE** cuando:
 _BACKLOG_TEMPLATE = """\
 # 📋 Product Backlog
 
-> Prioridad: 🔴 Alta | 🟡 Media | 🟢 Baja
+> Prioridad MoSCoW: Must-have (🔴) | Should-have (🟡) | Could-have (🟢) | Won't-have (⚪)
 
 ## Historias de Usuario
 
-| ID | Historia | Estimación | Prioridad | Estado |
+| ID | Historia | Estimación | Prioridad (MoSCoW) | Estado |
 |---|---|---|---|---|
-| US-001 | Como usuario, quiero [describir funcionalidad] para [beneficio]. | M | 🔴 | Pendiente |
+| US-001 | Como usuario, quiero [describir funcionalidad] para [beneficio]. | M | Must-have | Pendiente |
 
 ---
 

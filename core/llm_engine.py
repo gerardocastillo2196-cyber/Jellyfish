@@ -109,9 +109,9 @@ def clear_llm_cache() -> None:
     """Limpia la caché L1 de llamadas LLM. Llamar al inicio de cada turno."""
     _llm_call_cache.clear()
 
-# Regex para detectar bloques de código bash/sh/shell
+# Regex para detectar bloques de código bash/sh/shell (exige explícitamente la etiqueta de lenguaje)
 _BASH_REGEX = re.compile(
-    r"```(?:bash|sh|shell|zsh)?\s*\n(.*?)\n```",
+    r"```(?:bash|sh|shell|zsh)\s*\n(.*?)\n```",
     re.DOTALL
 )
 

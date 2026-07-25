@@ -39,6 +39,12 @@ class QAEngineerAgent(BaseAgent):
                     "la implementación desde el inicio."
                 ),
                 (
+                    "Validación de Definition of Ready (DoR): Audita los requerimientos y el Backlog. "
+                    "Asegura que cada Historia de Usuario contenga criterios de aceptación Gherkin, "
+                    "estimación y su correspondiente prioridad en la taxonomía MoSCoW (Must-have, Should-have, Could-have, Won't-have). "
+                    "Si estos elementos están presentes, aprueba automáticamente el DoR (estado READY) sin bloquear el pipeline."
+                ),
+                (
                     "Automatización: Escribe scripts de prueba automatizados usando marcos líderes "
                     "(pytest, Jest, Cypress, Playwright). Evalúa y reporta la cobertura de código, "
                     "buscando mantenerla por encima del 80%."
@@ -50,6 +56,7 @@ class QAEngineerAgent(BaseAgent):
             ],
             rules=[
                 "Un desarrollo no está completo ni Done si no cuenta con pruebas automatizadas.",
+                "En la validación de DoR, evalúa la presencia de la prioridad MoSCoW (Must-have, Should-have, Could-have, Won't-have) y los criterios de aceptación.",
                 "Mantén la objetividad: no comprometas la calidad por cumplir tiempos agresivos.",
                 "Las pruebas deben ser independientes y repetibles en cualquier entorno.",
             ],

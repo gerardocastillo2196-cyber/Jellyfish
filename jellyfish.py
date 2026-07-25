@@ -230,6 +230,11 @@ class JellyfishLexer(Lexer):
 # --- INICIALIZACIÓN ---
 state = JellyfishState()
 
+from core.ui_subscriber import register_cli_subscriber
+from core.event_bus import event_bus, EventType
+register_cli_subscriber(state)
+event_bus.publish(EventType.SYSTEM_BOOT, {"provider": state.provider, "model": state.model})
+
 # Auto-migración de modelos obsoletos de Gemini
 if state.provider == "gemini" and (not state.model or "gemini-3.5" in state.model or "gemini-3.1" in state.model):
     from core.config import save_config_to_env
@@ -403,6 +408,41 @@ def _sentinel_forensic_boot_scan(state):
         console.print("[dim]Continuando con el arranque normal...[/dim]")
 
 
+def _flush_crash_reports(state):
+    """Vuelca forzosamente cualquier error capturado en state.captured_errors a un reporte forense en disco."""
+    if not hasattr(state, "captured_errors") or not state.captured_errors:
+        return
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_filename = f"jellyfish_error_report_{timestamp}.md"
+    
+    target_paths = [os.path.join(AGENCY_DIR, report_filename)]
+    if getattr(state, "active_project", None) and os.path.isdir(state.active_project):
+        proj_report = os.path.join(state.active_project, report_filename)
+        if proj_report not in target_paths:
+            target_paths.append(proj_report)
+        
+    content = (
+        f"# 🛡️ Reporte Forense de Error — Jellyfish OS\n\n"
+        f"**Fecha y Hora:** {datetime.datetime.now().isoformat()}\n"
+        f"**Proyecto Activo:** `{getattr(state, 'active_project', 'Ninguno')}`\n"
+        f"**Agente Activo:** `@{getattr(state, 'active_agent', 'default')}`\n"
+        f"**Proveedor / Modelo:** `{getattr(state, 'provider', '')}` / `{getattr(state, 'model', '')}`\n\n"
+        f"---\n"
+        f"## 🚨 Traza de Errores Capturados ({len(state.captured_errors)}):\n\n"
+    )
+    for i, err in enumerate(state.captured_errors, 1):
+        content += f"### Error #{i}\n```\n{err}\n```\n\n"
+        
+    for p in target_paths:
+        try:
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(content)
+            logging.getLogger("jellyfish").info("Reporte forense de error generado en: %s", p)
+        except Exception as ex_write:
+            logging.getLogger("jellyfish").error("No se pudo escribir reporte de error en %s: %s", p, ex_write)
+
+
 def main():
     """Bucle principal de Jellyfish con TUI integrada.
 
@@ -497,10 +537,9 @@ def main():
             if not hasattr(state, "captured_errors"):
                 state.captured_errors = []
             state.captured_errors.append(error_trace)
+            _flush_crash_reports(state)
             console.print(f"[red]Error inesperado: {e}[/red]")
             logging.getLogger("jellyfish").error("Error en ejecución de comando: %s", e, exc_info=True)
-        # Sprint 8.0 — Mantener el header visible actualizando antes del siguiente prompt
-        # refresh_header(force=True)  # <-- Comentado nuevamente por petición del usuario (no reimprimir nunca)
 
     tui_engine.command_handler = process_command
 
@@ -513,9 +552,17 @@ def main():
         )
     except KeyboardInterrupt:
         pass
+    except Exception as fatal_e:
+        import traceback
+        if not hasattr(state, "captured_errors"):
+            state.captured_errors = []
+        state.captured_errors.append(traceback.format_exc())
+        _flush_crash_reports(state)
+        console.print(f"[red]Error fatal en main loop: {fatal_e}[/red]")
     finally:
         # Restaurar la terminal al salir
         tui_engine.restore_terminal()
+        _flush_crash_reports(state)
         from core.ui import handle_exit_flow, sync_readme_on_exit
         handle_exit_flow(state)
         sync_readme_on_exit(state)

@@ -10,6 +10,7 @@ from core.llm_engine import _call_llm_silent, LocalLLMTimeoutError
 from core.terminal import run_terminal_command
 from core.agents.registry import AgentRegistry
 from core.skills.registry import SkillRegistry
+from core.event_bus import event_bus, EventType
 
 logger = logging.getLogger("jellyfish.orchestration.task_runner")
 console = Console()
@@ -131,15 +132,31 @@ class TaskRunnerPhase:
             if not output_file or output_file == "—":
                 output_file = f"TASK_{task_id_str.replace('-', '_')}.md"
 
-            # FASE 2 / FASE 3: Verificar que las dependencias de la tarea estén completadas en el Blackboard
+            # FASE 2 / FASE 3: Verificar que las dependencias de la tarea estén completadas en el Blackboard (H-03)
             deps_ok = True
+            missing_dep = ""
             for dep_id in task.get("dependencies", []):
                 dep_status = self.orchestrator.state.blackboard.get(f"task_status_{dep_id}")
                 if dep_status != "completed":
                     deps_ok = False
+                    missing_dep = dep_id
                     break
             if not deps_ok:
-                console.print(f"       ⚠️ Tarea {task_id_str} bloqueada/saltada esperando a que sus dependencias se completen.")
+                self.orchestrator.state.blackboard.set(f"task_status_{task_id_str}", "blocked")
+                task["status"] = "BLOCKED"
+                task["state"] = "BLOCKED"
+                self.orchestrator._save_board(tasks)
+                event_bus.publish(EventType.TASK_BLOCKED, {
+                    "task_id": task_id_str,
+                    "missing_dep": missing_dep,
+                    "agent_name": agent_name
+                })
+                self.orchestrator.metrics.append({
+                    "fase": f"@{agent_name} ({task_id_str})",
+                    "detalle": f"Bloqueada por dependencia: {missing_dep}",
+                    "tiempo": 0.0,
+                    "status": "⚠️ BLOCKED",
+                })
                 continue
 
             # Omitir tareas completadas o fallidas si estamos reanudando
@@ -161,15 +178,19 @@ class TaskRunnerPhase:
 
             while task_retries < MAX_RETRIES:
                 # FASE 1 & FASE 3: Actualizar estados de agente y TUI global
-                if agent_name in self.orchestrator.state.agent_statuses:
-                    self.orchestrator.state.agent_statuses[agent_name] = "Ejecutando"
+                event_bus.publish(EventType.AGENT_STATUS_CHANGE, {"agent": agent_name, "status": "Ejecutando"})
                 self.orchestrator.state.global_status = "PROCESS"
 
-                console.print(
-                    f"[bold white]  [{task_num}/{len(tasks)}] {task_id_str} (Intento {task_retries + 1}/{MAX_RETRIES}):[/bold white] "
-                    f"{task_desc[:60]}{'...' if len(task_desc) > 60 else ''}"
-                )
-                console.print(f"[dim]       → @{agent_name} → {output_file}[/dim]")
+                event_bus.publish(EventType.TASK_STARTED, {
+                    "task_num": task_num,
+                    "total_tasks": len(tasks),
+                    "task_id": task_id_str,
+                    "task_retries": task_retries,
+                    "max_retries": MAX_RETRIES,
+                    "task_desc": task_desc,
+                    "agent_name": agent_name,
+                    "output_file": output_file
+                })
 
                 # Realizar git snapshot de transaccionalidad via micro-branching
                 use_microbranch = False
@@ -485,7 +506,7 @@ class TaskRunnerPhase:
                                         task_id_str, agent_name, task_desc, output_file, file_content
                                     )
                                 if dod_approved:
-                                    console.print(f"       ✓ DoD Aprobado: {dod_reason}")
+                                    event_bus.publish(EventType.TASK_COMPLETED, {"task_id": task_id_str, "reason": dod_reason, "agent_name": agent_name})
                                     success_task = True
                                     break
                                 else:
@@ -513,7 +534,7 @@ class TaskRunnerPhase:
                                         task_id_str, agent_name, task_desc, output_file, file_content
                                     )
                                 if dod_approved:
-                                    console.print(f"       ✓ DoD Aprobado: {dod_reason}")
+                                    event_bus.publish(EventType.TASK_COMPLETED, {"task_id": task_id_str, "reason": dod_reason, "agent_name": agent_name})
                                     success_task = True
                                     break
                                 else:
@@ -566,11 +587,12 @@ class TaskRunnerPhase:
                     else:
                         # FASE 4: Límite de escalada MAX_RETRIES alcanzado. Bloquear la TUI
                         self.orchestrator.state.global_status = "ERROR"
-                        if agent_name in self.orchestrator.state.agent_statuses:
-                            self.orchestrator.state.agent_statuses[agent_name] = "Inactivo"
-                        
-                        console.print(f"\n❌ [BLOQUEADO] La tarea {task_id_str} ha fallado {MAX_RETRIES} veces consecutivas.")
-                        console.print(f"       Último error registrado: {last_error_log}")
+                        event_bus.publish(EventType.AGENT_STATUS_CHANGE, {"agent": agent_name, "status": "Inactivo"})
+                        event_bus.publish(EventType.TASK_FAILED, {
+                            "task_id": task_id_str,
+                            "max_retries": MAX_RETRIES,
+                            "error_log": last_error_log
+                        })
                         
                         self.orchestrator.metrics.append({
                             "fase": f"@{agent_name} ({task_id_str})",
@@ -590,10 +612,10 @@ class TaskRunnerPhase:
                         
                         from core.agency_orchestrator import AgencyOrchestrator
                         ceo = AgencyOrchestrator(self.orchestrator.state)
-                        ceo.run_sentinel_session()
+                        sentinel_res = ceo.run_sentinel_session()
                         
-                        # Si el usuario resolvió la pausa (ej. retrying con nuevas instrucciones, o salteando)
-                        if not self.orchestrator.state.is_pipeline_paused():
+                        # Si el usuario resolvió la pausa mediante retornos de control directos ([RETRY] o [FORCE_CONTINUE])
+                        if not self.orchestrator.state.is_pipeline_paused() or sentinel_res in ("[RETRY]", "[FORCE_CONTINUE]"):
                             import json
                             json_filename = self.orchestrator.board_filename.replace(".md", ".json")
                             json_path = os.path.join(self.orchestrator.project_path, json_filename)
@@ -608,22 +630,22 @@ class TaskRunnerPhase:
                                             task["status"] = ut.get("status")
                                             task["state"] = ut.get("state")
                                             break
-                                    
-                                    # Si la tarea fue marcada como DONE o FAILED
-                                    if task.get("status") in ("DONE", "HECHO", "FAILED") or task.get("state") in ("DONE", "HECHO", "FAILED"):
-                                        if task.get("status") == "FAILED" or task.get("state") == "FAILED":
-                                            self.orchestrator.state.blackboard.set(f"task_status_{task_id_str}", "failed")
-                                        else:
-                                            self.orchestrator.state.blackboard.set(f"task_status_{task_id_str}", "completed")
-                                        break
-                                except Exception:
-                                    pass
+                                except Exception as err_json:
+                                    logger.warning("Error leyendo tablero actualizado tras SIP: %s", err_json)
+
+                            # Si la tarea fue marcada como DONE o FAILED
+                            if task.get("status") in ("DONE", "HECHO", "FAILED") or task.get("state") in ("DONE", "HECHO", "FAILED"):
+                                if task.get("status") == "FAILED" or task.get("state") == "FAILED":
+                                    self.orchestrator.state.blackboard.set(f"task_status_{task_id_str}", "failed")
+                                else:
+                                    self.orchestrator.state.blackboard.set(f"task_status_{task_id_str}", "completed")
+                                break  # Romper el bucle task_retries para avanzar linealmente a la siguiente tarea
                             
-                            # Si se seleccionó reintentar (sigue en TODO)
+                            # Si se seleccionó reintentar ([RETRY] o status en TODO)
                             task_retries = 0
                             continue
                         
-                        # Si sigue pausado por alguna razón (aborto), detenemos la ejecución
+                        # Si sigue pausado o la sesión fue abortada, detener la ejecución de forma limpia
                         return
 
             if use_microbranch and success_task:

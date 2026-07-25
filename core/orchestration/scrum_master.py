@@ -261,19 +261,26 @@ class ScrumMasterPhase:
         user_stories = []
         try:
             backlog_data = json.loads(backlog)
-            user_stories = backlog_data.get("user_stories", [])
+            if isinstance(backlog_data, dict):
+                user_stories = backlog_data.get("user_stories") or backlog_data.get("userStories") or backlog_data.get("historias_de_usuario") or backlog_data.get("historias") or []
+            elif isinstance(backlog_data, list):
+                user_stories = backlog_data
         except Exception:
-            pass
+            # Si el backlog no es JSON puro, buscar coincidencia de IDs US-xxx vía regex en Markdown
+            matches = re.findall(r'US-\d+', backlog)
+            if matches:
+                user_stories = [{"id": uid, "titulo": f"Historia {uid}"} for uid in sorted(set(matches))]
 
         unmapped_stories = []
         if user_stories:
             for us in user_stories:
-                us_id = us.get("id", "")
+                us_id = us.get("id") or us.get("ID") or us.get("us_id") or us.get("codigo") or ""
                 if not us_id:
                     continue
                 found = False
                 for t in tasks:
-                    if us_id.lower() in t.get("task", "").lower() or us_id.lower() in t.get("id", "").lower():
+                    task_text = (t.get("task", "") + " " + t.get("id", "")).lower()
+                    if us_id.lower() in task_text:
                         found = True
                         break
                 if not found:
@@ -362,22 +369,26 @@ class ScrumMasterPhase:
     def _synthesize_fallback_board(self, target_board: str, backlog_str: str) -> list[dict]:
         """Sintetiza tareas de contingencia directamente desde las Historias de Usuario de BACKLOG.json/md."""
         import json
+        import re
         tasks = []
         user_stories = []
         try:
             data = json.loads(backlog_str)
-            user_stories = data.get("user_stories", [])
+            if isinstance(data, dict):
+                user_stories = data.get("user_stories") or data.get("userStories") or data.get("historias_de_usuario") or data.get("historias") or []
+            elif isinstance(data, list):
+                user_stories = data
         except Exception:
             pass
 
         if not user_stories:
-            user_stories = [{
-                "id": "US-001",
-                "titulo": "Implementación de Arquitectura y Estructura Base",
-                "como": "Desarrollador del sistema",
-                "quiero": "Andamiar el proyecto con los componentes solicitados",
-                "para": "Iniciar desarrollo del sistema"
-            }]
+            matches = re.findall(r'US-\d+', backlog_str)
+            if matches:
+                user_stories = [{"id": uid, "titulo": f"Implementación de historia {uid}"} for uid in sorted(set(matches))]
+
+        if not user_stories:
+            logger.error("No se encontraron historias de usuario para sintetizar el tablero de contingencia.")
+            return []
 
         board_lines = [
             "## 📋 POR HACER (TODO)",
@@ -387,8 +398,8 @@ class ScrumMasterPhase:
 
         for idx, us in enumerate(user_stories, start=1):
             t_id = f"T-{idx:03d}"
-            us_id = us.get("id", f"US-{idx:03d}")
-            title = us.get("titulo", "Desarrollar componente de aplicación")
+            us_id = us.get("id") or us.get("ID") or us.get("us_id") or f"US-{idx:03d}"
+            title = us.get("titulo") or us.get("title") or "Desarrollar componente de aplicación"
             task_desc = f"[{us_id}] {title}"
             output_file = f"src/feature_{idx}.py"
             

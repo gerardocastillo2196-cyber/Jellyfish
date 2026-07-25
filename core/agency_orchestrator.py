@@ -114,24 +114,16 @@ class AgencyOrchestrator(BaseOrchestrator):
         task_desc = ctx.get("task_desc", "Sin descripción.")
         output_file = ctx.get("output_file", "")
 
+        from core.event_bus import event_bus, EventType
+        event_bus.publish(EventType.SENTINEL_ALERT, {
+            "task_id": task_id,
+            "agent_name": agent_name,
+            "error_log": error_log,
+            "task_desc": task_desc,
+            "output_file": output_file
+        })
+
         while True:
-            # Mostrar panel visual rich del error
-            console.print("\n" + "=" * 80)
-            console.print(Panel(
-                Markdown(
-                    f"### 🛡️ @Sentinel — Alerta de Interrupción del Pipeline (SIP)\n\n"
-                    f"**Agente Asignado:** @{agent_name}\n"
-                    f"**ID Tarea:** {task_id}\n"
-                    f"**Descripción:** {task_desc}\n"
-                    f"**Entregable:** `{output_file}`\n\n"
-                    f"---"
-                    f"#### 🔍 LOG CORTO DEL ERROR (Los 3 intentos fallaron):\n"
-                    f"```\n{error_log[:1500] if len(error_log) > 1500 else error_log}\n```"
-                ),
-                title="[bold red]🚨 SENTINEL INTERACTIVE PAUSE 🚨[/bold red]",
-                border_style="red"
-            ))
-            
             console.print("\n[bold yellow]Opciones de Intervención:[/bold yellow]")
             console.print("  [1] Ver log completo y reintentar con nuevas instrucciones.")
             console.print("  [2] Ignorar este error y marcar tarea como [FAILED].")
@@ -161,26 +153,15 @@ class AgencyOrchestrator(BaseOrchestrator):
                     continue
 
                 if new_instructions:
-                    combined_input = (
-                        f"Error anterior:\n{error_log}\n"
-                        f"Nuevas instrucciones de corrección del usuario:\n{new_instructions}"
-                    )
-                    
-                    from core.translator import IntentTranslator
-                    translator = IntentTranslator(self.state)
-                    intent_token = translator.translate(combined_input)
-                    
-                    console.print(f"[green]✓ @translator generó e indexó el token: {intent_token}[/green]")
-                    
-                    # Actualizar descripción en la tabla de tareas
-                    updated_desc = f"FIX REQUIRED [{intent_token}]: {new_instructions}. Original: {task_desc}"
+                    # Actualizar descripción en la tabla de tareas sin llamada síncrona al LLM
+                    updated_desc = f"FIX REQUIRED: {new_instructions}. Original: {task_desc}"
                     self.update_task_in_board(task_id, new_desc=updated_desc)
                     
-                    # Desbloquear pipeline y reanudar
+                    # Desbloquear pipeline y retornar código de reintento lineal
                     self.state.set_pipeline_status("OK")
                     self.state.load_agent("default")
-                    console.print("[green]✓ Pipeline desbloqueado. Reanudando ejecución de tareas...[/green]")
-                    return self.route_and_execute("Reanudación de Sprint Activo")
+                    console.print("[green]✓ Pipeline desbloqueado. Reintentando tarea linealmente...[/green]")
+                    return "[RETRY]"
                 else:
                     console.print("[yellow]Instrucciones vacías. Retornando al menú...[/yellow]")
                     continue
@@ -190,7 +171,7 @@ class AgencyOrchestrator(BaseOrchestrator):
                 self.state.set_pipeline_status("OK")
                 self.state.load_agent("default")
                 console.print(f"[green]✓ Tarea {task_id} marcada como FAILED. Continuando con la siguiente tarea...[/green]")
-                return self.route_and_execute("Reanudación de Sprint Activo")
+                return "[FORCE_CONTINUE]"
 
             elif choice == "3":
                 editor = os.environ.get("EDITOR", "nano")
@@ -219,12 +200,12 @@ class AgencyOrchestrator(BaseOrchestrator):
                 if sub_choice == "1":
                     self.state.set_pipeline_status("OK")
                     self.state.load_agent("default")
-                    return self.route_and_execute("Reanudación de Sprint Activo")
+                    return "[RETRY]"
                 elif sub_choice == "2":
                     self.update_task_in_board(task_id, new_status="DONE")
                     self.state.set_pipeline_status("OK")
                     self.state.load_agent("default")
-                    return self.route_and_execute("Reanudación de Sprint Activo")
+                    return "[FORCE_CONTINUE]"
                 else:
                     continue
 
@@ -258,7 +239,7 @@ class AgencyOrchestrator(BaseOrchestrator):
                 if sub_choice == "1":
                     self.state.set_pipeline_status("OK")
                     self.state.load_agent("default")
-                    return self.route_and_execute("Reanudación de Sprint Activo")
+                    return "[RETRY]"
                 else:
                     continue
             else:

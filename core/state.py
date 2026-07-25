@@ -214,10 +214,11 @@ class JellyfishState:
     historial de conversación, prompt del sistema y configuración de IA.
     """
 
-    # Límite de caracteres totales para archivos de contexto (~25K tokens)
-    MAX_CONTEXT_CHARS = 100_000
+    # Límite de caracteres totales para contexto estático (~4K tokens / 16K chars) para evitar OOM
+    MAX_STATIC_CHARS = 16_000
+    MAX_CONTEXT_CHARS = 16_000
     # Límite de caracteres por archivo individual
-    MAX_FILE_CHARS = 15_000
+    MAX_FILE_CHARS = 4_000
 
     def __init__(self):
         self._loading_history = False
@@ -466,30 +467,49 @@ class JellyfishState:
 
         # 2. Cargar Perfil Específico
         if self.active_agent == "default":
-            # Jellyfish es una herramienta de desarrollo profesional. Usamos por defecto
-            # la personalidad y directivas de Product Owner (PO) bajo metodología Scrum.
-            methodology_label = "Product Owner (PO)" if self.project_methodology == "scrum" else "Project Manager (Gestor de Requerimientos)"
+            # Construir dinámicamente la lista de agentes registrados desde el registry
+            registered_agents = []
+            try:
+                for name, agent_cls in AgentRegistry.list_agents().items():
+                    agent_inst = agent_cls()
+                    registered_agents.append(f"- @{name}: {agent_inst.role} (Agencia: {getattr(agent_inst, 'agency', 'default')})")
+            except Exception as e_reg:
+                logger.warning("Error al listar agentes en load_agent('default'): %s", e_reg)
+
+            agents_summary_str = "\n".join(registered_agents) if registered_agents else "- Sin agentes registrados"
+
+            project_path_str = self.active_project if self.active_project else "No hay un proyecto activo vinculado actualmente (usar /project)"
+            project_methodology_str = getattr(self, "project_methodology", "scrum").upper()
+            
+            project_files_summary = []
+            if self.active_project and os.path.isdir(self.active_project):
+                try:
+                    p_files = [f for f in os.listdir(self.active_project) if not f.startswith(".")]
+                    project_files_summary = p_files[:15]
+                except Exception:
+                    pass
+            files_summary_str = ", ".join(project_files_summary) if project_files_summary else "Ninguno o carpeta vacía"
+
             self.system_prompt += (
-                f"Eres Jellyfish, operando como el {methodology_label} de este proyecto. "
-                "Tu rol principal es interactuar con el usuario para descubrir, entender y estructurar "
-                "los requerimientos de su idea o características propuestas. "
-                "DEBES indagar activamente formulando preguntas de seguimiento y aclaradoras para mejorar el producto final. "
-                "Para lograrlo, canaliza e integra dudas, requerimientos y lineamientos específicos desde la perspectiva de tus agentes asignados:\n"
-                "- Requerimientos técnicos de APIs y persistencia de datos (del @backend_dev)\n"
-                "- Diseño, interactividad, responsividad y UX (del @frontend_dev y @ui_designer)\n"
-                "- Criterios de aceptación estructurados y flujos de prueba (del @qa_engineer)\n"
-                "- Políticas de seguridad, autenticación y protección (del @security_auditor)\n"
-                "Formula preguntas basadas en estos roles antes de dar por sentados los requerimientos o de escribir/cerrar historias en el BACKLOG.md. "
-                "No asumas roles de ejecución técnica ni de Scrum Master (como planificar sprints o asignar tareas técnicas) hasta que los requerimientos estén claros y aprobados por el usuario.\n\n"
-                "DIRECTRIZ CRÍTICA — COMUNICACIÓN CON EL USUARIO (PRODUCT OWNER):\n"
-                "Los archivos de metodología del proyecto (BACKLOG.md, SPRINT_BOARD.md, DAILY.md, etc.) son TUS HERRAMIENTAS INTERNAS "
-                "de control y seguimiento. El usuario NO necesita ver su contenido crudo ni las tablas Markdown literales.\n"
-                "- Cuando el usuario pregunte por el ESTADO del proyecto, analiza internamente los archivos y entrega un RESUMEN EJECUTIVO "
-                "conversacional: qué se ha logrado, qué está en progreso, si hay bloqueadores, y cuál es el siguiente paso recomendado. "
-                "Usa lenguaje natural, claro y orientado al negocio.\n"
-                "- Profundiza en detalles técnicos, muestra listas exactas de tareas o contenido literal de los archivos SOLO cuando "
-                "el usuario lo solicite explícitamente (ej: 'muéstrame el tablero', 'dame el detalle de las tareas', 'léeme el backlog').\n"
-                "- Nunca pidas al usuario más contexto sobre su propio proyecto si ya tienes los archivos cargados. Lee tus documentos internos primero."
+                "[SYSTEM STATE & REALTIME ARCHITECTURE — JELLYFISH OS (GOD MODE)]\n"
+                "Eres la Interfaz Central de Mando y Orquestación Omnisciente de Jellyfish OS (@DEFAULT).\n"
+                "Posees conciencia completa y en tiempo real del estado de la arquitectura, agentes, metodologías y proyectos activos.\n\n"
+                "1. CATÁLOGO REAL DE AGENTES REGISTRADOS EN CORE (core/agents/registry.py):\n"
+                f"{agents_summary_str}\n\n"
+                "2. ARQUITECTURA AUTÓNOMA DE PIPELINE (/auto):\n"
+                "- El comando '/auto <idea>' activa el pipeline autónomo multi-fase supervisado por @CEO y @Sentinel.\n"
+                "- Fase 0: Inteligencia DSL — Análisis de requerimientos y generación de documentos base de arquitectura.\n"
+                "- Fase 1: Product Owner (@product_owner) — Refinamiento interactivo, priorización MoSCoW (Must-have, Should-have, Could-have, Won't-have) y estimación T-Shirt/puntos. Genera BACKLOG.json y BACKLOG.md. Valida Definition of Ready (DoR) con el @qa_engineer.\n"
+                "- Fase 2: Scrum Master (@scrum_master) — Planificación de Sprint, desglose de Historias de Usuario a Tareas en SPRINT_BOARD.md y DAILY.md.\n"
+                "- Fase 3: Ejecución Multi-Agente & EventBus — Delegación síncrona/asíncrona a desarrolladores (@backend_dev, @frontend_dev, @ui_designer, @devops_engineer, @security_auditor). El EventBus procesa eventos y el TaskRunner valida compilation/circuit breaker.\n\n"
+                "3. ESTADO DEL PROYECTO ACTIVO EN TIEMPO REAL:\n"
+                f"- Ruta del Proyecto Activo: {project_path_str}\n"
+                f"- Metodología Configurada: {project_methodology_str}\n"
+                f"- Archivos Detectados en Directorio: {files_summary_str}\n\n"
+                "4. AISLAMIENTO DE ROL & DIRECTIVAS DE RESPUESTA:\n"
+                "- NUNCA asumas roles de ejecución técnica (como escribir código de backend o configurar CI/CD directamente) a menos que se te indique ser un agente específico.\n"
+                "- Responde a preguntas arquitectónicas, metodológicas o de estado basándote EXCLUSIVAMENTE en los hechos del System State anterior y del EventBus.\n"
+                "- PROHIBIDO inventar metodologías ágiles genéricas, módulos ficticios o APIs no existentes."
             )
         else:
             # Sprint 12 — Intentar cargar desde AgentRegistry (Python) primero
@@ -569,18 +589,21 @@ class JellyfishState:
                     })
 
         total_ctx_chars = 0
+        max_static = getattr(self, "MAX_STATIC_CHARS", 16_000)
         for filepath in sorted(self.context_files):
-            if total_ctx_chars >= self.MAX_CONTEXT_CHARS:
+            if total_ctx_chars >= max_static:
                 logger.warning(
-                    "Límite de contexto alcanzado (%d chars), omitiendo archivos restantes.",
-                    self.MAX_CONTEXT_CHARS
+                    "Límite de contexto estático alcanzado (%d chars), omitiendo archivos restantes.",
+                    max_static
                 )
                 break
             if os.path.isfile(filepath):
                 content = _safe_read(filepath)
                 if content:
-                    if len(content) > self.MAX_FILE_CHARS:
-                        content = content[:self.MAX_FILE_CHARS] + "\n\n... [TRUNCADO]"
+                    remaining_budget = max(0, max_static - total_ctx_chars)
+                    max_allowed = min(self.MAX_FILE_CHARS, remaining_budget)
+                    if len(content) > max_allowed:
+                        content = content[:max_allowed] + "\n\n... [TRUNCADO POR PRESUPUESTO ESTÁTICO DE 16K CHARS / 4K TOKENS]"
                     total_ctx_chars += len(content)
                     self.static_history.append({
                         "role": "user",
@@ -613,9 +636,11 @@ class JellyfishState:
                 tracking_path = os.path.join(self.active_project, tracking_file)
                 if tracking_path not in self.context_files and os.path.isfile(tracking_path):
                     content = _safe_read(tracking_path)
-                    if content and total_ctx_chars < self.MAX_CONTEXT_CHARS:
-                        if len(content) > self.MAX_FILE_CHARS:
-                            content = content[:self.MAX_FILE_CHARS] + "\n\n... [TRUNCADO]"
+                    if content and total_ctx_chars < max_static:
+                        remaining_budget = max(0, max_static - total_ctx_chars)
+                        max_allowed = min(self.MAX_FILE_CHARS, remaining_budget)
+                        if len(content) > max_allowed:
+                            content = content[:max_allowed] + "\n\n... [TRUNCADO POR PRESUPUESTO ESTÁTICO DE 16K CHARS / 4K TOKENS]"
                         total_ctx_chars += len(content)
                         project_state_parts.append(
                             f'<internal_doc name="{_xml_attr(tracking_file)}" absolute_path="{_xml_attr(tracking_path)}">\n'

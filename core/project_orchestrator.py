@@ -358,34 +358,7 @@ class ProjectOrchestrator:
             )
             if not response or not response.strip():
                 logger.error(f"⚠️ El modelo {self.state.model} ({self.state.provider}) retornó un output vacío.")
-                if json_mode:
-                    import json
-                    return json.dumps({
-                        "proyecto": "Sistema de Aplicación",
-                        "vision": f"Sistema basado en la especificación técnica del requerimiento: {user_prompt[:100]}...",
-                        "user_stories": [
-                            {
-                                "id": "US-001",
-                                "titulo": "Arquitectura y Configuración Base del Sistema",
-                                "como": "Desarrollador del sistema",
-                                "quiero": "Andamiar la arquitectura base y dependencias iniciales del proyecto",
-                                "para": "Establecer la estructura fundamental del sistema",
-                                "criterios_aceptacion": ["Crear configuraciones y estructura base del proyecto"],
-                                "contexto_rag_necesario": ["README.md"],
-                                "definition_of_done": ["Compila con éxito"]
-                            }
-                        ]
-                    }, ensure_ascii=False)
-                # Fallback automático de contingencia para que la Agencia Autónoma continúe sin detenerse
-                return (
-                    "## 📋 BACKLOG RECOVERY\n\n"
-                    "\n"
-                    "### US-001: Arquitectura y Capas Base de la Aplicación\n"
-                    f"- **Como** Desarrollador del sistema, **quiero** andamiar la idea inicial: '{user_prompt[:50]}...', **para** garantizar la continuidad del flujo de desarrollo.\n"
-                    "#### Criterios de Aceptación:\n"
-                    "  - Dado que la entrada fue procesada con fallas de respuesta por el LLM, cuando el Task Runner la reciba, entonces creará las configuraciones base requeridas.\n"
-                    "  - Prioridad: Must-have | Estimación: 5pts\n"
-                )
+                return ""
             return response
         except Exception as e:
             logger.error(f"❌ Excepción crítica en _call_agent para {self.state.model}: {str(e)}", exc_info=True)
@@ -627,6 +600,95 @@ class ProjectOrchestrator:
             logger.error("Error escribiendo env_capabilities.json: %s", e)
             
         return capabilities
+
+    def _validate_environment_blocking(self, user_idea: str) -> bool:
+        """Valida que el sistema operativo cuente con los binarios necesarios para el stack solicitado.
+        
+        Si faltan herramientas requeridas (ej: Node.js, npm, Gradle), detiene la orquestación,
+        registra un [IMPEDIMENTO CRÍTICO] y notifica al usuario.
+        """
+        import shutil
+        capabilities = self._run_environment_probe()
+
+        context_sources = [user_idea.lower()]
+        design_tokens = self._read_project_file("DESIGN_TOKENS.md")
+        if design_tokens:
+            context_sources.append(design_tokens.lower())
+        architecture = self._read_project_file("ARCHITECTURE.md")
+        if architecture:
+            context_sources.append(architecture.lower())
+        backlog_json = self._read_project_file("BACKLOG.json")
+        if backlog_json:
+            context_sources.append(backlog_json.lower())
+
+        full_context = "\n".join(context_sources)
+
+        missing_binaries = []
+
+        # 1. Validación de Node.js / npm
+        node_keywords = [
+            "react", "react native", "react-native", "vue", "next", "next.js",
+            "node", "nodejs", "express", "vite", "typescript", "javascript",
+            "npm", "yarn", "pnpm"
+        ]
+        requires_node = any(kw in full_context for kw in node_keywords)
+        if requires_node:
+            node_available = (capabilities.get("node_version") != "No disponible") or (shutil.which("node") is not None)
+            npm_available = (capabilities.get("npm_version") != "No disponible") or (shutil.which("npm") is not None)
+            if not node_available and "node" not in missing_binaries:
+                missing_binaries.append("node")
+            if not npm_available and "npm" not in missing_binaries:
+                missing_binaries.append("npm")
+
+        # 2. Validación de Gradle / Java (Android)
+        gradle_keywords = [
+            "gradle", "android", "apk", "aar", "kotlin", "react native android"
+        ]
+        requires_gradle = any(kw in full_context for kw in gradle_keywords)
+        if requires_gradle:
+            gradlew_exists = os.path.isfile(os.path.join(self.project_path, "gradlew"))
+            gradle_available = (capabilities.get("gradle_version") != "No disponible") or (shutil.which("gradle") is not None) or gradlew_exists
+            if not gradle_available and "gradle" not in missing_binaries:
+                missing_binaries.append("gradle")
+
+        # 3. Validación de Docker
+        docker_keywords = ["docker-compose", "dockerfile", "contenedor docker", "despliegue docker"]
+        requires_docker = any(kw in full_context for kw in docker_keywords)
+        if requires_docker:
+            docker_available = (capabilities.get("docker_version") != "No disponible") or (shutil.which("docker") is not None)
+            if not docker_available and "docker" not in missing_binaries:
+                missing_binaries.append("docker")
+
+        if missing_binaries:
+            from rich.panel import Panel
+            missing_str = ", ".join(missing_binaries)
+            error_msg = (
+                f"[bold red]❌ [IMPEDIMENTO CRÍTICO] Binarios faltantes en el Sistema Operativo[/bold red]\n\n"
+                f"El requerimiento técnico del proyecto exige las siguientes herramientas: [bold yellow]{missing_str}[/bold yellow], "
+                f"pero los comandos correspondientes no fueron encontrados en la variable PATH del sistema operativo.\n\n"
+                f"Por favor, instala la(s) herramienta(s) en el SO ({missing_str}) y vuelve a ejecutar el pipeline."
+            )
+            console.print("\n" + "=" * 80)
+            console.print(Panel(error_msg, title="[bold red]🚨 DETENCIÓN POR IMPEDIMENTO CRÍTICO DE ENTORNO[/bold red]", border_style="red"))
+            console.print("=" * 80 + "\n")
+            
+            logger.error("[IMPEDIMENTO CRÍTICO] Stack inalcanzable. Binarios faltantes: %s", missing_binaries)
+            self.state.set_pipeline_status("PIPELINE_PAUSED", {
+                "task_id": "ENV-VALIDATION-001",
+                "agent_name": "devops_engineer",
+                "error_log": f"[IMPEDIMENTO CRÍTICO] Falta(n) binario(s) en el SO: {missing_str}",
+                "task_desc": "Validación de capacidades del entorno",
+                "output_file": "env_capabilities.json"
+            })
+            self.metrics.append({
+                "fase": "🔍 Validación Entorno",
+                "detalle": f"[IMPEDIMENTO CRÍTICO] Faltan: {missing_str}",
+                "tiempo": 0.1,
+                "status": "❌"
+            })
+            return False
+
+        return True
 
     def _detect_compile_command(self) -> str:
         """Detecta el comando de compilación o verificación para el proyecto activo."""
@@ -1196,6 +1258,12 @@ class ProjectOrchestrator:
                 total_time = time.perf_counter() - total_start
                 self._print_summary_table(total_time)
                 return "Pipeline detenido por fallo en la validación del Definition of Ready (DoR)."
+
+            # Validación Bloqueante de Entorno (Fase 0/DevOps)
+            if not self._validate_environment_blocking(user_idea):
+                total_time = time.perf_counter() - total_start
+                self._print_summary_table(total_time)
+                return "Pipeline detenido por [IMPEDIMENTO CRÍTICO]: Faltan binarios en el sistema operativo."
 
             # Fase 2: Scrum Master (Team Assembly)
             if not self._run_scrum_master(user_idea):
