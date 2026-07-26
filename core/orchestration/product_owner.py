@@ -120,8 +120,6 @@ class ProductOwnerPhase:
                     self.orchestrator._reset_circuit_breaker()
                     console.print("✓ Circuit Breaker restablecido. Iniciando ejecución...\n")
                     last_exit = 0
-                else:
-                    return False
             except (EOFError, KeyboardInterrupt):
                 return False
 
@@ -131,9 +129,12 @@ class ProductOwnerPhase:
             f"Tu rol en este momento es refinar e indagar activamente sobre la idea del usuario. "
             f"Tu meta final es redactar un Backlog completo con al menos 4 Historias de Usuario priorizadas con MoSCoW "
             f"y con criterios de aceptación claros.\n\n"
-            f"REGLA CRÍTICA: Evalúa si la información actual es suficiente para redactar esas 4 Historias de Usuario sin inventar o suponer datos clave (ej. stack, lógica, flujos).\n"
+            f"REGLA CRÍTICA DE SPRINT 0 (INFRAESTRUCTURA OBLIGATORIA):\n"
+            f"El Backlog DEBE incluir como primera prioridad una historia bloqueante obligatoria: 'US-000: Sprint 0 - Infraestructura y Entorno' (prioridad Must-have). "
+            f"Esta historia exige la creación del gestor de dependencias (package.json, requirements.txt, build.gradle, etc.), archivos de contenedorización (Dockerfile, docker-compose.yml) y el punto de entrada principal (server.js, App.tsx, main.py). Ninguna tarea de lógica de negocio o UI puede ir antes de este Sprint 0.\n\n"
+            f"REGLA CRÍTICA DE EVALUACIÓN: Evalúa si la información actual es suficiente para redactar esas historias de usuario sin inventar o suponer datos clave (ej. stack, lógica, flujos).\n"
             f"- Si la información es INSUFICIENTE: Formula exactamente una pregunta clara, directa y concisa para aclarar los requerimientos. NO generes el backlog, NO respondas con introducciones largas ni saludos. Ve al grano.\n"
-            f"- Si la información es SUFICIENTE para redactar las 4 US y los criterios: Responde ÚNICAMENTE con la palabra 'READY'. Ninguna otra palabra o explicación está permitida. Solo escribe 'READY'."
+            f"- Si la información es SUFICIENTE para redactar las US y los criterios: Responde ÚNICAMENTE con la palabra 'READY'. Ninguna otra palabra o explicación está permitida. Solo escribe 'READY'."
         )
 
         refinement_history = [
@@ -264,6 +265,10 @@ class ProductOwnerPhase:
             "[INSTRUCCIONES ESPECÍFICAS]\n"
             "Tu ÚNICO entregable es una especificación estructurada en formato JSON puro. "
             "NO generes texto conversacional, ni explicaciones, ni bloques de código adicionales fuera del JSON.\n\n"
+            "REGLA DE INFRAESTRUCTURA Y SPRINT 0 (MUST-HAVE BLOQUEANTE):\n"
+            "El backlog DEBE incluir obligatoriamente como PRIMERA HISTORIA DE USUARIO (id: 'US-000') el 'Sprint 0: Infraestructura y Entorno Base' con prioridad 'Must-have'. "
+            "Esta historia DEBE exigir explícitamente la creación del gestor de dependencias del proyecto (ej: package.json, requirements.txt, build.gradle, go.mod), los archivos Docker (Dockerfile, docker-compose.yml) y el punto de entrada principal con el andamiaje base de la app (ej: server.js, main.py, App.tsx, index.ts). "
+            "Está ESTRICTAMENTE PROHIBIDO poner historias de lógica de negocio o UI antes de este Sprint 0 de infraestructura.\n\n"
             "Cada historia de usuario DEBE contener explícitamente los campos 'prioridad' (MoSCoW: Must-have, Should-have, Could-have, Won't-have) y 'estimacion' (ej. M, 5 pts, XS, S, L, XL).\n\n"
             "El JSON debe tener exactamente la siguiente estructura:\n"
             "{\n"
@@ -271,22 +276,24 @@ class ProductOwnerPhase:
             '  "vision": "Visión general del producto y arquitectura recomendada",\n'
             '  "user_stories": [\n'
             "    {\n"
-            '      "id": "US-001",\n'
-            '      "titulo": "Título de la Historia",\n'
-            '      "como": "Rol del usuario",\n'
-            '      "quiero": "Acción deseada",\n'
-            '      "para": "Beneficio esperado",\n'
+            '      "id": "US-000",\n'
+            '      "titulo": "Sprint 0: Infraestructura, Gestor de Dependencias y Entorno Base",\n'
+            '      "como": "Arquitecto / Desarrollador Principal",\n'
+            '      "quiero": "configurar el gestor de dependencias, contenedorización Docker y punto de entrada principal del proyecto",\n'
+            '      "para": "garantizar un andamiaje 100% ejecutable, compilable y desplegable antes de la lógica de negocio",\n'
             '      "prioridad": "Must-have",\n'
-            '      "estimacion": "M",\n'
+            '      "estimacion": "S",\n'
             '      "criterios_aceptacion": [\n'
-            '        "Dado que..., cuando..., entonces..."\n'
+            '        "Dado un proyecto nuevo, cuando se ejecute el Sprint 0, entonces debe existir el gestor de dependencias (package.json, requirements.txt, build.gradle, etc.).",\n'
+            '        "Dado el entorno de contenedores, entonces deben crearse Dockerfile y docker-compose.yml validados.",\n'
+            '        "Dado el punto de entrada principal (ej. server.js, main.py, App.tsx), se debe crear el andamiaje base e importar los módulos principales."\n'
             "      ],\n"
             '      "contexto_rag_necesario": [\n'
-            '        "Ruta sugerida de archivo o componente de referencia"\n'
+            '        "Dockerfile", "package.json", "requirements.txt"\n'
             "      ],\n"
             '      "definition_of_done": [\n'
-            '        "Criterio de DoD 1 (ej: compila con éxito)",\n'
-            '        "Criterio de DoD 2 (ej: cumple guardrails de seguridad)"\n'
+            '        "Compilación y sintaxis libre de errores",\n'
+            '        "Gestor de dependencias e infraestructura inicializados"\n'
             "      ]\n"
             "    }\n"
             "  ]\n"
@@ -301,9 +308,15 @@ class ProductOwnerPhase:
         )
 
         with TaskProgress(tui_engine, "auto_po", "Product Owner: Redactando backlog estructurado (JSON)..."):
-            result = self.orchestrator._call_agent(system, po_prompt, json_mode=True, timeout=180.0, temperature=0.2)
+            result = self.orchestrator._call_agent(system, po_prompt, json_mode=True, timeout=300.0, temperature=0.2)
 
         elapsed = time.perf_counter() - t0
+
+        if not result:
+            # Reintento directo con Gemini dándole una oportunidad adicional tras la pausa
+            logger.warning("Respuesta vacía inicial en Product Owner. Reintentando llamado con Gemini...")
+            with TaskProgress(tui_engine, "auto_po_retry", "Product Owner: Esperando respuesta de Gemini..."):
+                result = self.orchestrator._call_agent(system, po_prompt, json_mode=True, timeout=300.0, temperature=0.2)
 
         if not result:
             self.orchestrator.metrics.append({"fase": "📝 Product Owner", "detalle": "ERROR", "tiempo": elapsed, "status": "❌"})
@@ -356,6 +369,39 @@ class ProductOwnerPhase:
             })
             self.orchestrator.metrics.append({"fase": "📝 Product Owner", "detalle": f"HARD CRASH ({last_error[:30]}...)", "tiempo": elapsed, "status": "❌"})
             return False
+
+        # Garantizar e inyectar de forma determinista la US-000 (Sprint 0) si falta en el backlog
+        user_stories = parsed_backlog.get("user_stories", [])
+        has_sprint_0 = any(
+            us.get("id") in ("US-000", "US-00") or
+            "sprint 0" in str(us.get("titulo", "")).lower() or
+            "infraestructura" in str(us.get("titulo", "")).lower()
+            for us in user_stories
+        )
+        if not has_sprint_0:
+            logger.info("Inyectando de forma determinista la US-000 (Sprint 0: Infraestructura y Entorno) en el backlog.")
+            sprint_0_story = {
+                "id": "US-000",
+                "titulo": "Sprint 0: Infraestructura, Gestor de Dependencias y Entorno Base",
+                "como": "Arquitecto / Desarrollador Principal",
+                "quiero": "configurar el gestor de dependencias (package.json/requirements.txt/build.gradle), contenedorización Docker y punto de entrada principal del proyecto",
+                "para": "garantizar un andamiaje 100% ejecutable, compilable y desplegable antes de codificar lógica de negocio",
+                "prioridad": "Must-have",
+                "estimacion": "S",
+                "criterios_aceptacion": [
+                    "Dado un proyecto nuevo, cuando se ejecute el Sprint 0, entonces debe existir el gestor de dependencias del proyecto.",
+                    "Dado el entorno de contenedores, entonces deben crearse Dockerfile y docker-compose.yml validados.",
+                    "Dado el punto de entrada principal (ej. server.js, main.py, App.tsx), se debe crear el andamiaje base e importar los módulos principales."
+                ],
+                "contexto_rag_necesario": [
+                    "Dockerfile", "package.json", "requirements.txt"
+                ],
+                "definition_of_done": [
+                    "Compilación y sintaxis libre de errores",
+                    "Gestor de dependencias e infraestructura inicializados"
+                ]
+            }
+            parsed_backlog["user_stories"].insert(0, sprint_0_story)
 
         try:
             self.orchestrator._write_project_file("BACKLOG.json", json.dumps(parsed_backlog, indent=2, ensure_ascii=False))

@@ -2,6 +2,7 @@ import os
 import logging
 import re
 import atexit
+import threading
 
 # Patch global para prompt_toolkit: 'ansibrightwhite' no es un color válido en la librería,
 # lo que causa crashes al navegar o hacer scroll en menús de autocompletado en algunos sistemas.
@@ -153,65 +154,85 @@ class PersistedHistoryList(list):
     def __init__(self, state, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.state = state
+        self._lock = threading.RLock()
 
     def _truncate(self):
-        max_size = int(os.getenv("JELLYFISH_MAX_HISTORY_SIZE", "30"))
-        if len(self) > max_size:
-            diff = len(self) - max_size
-            for _ in range(diff):
-                super().pop(0)
-            if hasattr(self.state, "summarized_message_count"):
-                self.state.summarized_message_count = max(0, self.state.summarized_message_count - diff)
+        with self._lock:
+            max_size = int(os.getenv("JELLYFISH_MAX_HISTORY_SIZE", "30"))
+            if len(self) > max_size:
+                diff = len(self) - max_size
+                evicted_items = []
+                for _ in range(diff):
+                    item = super().pop(0)
+                    evicted_items.append(item)
+                if hasattr(self.state, "summarized_message_count"):
+                    self.state.summarized_message_count = max(0, self.state.summarized_message_count - diff)
+                
+                # Olvido dinámico: vectorizar recuerdos antiguos en la base RAG si está disponible
+                if hasattr(self.state, "rag") and self.state.rag and evicted_items:
+                    try:
+                        self.state.rag.index_history_memory(evicted_items)
+                    except Exception as err:
+                        logger.warning("No se pudieron vectorizar recuerdos expulsados: %s", err)
 
     def append(self, item):
-        super().append(item)
-        self._truncate()
-        if hasattr(self.state, "save_history_to_project"):
-            self.state.save_history_to_project()
+        with self._lock:
+            super().append(item)
+            self._truncate()
+            if hasattr(self.state, "save_history_to_project"):
+                self.state.save_history_to_project()
 
     def extend(self, iterable):
-        super().extend(iterable)
-        self._truncate()
-        if hasattr(self.state, "save_history_to_project"):
-            self.state.save_history_to_project()
+        with self._lock:
+            super().extend(iterable)
+            self._truncate()
+            if hasattr(self.state, "save_history_to_project"):
+                self.state.save_history_to_project()
 
     def clear(self):
-        super().clear()
-        if hasattr(self.state, "save_history_to_project"):
-            self.state.save_history_to_project()
+        with self._lock:
+            super().clear()
+            if hasattr(self.state, "save_history_to_project"):
+                self.state.save_history_to_project()
 
     def __setitem__(self, index, value):
-        super().__setitem__(index, value)
-        if hasattr(self.state, "save_history_to_project"):
-            self.state.save_history_to_project()
+        with self._lock:
+            super().__setitem__(index, value)
+            if hasattr(self.state, "save_history_to_project"):
+                self.state.save_history_to_project()
 
     def __delitem__(self, index):
-        super().__delitem__(index)
-        if hasattr(self.state, "save_history_to_project"):
-            self.state.save_history_to_project()
+        with self._lock:
+            super().__delitem__(index)
+            if hasattr(self.state, "save_history_to_project"):
+                self.state.save_history_to_project()
 
     def insert(self, index, item):
-        super().insert(index, item)
-        self._truncate()
-        if hasattr(self.state, "save_history_to_project"):
-            self.state.save_history_to_project()
+        with self._lock:
+            super().insert(index, item)
+            self._truncate()
+            if hasattr(self.state, "save_history_to_project"):
+                self.state.save_history_to_project()
 
     def pop(self, index=-1):
-        item = super().pop(index)
-        if hasattr(self.state, "save_history_to_project"):
-            self.state.save_history_to_project()
-        return item
+        with self._lock:
+            item = super().pop(index)
+            if hasattr(self.state, "save_history_to_project"):
+                self.state.save_history_to_project()
+            return item
 
     def remove(self, item):
-        super().remove(item)
-        if hasattr(self.state, "save_history_to_project"):
-            self.state.save_history_to_project()
+        with self._lock:
+            super().remove(item)
+            if hasattr(self.state, "save_history_to_project"):
+                self.state.save_history_to_project()
 
 class JellyfishState:
     """Estado central del sistema Jellyfish.
     
     Administra: agente activo, skills cargadas, archivos de contexto,
     historial de conversación, prompt del sistema y configuración de IA.
+    100% Thread-safe & Async-safe mediante RLock reentrante.
     """
 
     # Límite de caracteres totales para contexto estático (~4K tokens / 16K chars) para evitar OOM
@@ -221,6 +242,8 @@ class JellyfishState:
     MAX_FILE_CHARS = 4_000
 
     def __init__(self):
+        self._lock = threading.RLock()
+        self._async_lock = None
         self._loading_history = False
         self.history = PersistedHistoryList(self)
         self.active_agent: str = "default"
@@ -285,12 +308,14 @@ class JellyfishState:
                 self.context_files.add(fp)
 
     def add_session_tokens(self, count: int) -> None:
-        """Suma tokens consumidos en la sesión activa."""
-        self.session_tokens += count
+        """Suma tokens consumidos en la sesión activa de forma thread-safe."""
+        with self._lock:
+            self.session_tokens += count
 
     def load_config(self) -> None:
         """Carga y recarga de forma caliente la configuración de proveedores desde .env."""
-        load_config_from_env(self)
+        with self._lock:
+            load_config_from_env(self)
 
     def _update_project_lock(self, old_project: str) -> None:
         """Libera el lock del proyecto anterior y adquiere el del nuevo proyecto."""

@@ -1,6 +1,6 @@
-# 🪼 Jellyfish OS v6.9.3 — Manual Completo del Usuario y Desarrollador
+# 🪼 Jellyfish OS v6.9.12 — Manual Completo del Usuario y Desarrollador
 
-Bienvenido a la documentación oficial de **Jellyfish OS v6.9.3**, un sistema operativo de agentes cognitivos corporativos, arquitectura multi-agencia y framework de orquestación ágil/secuencial diseñado para ejecutarse de forma nativa en sistemas Linux.
+Bienvenido a la documentación oficial de **Jellyfish OS v6.9.12**, un sistema operativo de agentes cognitivos corporativos, arquitectura multi-agencia y framework de orquestación ágil/secuencial diseñado para ejecutarse de forma nativa en sistemas Linux.
 
 Jellyfish combina la potencia de múltiples modelos de lenguaje a gran escala (LLMs a través de Ollama, OpenAI, DeepSeek, Google Gemini y OpenRouter) con una robusta suite de herramientas del sistema, persistencia vectorial para RAG (Retrieval-Augmented Generation) y un **Director de Orquesta (CEO / Agency Orchestrator)** autónomo capaz de clasificar tareas y delegarlas a agencias especializadas (Desarrollo, Marketing, Investigación, etc.).
 
@@ -8,7 +8,7 @@ Jellyfish combina la potencia de múltiples modelos de lenguaje a gran escala (L
 
 ## 🗺️ 1. Arquitectura y Estructura del Core (Multi-Agencia)
 
-Jellyfish v6.9.3 abandona el enfoque de un pool global y caótico de agentes, organizándolos en **Agencias Departamentales** especializadas y delimitadas por tableros independientes de trabajo. Esto asegura un aislamiento de tareas y previene la contaminación de contextos.
+Jellyfish v6.9.12 abandona el enfoque de un pool global y caótico de agentes, organizándolos en **Agencias Departamentales** especializadas y delimitadas por tableros independientes de trabajo. Esto asegura un aislamiento de tareas y previene la contaminación de contextos.
 
 ### Diagrama de Arquitectura y Flujo de Datos
 
@@ -30,23 +30,24 @@ graph TD
     CEO_Decision --> AgencyMkt[Agencia: Marketing]
     CEO_Decision --> AgencyRes[Agencia: Investigación]
 
-    AgencyDev --> PO_Scan[1. Product Owner: BACKLOG.md]
+    AgencyDev --> PO_Scan[1. Product Owner: US-000 Sprint 0 Infraestructura]
     PO_Scan --> SM_Plan[2. Scrum Master: SPRINT_BOARD.md]
-    SM_Plan --> Task_Run[3. Task Runner con Aislamiento de Memoria]
+    SM_Plan --> Task_Run[3. Task Runner con Subprocess DoD Check]
     Task_Run <--> Run
-    Task_Run --> Daily_Close[4. Sprint Close & Métricas] --> CLI
+    Task_Run --> AutoHeal[4. Auto-Healing Loop ReAct]
+    AutoHeal --> Daily_Close[5. Sprint Close & Métricas] --> CLI
 ```
 
-### Componentes Clave del Core
+### Componentes Clave del Core v6.9.12
 
 1. **`core/agency_orchestrator.py` (El CEO)**:
    Analiza semánticamente el prompt inicial del usuario. Empleando técnicas de clasificación Zero-Shot y Few-Shot, decide a qué agencia departamental (ej. *Development*, *Marketing*, *Research*) derivar la tarea.
-2. **`core/project_orchestrator.py` (Bucle Ágil)**:
-   Implementa los ciclos Scrum y Cascada. Su componente central es el **Compile & Debug Loop**, el cual incluye aislamiento de memoria (limpieza de trazas de compilación en el prompt) para evitar la saturación del contexto del LLM.
-3. **`plugins/plugin_core.py` (Orquestador de Músculos)**:
+2. **`core/orchestration/product_owner.py` (Sprint 0 Obligatorio)**:
+   Garantiza que todo backlog generado empiece con la historia **`US-000: Sprint 0 - Infraestructura y Entorno Base`** como prioridad bloqueante Must-have, exigiendo gestor de dependencias (`package.json`, `requirements.txt`, `build.gradle`), contenedorización Docker y punto de entrada base (`server.js`, `main.py`, `App.tsx`).
+3. **`core/orchestration/task_runner.py` (Validación Estricta DoD & Anti-Huérfanos)**:
+   Ejecuta verificadores reales en subprocesos aislados (`subprocess.run` con `py_compile`, `node --check`, `json.tool`, `bash -n`, `docker compose config`). Rechaza el DoD si la compilación falla y alimenta la traza de error al bucle de Auto-Healing. Además, inyecta la **Directiva Anti-Archivos Huérfanos** exigiendo conectar todo módulo nuevo al punto de entrada principal en el mismo paso.
+4. **`plugins/plugin_core.py` (Orquestador de Músculos)**:
    Núcleo del framework de plugins utilizando el patrón *Singleton* (`PluginRegistry`), ganchos de eventos (*hooks*) y auto-descubrimiento de capacidades de herramientas Python.
-4. **`plugins/integration/skill_loader.py` (Cargador de Habilidades)**:
-   Responsable del escaneo dinámico y carga de más de 50 habilidades metodológicas (*Skills*) estructuradas en Markdown utilizando expresiones regulares.
 5. **`core/state.py` (Estado Global)**:
    Controla el estado reactivo, la persistencia en archivos de configuración (`.jellyfish_project_config.json`), el bloqueo de concurrencia y la contabilidad estricta del consumo de tokens.
 
@@ -64,7 +65,7 @@ graph TD
   ```
 - **Ollama**: Servidor local corriendo para generación de embeddings locales si no se usan servicios de nube.
 
-### Instalación de Dependencias e Inicialización v6.9.3
+### Instalación de Dependencias e Inicialización v6.9.12
 Instale las dependencias bloqueadas y configure la estructura del espacio de trabajo utilizando el script de configuración:
 ```bash
 pip install -r requirements.lock
@@ -80,7 +81,7 @@ python setup.py --status
 
 ## 🧠 3. Habilidades (Skills) vs. Plugins
 
-En Jellyfish v6.9.3 se define una separación conceptual clara para la extensión del sistema:
+En Jellyfish v6.9.12 se define una separación conceptual clara para la extensión del sistema:
 
 - **Skills (Cognición - `.md` o `.py` de Skill)**:
   Son metodologías de diseño y plantillas de pensamiento que se inyectan en el prompt del sistema. Se distribuyen en agencias (ej. `01_backlog_grooming.md` en Management, `17_react_best_practices.md` en Frontend) y dictan el formato y el flujo analítico de la respuesta del LLM.
@@ -89,19 +90,19 @@ En Jellyfish v6.9.3 se define una separación conceptual clara para la extensió
 
 ---
 
-## 💡 4. Conceptos de Seguridad y Hardening Avanzado
+## 💡 4. Conceptos de Seguridad, Anti-Huérfanos y DoD Estricto
 
-### 🛡️ A. Aislamiento de Memoria en el Bucle de Compilación
-El bucle autónomo de corrección de código de Jellyfish OS clona la rama limpia del contexto en cada intento de depuración. Los errores de compilación anteriores **no se acumulan** de forma redundante, evitando contaminar el contexto del modelo con trazas de error inválidas y limitando el sesgo de confirmación de la IA.
+### 🛡️ A. Sprint 0 de Infraestructura Obligatorio
+Todo proyecto desarrollado en v6.9.12 comienza bloqueando cualquier tarea de negocio hasta que la **`US-000`** entregue el gestor de dependencias (`package.json`, `requirements.txt`, `build.gradle`), contenedorización Docker (`Dockerfile`, `docker-compose.yml`) y el punto de entrada base.
 
-### 🔌 B. Circuit Breakers y Fallbacks Autónomos
+### 🧪 B. Validación Estricta por Subproceso (`subprocess.run`)
+El Task Runner valida que el entregable de cada tarea compile y se verifique sintácticamente en tiempo de ejecución mediante verificadores reales (`py_compile`, `node --check`, `json.tool`, `bash -n`, `docker compose config`). Los errores activan automáticamente el bucle ReAct de Auto-Healing.
+
+### 🔗 C. Directiva Anti-Archivos Huérfanos
+Los agentes tienen prohibido crear vistas, controladores o módulos aislados. Cada nuevo archivo o componente debe ser importado, exportado e integrado activamente en la aplicación principal (`App.tsx`, `server.js`, `main.py`, etc.) en el mismo paso.
+
+### 🔌 D. Circuit Breakers y Fallbacks Autónomos
 Si un modelo en la nube genera una salida nula o excede los límites permitidos debido a tokens corruptos o latencia excesiva, Jellyfish OS activa mecanismos de **Circuit Breaker** y andamiajes de recuperación (*Backlog Recovery*), evitando el colapso abrupto del pipeline de automatización.
-
-### 🖥️ C. REPL Interactivo Robustecido y Anti-Corrupción ANSI
-El sistema opera ahora mediante un REPL interactivo robusto que integra capacidades de autocompletado y resaltado de sintaxis en tiempo real, evitando la sobrecarga estética y la corrupción de pantalla que suelen asociarse a las interfaces TUI de pantalla completa. El motor de entrada gestiona de forma limpia las secuencias ANSI y las salidas concurrentes de comandos en segundo plano.
-
-### 🔒 D. Sandbox con Bubblewrap y Lista Negra de Comandos
-La ejecución de plugins puede correr de manera aislada con Bubblewrap, el cual crea namespaces vacíos de red y un sistema de archivos en memoria temporal. Además, un analizador regex bloquea de forma rígida comandos peligrosos antes de enviarlos a la terminal (`rm -rf /`, formateo de discos, modificaciones a `/etc/passwd`, etc.), reportando inmediatamente un incidente de seguridad.
 
 ---
 
@@ -126,28 +127,11 @@ La ejecución de plugins puede correr de manera aislada con Bubblewrap, el cual 
 | Variable | Valor por Defecto | Propósito |
 | :--- | :--- | :--- |
 | `JELLYFISH_PROVIDER` | `ollama` | Proveedor principal de la IA (`openai`, `deepseek`, `gemini`, `openrouter`, `ollama`, etc.). |
-| `JELLYFISH_MODEL` | *(depende)* | Nombre exacto del modelo a utilizar para el Lead Agent (ej. `gpt-4o`, `gemini-1.5-pro`). |
+| `JELLYFISH_MODEL` | *(depende)* | Nombre exacto del modelo a utilizar para el Lead Agent (ej. `gpt-4o`, `gemini-2.5-flash`). |
 | `JELLYFISH_CONTEXT_LIMIT` | `8192` | Cantidad máxima de tokens de contexto gestionados en ventana deslizante. |
 | `JELLYFISH_PLUGIN_UNSAFE` | `0` | Si se establece en `1`, desactiva el sandbox Bubblewrap para la ejecución de plugins. |
 | `JELLYFISH_RAG_THRESHOLD` | `1.2` | Umbral de distancia euclidiana mínima para el filtrado de similitud en RAG. |
 
 ---
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-*Última actualización de especificación técnica: 2026-07-25 16:16:06 — Arquitectura: REPL Interactivo + Orquestación Multi-Agencia*
+*Última actualización de especificación técnica: 2026-07-26 v6.9.12 — Arquitectura: Sprint 0 Obligatorio + Subprocess DoD Check + Directiva Anti-Huérfanos*

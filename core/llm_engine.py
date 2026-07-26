@@ -485,13 +485,12 @@ def _call_llm_silent(
             if should_retry:
                 delay = retry_delay_suggested if retry_delay_suggested else initial_delay * (backoff_factor ** (attempt - 1))
                 if is_rate_limit:
-                    setattr(state, "gemini_cooldown_until", time.time() + 120.0)
-                    if attempt >= 2:
-                        console.print("\n[yellow]⚠️ Cuota de Gemini (429) persistente. Conmutando a Ollama de inmediato...[/yellow]")
-                        logger.warning("Cuota Gemini 429 persistente tras 2 intentos. Activando cooldown de 2 min...")
+                    if attempt >= 5:
+                        console.print("\n[yellow]⚠️ Cuota de Gemini (429) persistente tras 5 reintentos. Conmutando a Ollama de respaldo...[/yellow]")
+                        logger.warning("Cuota Gemini 429 persistente tras 5 intentos. Activando fallback...")
                         break
-                    console.print(f"\n[yellow]⏳ Límite de peticiones (RPM) en Gemini alcanzado. Pausando {delay:.0f}s para restaurar cuota...[/yellow]")
-                    logger.warning("Cuota Gemini 429 excedida. Pausando %.1fs (Intento %d/%d)...", delay, attempt, max_attempts)
+                    console.print(f"\n[yellow]⏳ Límite de peticiones (RPM) en Gemini alcanzado. Pausando {delay:.0f}s para restaurar cuota (Intento {attempt}/5)...[/yellow]")
+                    logger.warning("Cuota Gemini 429 excedida. Pausando %.1fs (Intento %d/5)...", delay, attempt)
                 else:
                     logger.warning("_call_llm_silent HTTP retryable de %s. Reintentando en %.1fs (Intento %d/%d)...", provider_name, delay, attempt, max_attempts)
                 time.sleep(delay)
@@ -621,7 +620,9 @@ def _fetch_provider_models_dynamic(state, provider_name: str) -> list[str]:
                             name = item["name"]
                             if name.startswith("models/"):
                                 name = name[len("models/"):]
-                            models.append(name)
+                            # Filtrar modelos no aptos para chat completions (ej. aqa, embedding, etc.)
+                            if not any(bad in name.lower() for bad in ["aqa", "embed", "imagen", "text-embedding", "bison", "gecko", "atts"]):
+                                models.append(name)
         else:
             models_url = f"{base_url.rstrip('/')}/models"
             client = _get_sync_client()

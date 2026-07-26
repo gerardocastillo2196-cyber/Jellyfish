@@ -5161,3 +5161,476 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 }
 ]
 2026-07-25 15:49:08,429 [jellyfish.terminal] ERROR: Comando no encontrado: [Errno 2] No such file or directory: '/jellyfish-os'
+2026-07-25 17:01:11,582 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-07-25 17:01:11,583 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt'
+2026-07-25 17:01:11,583 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json'
+2026-07-25 17:01:11,583 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile'
+2026-07-25 17:01:11,583 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml'
+2026-07-25 17:01:11,583 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod'
+2026-07-25 17:15:33,046 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-07-25 17:15:33,047 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt'
+2026-07-25 17:15:33,047 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json'
+2026-07-25 17:15:33,047 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile'
+2026-07-25 17:15:33,047 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml'
+2026-07-25 17:15:33,047 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod'
+2026-07-25 17:23:55,553 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-25 17:23:55,553 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-07-25 17:29:31,535 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-25 17:29:31,536 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-07-25 17:29:31,536 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-07-25 17:29:31,537 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md'
+2026-07-25 17:29:31,537 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-07-25 17:37:19,483 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-25 17:37:19,493 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-07-25 17:37:19,502 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-07-25 17:37:19,502 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md'
+2026-07-25 17:37:19,502 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-07-25 17:50:26,354 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-07-25 17:50:26,354 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt'
+2026-07-25 17:50:26,355 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json'
+2026-07-25 17:50:26,355 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile'
+2026-07-25 17:50:26,355 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml'
+2026-07-25 17:50:26,355 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod'
+2026-07-25 17:51:32,804 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 28.2s (Intento 1/5)...
+2026-07-25 17:52:28,517 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-07-25 17:52:28,517 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt'
+2026-07-25 17:52:28,518 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json'
+2026-07-25 17:52:28,518 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile'
+2026-07-25 17:52:28,518 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml'
+2026-07-25 17:52:28,518 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod'
+2026-07-25 17:52:28,521 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de ollama
+2026-07-25 17:52:28,521 [jellyfish.project_orchestrator] ERROR: ⚠️ El modelo gemini-2.5-flash (gemini) retornó un output vacío.
+2026-07-25 17:52:29,939 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de ollama
+2026-07-25 17:52:46,820 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de ollama
+2026-07-25 17:52:46,820 [jellyfish.project_orchestrator] ERROR: ⚠️ El modelo gemini-2.5-flash (gemini) retornó un output vacío.
+2026-07-25 17:58:02,829 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 58.2s (Intento 1/5)...
+2026-07-25 17:59:04,581 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 56.6s (Intento 1/5)...
+2026-07-25 18:00:01,511 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.6s (Intento 2/5)...
+2026-07-25 18:01:01,405 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.6s (Intento 3/5)...
+2026-07-25 18:02:01,362 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.7s (Intento 4/5)...
+2026-07-25 18:03:01,365 [jellyfish.llm] WARNING: Cuota Gemini 429 persistente tras 5 intentos. Activando fallback...
+2026-07-25 18:03:01,365 [jellyfish.llm] WARNING: _call_llm_silent: El proveedor principal 'gemini' no produjo respuesta (cuota 429/error). Ejecutando fallback a Ollama...
+2026-07-25 18:03:01,367 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de ollama
+2026-07-25 18:03:24,119 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-07-25 18:03:24,120 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt'
+2026-07-25 18:03:24,120 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json'
+2026-07-25 18:03:24,120 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile'
+2026-07-25 18:03:24,120 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml'
+2026-07-25 18:03:24,120 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod'
+2026-07-25 18:03:24,571 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 36.6s (Intento 1/5)...
+2026-07-25 18:04:01,542 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.5s (Intento 2/5)...
+2026-07-25 18:05:01,647 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.5s (Intento 3/5)...
+2026-07-25 18:06:01,555 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.5s (Intento 4/5)...
+2026-07-25 18:07:01,456 [jellyfish.llm] WARNING: Cuota Gemini 429 persistente tras 5 intentos. Activando fallback...
+2026-07-25 18:07:01,456 [jellyfish.llm] WARNING: _call_llm_silent: El proveedor principal 'gemini' no produjo respuesta (cuota 429/error). Ejecutando fallback a Ollama...
+2026-07-25 18:07:01,458 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de ollama
+2026-07-25 18:07:01,459 [jellyfish.project_orchestrator] ERROR: ⚠️ El modelo gemini-2.5-flash (gemini) retornó un output vacío.
+2026-07-25 18:07:11,907 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 49.2s (Intento 1/5)...
+2026-07-25 18:08:01,463 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.7s (Intento 2/5)...
+2026-07-25 18:09:01,573 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.5s (Intento 3/5)...
+2026-07-25 18:10:01,477 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.6s (Intento 4/5)...
+2026-07-25 18:11:01,484 [jellyfish.llm] WARNING: Cuota Gemini 429 persistente tras 5 intentos. Activando fallback...
+2026-07-25 18:11:01,484 [jellyfish.llm] WARNING: _call_llm_silent: El proveedor principal 'gemini' no produjo respuesta (cuota 429/error). Ejecutando fallback a Ollama...
+2026-07-25 18:11:01,486 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de ollama
+2026-07-25 18:11:15,717 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 45.4s (Intento 1/5)...
+2026-07-25 18:11:59,034 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.5-flash. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash\nPlease retry in 1.08528374s.",
+    "status": "RESOURCE_EXHAUSTED",
+    "d
+2026-07-25 18:11:59,514 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.5-pro. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-2.5-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-07-25 18:11:59,955 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-2.0-flash. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-2.0-flash\n* Quota exceeded for metric: generativelanguage.googleapis.com/ge
+2026-07-25 18:12:00,569 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '404 Not Found' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404 (status_code=404) con modelo aqa. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 404,
+    "message": "models/aqa is not found for API version v1main, or is not supported for generateContent. Call ModelService.ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+]
+2026-07-25 18:28:32,343 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-07-25 18:28:32,344 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt'
+2026-07-25 18:28:32,344 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json'
+2026-07-25 18:28:32,344 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile'
+2026-07-25 18:28:32,344 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml'
+2026-07-25 18:28:32,344 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod'
+2026-07-26 06:39:48,935 [jellyfish.llm] ERROR: Timeout del modelo local (GPU saturada) en _call_llm_silent: timed out
+2026-07-26 06:39:48,941 [jellyfish.project_orchestrator] ERROR: ❌ Excepción crítica en _call_agent para quewn:latest: El modelo local superó el tiempo de espera (Timeout). Memoria saturada.
+Traceback (most recent call last):
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_transports/default.py", line 127, in __iter__
+    for part in self._httpcore_stream:
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/connection_pool.py", line 407, in __iter__
+    raise exc from None
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/connection_pool.py", line 403, in __iter__
+    for part in self._stream:
+                ^^^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/http11.py", line 342, in __iter__
+    raise exc
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/http11.py", line 334, in __iter__
+    for chunk in self._connection._receive_response_body(**kwargs):
+                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/http11.py", line 203, in _receive_response_body
+    event = self._receive_event(timeout=timeout)
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/http11.py", line 217, in _receive_event
+    data = self._network_stream.read(
+        self.READ_NUM_BYTES, timeout=timeout
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_backends/sync.py", line 126, in read
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "/usr/lib64/python3.14/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout: timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/llm_engine.py", line 477, in _call_llm_silent
+    for line in response.iter_lines():
+                ~~~~~~~~~~~~~~~~~~~^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_models.py", line 929, in iter_lines
+    for text in self.iter_text():
+                ~~~~~~~~~~~~~~^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_models.py", line 916, in iter_text
+    for byte_content in self.iter_bytes():
+                        ~~~~~~~~~~~~~~~^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_models.py", line 897, in iter_bytes
+    for raw_bytes in self.iter_raw():
+                     ~~~~~~~~~~~~~^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_models.py", line 951, in iter_raw
+    for raw_stream_bytes in self.stream:
+                            ^^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_client.py", line 153, in __iter__
+    for chunk in self._stream:
+                 ^^^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_transports/default.py", line 126, in __iter__
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib64/python3.14/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout: timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/project_orchestrator.py", line 351, in _call_agent
+    response = _call_llm_silent(
+        self.state, messages,
+    ...<4 lines>...
+        temperature=temperature,
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/llm_engine.py", line 525, in _call_llm_silent
+    raise LocalLLMTimeoutError("El modelo local superó el tiempo de espera (Timeout). Memoria saturada.") from e
+core.llm_engine.LocalLLMTimeoutError: El modelo local superó el tiempo de espera (Timeout). Memoria saturada.
+2026-07-26 06:39:48,973 [jellyfish.orchestration.product_owner] WARNING: Fallo intento 1/3 al parsear JSON del Product Owner: No se encontró ningún bloque JSON ({...} o [...]) en la respuesta.
+2026-07-26 06:42:49,002 [jellyfish.llm] ERROR: Timeout del modelo local (GPU saturada) en _call_llm_silent: timed out
+2026-07-26 06:42:49,002 [jellyfish.project_orchestrator] ERROR: ❌ Excepción crítica en _call_agent para quewn:latest: El modelo local superó el tiempo de espera (Timeout). Memoria saturada.
+Traceback (most recent call last):
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_transports/default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/http11.py", line 136, in handle_request
+    raise exc
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/http11.py", line 106, in handle_request
+    ) = self._receive_response_headers(**kwargs)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/http11.py", line 177, in _receive_response_headers
+    event = self._receive_event(timeout=timeout)
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/http11.py", line 217, in _receive_event
+    data = self._network_stream.read(
+        self.READ_NUM_BYTES, timeout=timeout
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_backends/sync.py", line 126, in read
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "/usr/lib64/python3.14/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout: timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/llm_engine.py", line 448, in _call_llm_silent
+    with client.stream("POST", url, headers=headers, json=payload, timeout=actual_timeout) as response:
+         ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.14/contextlib.py", line 141, in __enter__
+    return next(self.gen)
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_client.py", line 868, in stream
+    response = self.send(
+        request=request,
+    ...<2 lines>...
+        stream=True,
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_transports/default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib64/python3.14/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout: timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/project_orchestrator.py", line 351, in _call_agent
+    response = _call_llm_silent(
+        self.state, messages,
+    ...<4 lines>...
+        temperature=temperature,
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/llm_engine.py", line 525, in _call_llm_silent
+    raise LocalLLMTimeoutError("El modelo local superó el tiempo de espera (Timeout). Memoria saturada.") from e
+core.llm_engine.LocalLLMTimeoutError: El modelo local superó el tiempo de espera (Timeout). Memoria saturada.
+2026-07-26 06:42:49,007 [jellyfish.orchestration.product_owner] WARNING: Fallo intento 2/3 al parsear JSON del Product Owner: No se encontró ningún bloque JSON ({...} o [...]) en la respuesta.
+2026-07-26 06:45:49,110 [jellyfish.llm] ERROR: Timeout del modelo local (GPU saturada) en _call_llm_silent: timed out
+2026-07-26 06:45:49,110 [jellyfish.project_orchestrator] ERROR: ❌ Excepción crítica en _call_agent para quewn:latest: El modelo local superó el tiempo de espera (Timeout). Memoria saturada.
+Traceback (most recent call last):
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_transports/default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/http11.py", line 136, in handle_request
+    raise exc
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/http11.py", line 106, in handle_request
+    ) = self._receive_response_headers(**kwargs)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/http11.py", line 177, in _receive_response_headers
+    event = self._receive_event(timeout=timeout)
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_sync/http11.py", line 217, in _receive_event
+    data = self._network_stream.read(
+        self.READ_NUM_BYTES, timeout=timeout
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_backends/sync.py", line 126, in read
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "/usr/lib64/python3.14/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout: timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/llm_engine.py", line 448, in _call_llm_silent
+    with client.stream("POST", url, headers=headers, json=payload, timeout=actual_timeout) as response:
+         ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.14/contextlib.py", line 141, in __enter__
+    return next(self.gen)
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_client.py", line 868, in stream
+    response = self.send(
+        request=request,
+    ...<2 lines>...
+        stream=True,
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_transports/default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib64/python3.14/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout: timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/project_orchestrator.py", line 351, in _call_agent
+    response = _call_llm_silent(
+        self.state, messages,
+    ...<4 lines>...
+        temperature=temperature,
+    )
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/llm_engine.py", line 525, in _call_llm_silent
+    raise LocalLLMTimeoutError("El modelo local superó el tiempo de espera (Timeout). Memoria saturada.") from e
+core.llm_engine.LocalLLMTimeoutError: El modelo local superó el tiempo de espera (Timeout). Memoria saturada.
+2026-07-26 06:45:49,116 [jellyfish.orchestration.product_owner] WARNING: Fallo intento 3/3 al parsear JSON del Product Owner: No se encontró ningún bloque JSON ({...} o [...]) en la respuesta.
+2026-07-26 08:20:46,757 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-07-26 08:20:46,758 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt'
+2026-07-26 08:20:46,758 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json'
+2026-07-26 08:20:46,758 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile'
+2026-07-26 08:20:46,758 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml'
+2026-07-26 08:20:46,758 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod'
+2026-07-26 08:27:39,572 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-26 08:27:39,581 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-07-26 08:34:14,049 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-26 08:34:14,052 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-07-26 08:34:14,052 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-07-26 08:34:14,052 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md'
+2026-07-26 08:34:14,053 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-07-26 08:40:03,561 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md'
+2026-07-26 08:40:03,567 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-26 08:40:03,567 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-07-26 08:40:03,567 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-07-26 08:40:03,568 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-07-26 08:43:38,326 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-26 08:43:38,327 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-07-26 08:43:38,327 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-07-26 08:43:38,327 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-07-26 08:47:46,457 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-26 08:47:46,458 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-07-26 08:47:46,459 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-07-26 08:47:46,459 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-07-26 08:59:27,925 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-26 08:59:27,925 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-07-26 08:59:27,926 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-07-26 08:59:27,926 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-07-26 09:02:42,627 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-26 09:02:42,627 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-07-26 09:02:42,627 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-07-26 09:02:42,627 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-07-26 09:06:26,425 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-26 09:06:26,425 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-07-26 09:06:26,425 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-07-26 09:06:26,425 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-07-26 09:10:32,694 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-26 09:10:32,694 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-07-26 09:10:32,694 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-07-26 09:10:32,694 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-07-26 09:13:13,220 [jellyfish.project_manager] WARNING: Límite de contexto estático alcanzado (16000 chars), omitiendo archivos restantes.
+2026-07-26 15:21:30,360 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt'
+2026-07-26 15:21:30,361 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json'
+2026-07-26 15:21:30,361 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile'
+2026-07-26 15:21:30,361 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml'
+2026-07-26 15:21:30,361 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod'
+2026-07-26 15:55:22,952 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-07-26 15:55:22,952 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt'
+2026-07-26 15:55:22,952 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json'
+2026-07-26 15:55:22,953 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile'
+2026-07-26 15:55:22,953 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml'
+2026-07-26 15:55:22,953 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod'
+2026-07-26 15:57:55,141 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-07-26 15:57:55,141 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt'
+2026-07-26 15:57:55,142 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json'
+2026-07-26 15:57:55,142 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile'
+2026-07-26 15:57:55,142 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml'
+2026-07-26 15:57:55,142 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod'
+2026-07-26 15:58:23,910 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 37.1s (Intento 1/5)...
+2026-07-26 15:59:01,443 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.6s (Intento 2/5)...
+2026-07-26 16:00:01,368 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.7s (Intento 3/5)...
+2026-07-26 16:02:45,930 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 15.2s (Intento 1/5)...
+2026-07-26 16:03:01,366 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.7s (Intento 2/5)...
+2026-07-26 16:04:01,387 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.7s (Intento 3/5)...
+2026-07-26 16:05:07,519 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 53.5s (Intento 1/5)...
+2026-07-26 16:06:01,492 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.5s (Intento 2/5)...
+2026-07-26 16:13:23,783 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 37.3s (Intento 1/5)...
+2026-07-26 16:14:01,565 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.5s (Intento 2/5)...
+2026-07-26 16:15:01,436 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.6s (Intento 3/5)...
+2026-07-26 16:16:01,476 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.6s (Intento 4/5)...
+2026-07-26 16:17:01,487 [jellyfish.llm] WARNING: Cuota Gemini 429 persistente tras 5 intentos. Activando fallback...
+2026-07-26 16:17:01,487 [jellyfish.llm] WARNING: _call_llm_silent: El proveedor principal 'gemini' no produjo respuesta (cuota 429/error). Ejecutando fallback a Ollama...
+2026-07-26 16:17:01,492 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de ollama
+2026-07-26 16:17:01,493 [jellyfish.project_orchestrator] ERROR: ⚠️ El modelo gemini-2.5-flash (gemini) retornó un output vacío.
+2026-07-26 16:17:01,494 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-26 16:17:01,494 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-07-26 16:17:01,790 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.4s (Intento 1/5)...
+2026-07-26 16:18:01,592 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.5s (Intento 2/5)...
+2026-07-26 16:19:01,686 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.4s (Intento 3/5)...
+2026-07-26 16:21:12,992 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-07-26 16:21:12,992 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-07-26 16:21:12,992 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-07-26 16:21:12,992 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md'
+2026-07-26 16:21:12,992 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-07-26 16:21:14,601 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 46.4s (Intento 1/5)...
+2026-07-26 16:22:01,362 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.7s (Intento 2/5)...
+2026-07-26 16:23:01,387 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.7s (Intento 3/5)...
+2026-07-26 16:24:01,535 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.7s (Intento 4/5)...
+2026-07-26 16:25:01,639 [jellyfish.llm] WARNING: Cuota Gemini 429 persistente tras 5 intentos. Activando fallback...
+2026-07-26 16:25:01,639 [jellyfish.llm] WARNING: _call_llm_silent: El proveedor principal 'gemini' no produjo respuesta (cuota 429/error). Ejecutando fallback a Ollama...
+2026-07-26 16:25:01,642 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de ollama
+2026-07-26 16:25:01,946 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.2s (Intento 1/5)...
+2026-07-26 16:26:01,544 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.5s (Intento 2/5)...
+2026-07-26 16:27:01,551 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.5s (Intento 3/5)...
+2026-07-26 16:28:01,557 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.5s (Intento 4/5)...
+2026-07-26 16:29:01,461 [jellyfish.llm] WARNING: Cuota Gemini 429 persistente tras 5 intentos. Activando fallback...
+2026-07-26 16:29:01,462 [jellyfish.llm] WARNING: _call_llm_silent: El proveedor principal 'gemini' no produjo respuesta (cuota 429/error). Ejecutando fallback a Ollama...
+2026-07-26 16:29:01,464 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de ollama
+2026-07-26 16:29:01,645 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.4s (Intento 1/5)...
+2026-07-26 16:30:01,534 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.5s (Intento 2/5)...
+2026-07-26 16:31:01,572 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.5s (Intento 3/5)...
+2026-07-26 16:32:01,584 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.5s (Intento 4/5)...
+2026-07-26 16:33:01,489 [jellyfish.llm] WARNING: Cuota Gemini 429 persistente tras 5 intentos. Activando fallback...
+2026-07-26 16:33:01,489 [jellyfish.llm] WARNING: _call_llm_silent: El proveedor principal 'gemini' no produjo respuesta (cuota 429/error). Ejecutando fallback a Ollama...
+2026-07-26 16:33:01,492 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de ollama
+2026-07-26 16:33:01,694 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.4s (Intento 1/5)...
+2026-07-26 16:34:01,466 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.6s (Intento 2/5)...
+2026-07-26 16:35:01,369 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.7s (Intento 3/5)...
+2026-07-26 16:36:01,546 [jellyfish.llm] WARNING: Cuota Gemini 429 excedida. Pausando 59.6s (Intento 4/5)...

@@ -91,6 +91,102 @@ class TaskRunnerPhase:
         else:
             return f"# {task_desc}\n\nComponente o especificación andamiada automáticamente para {output_file}\n"
 
+    def _run_strict_subprocess_dod_validation(self, project_path: str, created_files: list[str], output_file: str) -> tuple[bool, str]:
+        """Ejecuta una validación estricta de compilación/sintaxis en un subproceso seguro (subprocess.run).
+        
+        Verifica activamente que los archivos generados o modificados no rompan el entorno
+        e intenta compilar/instalar/lintear según el tipo de archivo.
+        """
+        import subprocess
+        
+        files_to_check = set(created_files)
+        if output_file:
+            files_to_check.add(output_file)
+            
+        real_files = []
+        for rel_f in files_to_check:
+            abs_f = os.path.join(project_path, rel_f.strip().replace("`", ""))
+            if os.path.isfile(abs_f):
+                real_files.append((rel_f, abs_f))
+                
+        if not real_files:
+            return True, "No se encontraron archivos en disco para validar por subproceso."
+
+        for rel_f, abs_f in real_files:
+            ext = os.path.splitext(abs_f)[1].lower()
+            basename = os.path.basename(abs_f).lower()
+            
+            # 1. Archivos Python (.py)
+            if ext == ".py":
+                try:
+                    res = subprocess.run(
+                        ["python3", "-m", "py_compile", abs_f],
+                        capture_output=True, text=True, timeout=15, cwd=project_path
+                    )
+                    if res.returncode != 0:
+                        err_msg = (res.stderr or res.stdout).strip()
+                        return False, f"RECHAZO DOD (COMPILACIÓN PYTHON): El archivo '{rel_f}' falló la verificación de sintaxis (py_compile):\n{err_msg}"
+                except Exception as e:
+                    logger.warning("Error ejecutando py_compile en %s: %s", rel_f, e)
+
+            # 2. Archivos JSON (.json)
+            elif ext == ".json":
+                try:
+                    res = subprocess.run(
+                        ["python3", "-m", "json.tool", abs_f],
+                        capture_output=True, text=True, timeout=15, cwd=project_path
+                    )
+                    if res.returncode != 0:
+                        err_msg = (res.stderr or res.stdout).strip()
+                        return False, f"RECHAZO DOD (SINTAXIS JSON): El archivo '{rel_f}' contiene JSON malformado:\n{err_msg}"
+                except Exception as e:
+                    logger.warning("Error ejecutando json.tool en %s: %s", rel_f, e)
+
+            # 3. Archivos JavaScript / TypeScript (.js, .jsx, .ts, .tsx)
+            elif ext in (".js", ".jsx", ".ts", ".tsx"):
+                try:
+                    res = subprocess.run(
+                        ["node", "--check", abs_f],
+                        capture_output=True, text=True, timeout=15, cwd=project_path
+                    )
+                    if res.returncode != 0:
+                        err_msg = (res.stderr or res.stdout).strip()
+                        return False, f"RECHAZO DOD (SINTAXIS JS/TS): El archivo '{rel_f}' falló la verificación de sintaxis (node --check):\n{err_msg}"
+                except FileNotFoundError:
+                    pass
+                except Exception as e:
+                    logger.warning("Error ejecutando node --check en %s: %s", rel_f, e)
+
+            # 4. Archivos Shell (.sh)
+            elif ext == ".sh":
+                try:
+                    res = subprocess.run(
+                        ["bash", "-n", abs_f],
+                        capture_output=True, text=True, timeout=15, cwd=project_path
+                    )
+                    if res.returncode != 0:
+                        err_msg = (res.stderr or res.stdout).strip()
+                        return False, f"RECHAZO DOD (SINTAXIS BASH): El script '{rel_f}' falló la verificación bash -n:\n{err_msg}"
+                except Exception as e:
+                    logger.warning("Error ejecutando bash -n en %s: %s", rel_f, e)
+
+            # 5. Archivos de Contenedor (docker-compose.yml / yaml)
+            elif basename in ("docker-compose.yml", "docker-compose.yaml"):
+                try:
+                    res = subprocess.run(
+                        ["docker", "compose", "config", "-q"],
+                        capture_output=True, text=True, timeout=15, cwd=project_path
+                    )
+                    if res.returncode != 0 and res.stderr:
+                        err_msg = res.stderr.strip()
+                        return False, f"RECHAZO DOD (SINTAXIS DOCKER COMPOSE): El archivo '{rel_f}' falló la validación 'docker compose config':\n{err_msg}"
+                except FileNotFoundError:
+                    pass
+                except Exception as e:
+                    logger.warning("Error ejecutando docker compose config: %s", e)
+
+        return True, "Validación de compilación y ejecución por subproceso (DoD) aprobada."
+
     def run(self, user_idea: str) -> None:
         """Parsea el tablero de la agencia y ejecuta cada tarea con su agente asignado."""
         tasks = []
@@ -282,7 +378,12 @@ class TaskRunnerPhase:
                     f"[REGLA DE DECISIÓN TECNOLÓGICA]\n"
                     f"Si la tecnología no ha sido definida de forma explícita, asume los estándares modernos de la industria recomendados para este tipo de aplicación (ej. Python/FastAPI/Node.js para backend, Flutter/React Native para móvil, PostgreSQL/SQLite para BD, Docker/Docker-Compose para infraestructura). Procede a generar el código y entregables completos sin detenerte.\n\n"
                     f"[REGLAS DE INFRAESTRUCTURA]\n"
-                    f"REGLA ESTRUCTURAL ESTRICTA: NUNCA referencies un directorio, archivo o contexto de compilación (ej. en docker-compose) sin haber verificado primero que existe usando comandos de consola. Si configuras un servicio que requiere compilación (build), ESTÁS OBLIGADO a crear el `Dockerfile` correspondiente en la ruta exacta que especificaste y a generar el `package.json` o `requirements.txt` base si no existen. NO puedes dar una tarea de DevOps por terminada si faltan los archivos de construcción."
+                    f"REGLA ESTRUCTURAL ESTRICTA: NUNCA referencies un directorio, archivo o contexto de compilación (ej. en docker-compose) sin haber verificado primero que existe usando comandos de consola. Si configuras un servicio que requiere compilación (build), ESTÁS OBLIGADO a crear el `Dockerfile` correspondiente en la ruta exacta que especificaste y a generar el `package.json` o `requirements.txt` base si no existen. NO puedes dar una tarea de DevOps por terminada si faltan los archivos de construcción.\n\n"
+                    f"[NEGATIVE PROMPT GLOBAL: DIRECTIVA ANTI-ARCHIVOS HUÉRFANOS]\n"
+                    f"🚫 PROHIBIDO ESTRICTAMENTE CREAR ARCHIVOS HUÉRFANOS.\n"
+                    f"Está prohibido crear componentes, rutas, controladores, servicios, módulos o utilidades aislados que no estén conectados al sistema.\n"
+                    f"REGLA DE INTEGRACIÓN OBLIGATORIA: Cada vez que generes un nuevo archivo o componente (ej. una nueva vista React, un módulo Python, una ruta Express, un controlador, etc.), ESTÁS OBLIGADO a importar e integrar dicho componente en el archivo de entrada principal del proyecto (ej. App.tsx, index.js, server.js, main.py, routes/index.ts, urls.py) en el MISMO paso o entrega.\n"
+                    f"No se dará ninguna tarea por completada si el componente nuevo no está exportado, importado y montado activamente en la aplicación principal."
                 )
 
                 user_prompt = (
@@ -479,7 +580,7 @@ class TaskRunnerPhase:
                                 if not infra_ok:
                                     break
 
-                            # Validación de sintaxis estática (FASE 4)
+                            # Validación de sintaxis estática y ejecución real por subproceso
                             syntax_ok = True
                             syntax_error_msg = ""
                             from core.orchestration.code_analyzer import validate_syntax
@@ -492,7 +593,12 @@ class TaskRunnerPhase:
                                         syntax_error_msg = s_err
                                         break
 
-                            # DoD Check sin compilación
+                            # Validación estricta en subproceso real (subprocess.run)
+                            exec_subproc_ok, exec_subproc_reason = self._run_strict_subprocess_dod_validation(
+                                self.orchestrator.project_path, created_files, output_file
+                            )
+
+                            # DoD Check sin compilación general
                             if not build_cmd:
                                 if not infra_ok:
                                     dod_approved = False
@@ -500,6 +606,9 @@ class TaskRunnerPhase:
                                 elif not syntax_ok:
                                     dod_approved = False
                                     dod_reason = f"Error de sintaxis estática detectado por el analizador: {syntax_error_msg}"
+                                elif not exec_subproc_ok:
+                                    dod_approved = False
+                                    dod_reason = exec_subproc_reason
                                 else:
                                     file_content = self.orchestrator._read_project_file(output_file)
                                     dod_approved, dod_reason = self.orchestrator._run_dod_validation(
@@ -519,7 +628,7 @@ class TaskRunnerPhase:
                                         progress.fail()
                                     continue
 
-                            # DoD Check con compilación
+                            # DoD Check con compilación general
                             returncode, build_output = self.orchestrator._run_build_command(build_cmd)
                             if returncode == 0:
                                 if not infra_ok:
@@ -528,6 +637,9 @@ class TaskRunnerPhase:
                                 elif not syntax_ok:
                                     dod_approved = False
                                     dod_reason = f"Error de sintaxis estática detectado por el analizador: {syntax_error_msg}"
+                                elif not exec_subproc_ok:
+                                    dod_approved = False
+                                    dod_reason = exec_subproc_reason
                                 else:
                                     file_content = self.orchestrator._read_project_file(output_file)
                                     dod_approved, dod_reason = self.orchestrator._run_dod_validation(

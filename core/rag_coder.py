@@ -158,6 +158,10 @@ def _dir_hash(dirpath: str) -> str:
 # Sprint 2.2 — Splitter inteligente con fallback AST para Python
 # ---------------------------------------------------------------------------
 
+# Caché de embeddings en memoria L1 (MD5 -> Vector)
+_EMBEDDING_CACHE: dict[str, List[float]] = {}
+
+
 def _split_python_ast(text: str, filepath: str) -> List[str]:
     """Divide código Python respetando límites de funciones/clases mediante AST.
 
@@ -186,9 +190,9 @@ def _split_python_ast(text: str, filepath: str) -> List[str]:
 
         # Capturar cualquier texto suelto antes de este nodo
         interstitial = "".join(lines[last_end:start]).strip()
-        if len(interstitial) > 2400:
+        if len(interstitial) > 1600:
             sub_splitter = RecursiveCharacterTextSplitter.from_language(
-                language=Language.PYTHON, chunk_size=1200, chunk_overlap=150
+                language=Language.PYTHON, chunk_size=800, chunk_overlap=120
             )
             chunks.extend(sub_splitter.split_text(interstitial))
         elif interstitial:
@@ -196,9 +200,9 @@ def _split_python_ast(text: str, filepath: str) -> List[str]:
 
         block = "".join(lines[start:end])
         # Si el bloque es muy grande, sub-dividir con el splitter estándar
-        if len(block) > 2400:
+        if len(block) > 1600:
             sub_splitter = RecursiveCharacterTextSplitter.from_language(
-                language=Language.PYTHON, chunk_size=1200, chunk_overlap=150
+                language=Language.PYTHON, chunk_size=800, chunk_overlap=120
             )
             chunks.extend(sub_splitter.split_text(block))
         elif block.strip():
@@ -208,9 +212,9 @@ def _split_python_ast(text: str, filepath: str) -> List[str]:
 
     # Capturar código restante después del último nodo
     tail = "".join(lines[last_end:]).strip()
-    if len(tail) > 2400:
+    if len(tail) > 1600:
         sub_splitter = RecursiveCharacterTextSplitter.from_language(
-            language=Language.PYTHON, chunk_size=1200, chunk_overlap=150
+            language=Language.PYTHON, chunk_size=800, chunk_overlap=120
         )
         chunks.extend(sub_splitter.split_text(tail))
     elif tail:
@@ -222,8 +226,7 @@ def _split_python_ast(text: str, filepath: str) -> List[str]:
 def _split_file(text: str, ext: str, filepath: str) -> List[str]:
     """Selecciona el mejor splitter para la extensión dada.
 
-    Sprint 2.2 — Python usa el splitter AST-aware; otros lenguajes usan
-    el splitter semántico de LangChain (que respeta delimitadores del lenguaje).
+    Optimizado MLOps: chunk_size=800, chunk_overlap=120 para máxima densidad semántica.
     """
     if ext == ".py":
         ast_chunks = _split_python_ast(text, filepath)
@@ -233,8 +236,8 @@ def _split_file(text: str, ext: str, filepath: str) -> List[str]:
     # Fallback universal: LangChain RecursiveCharacterTextSplitter
     splitter = RecursiveCharacterTextSplitter.from_language(
         language=_EXT_MAP[ext],
-        chunk_size=1200,
-        chunk_overlap=150,
+        chunk_size=800,
+        chunk_overlap=120,
     )
     return splitter.split_text(text)
 
@@ -537,6 +540,38 @@ class CodeKnowledgeBase:
 
         context_parts.append(_RAG_CLOSE)
         return "\n".join(context_parts)
+
+    def index_history_memory(self, items: List[dict]) -> int:
+        """Vectoriza y almacena recuerdos u oraciones históricas expulsadas del JSON.
+
+        Permite consultar memorias pasadas de la conversación sin saturar la ventana
+        de contexto activa de Jellyfish.
+        """
+        if not self.ollama_connected or not self.vector_db or not items:
+            return 0
+
+        memory_texts = []
+        memory_metadatas = []
+        for item in items:
+            role = item.get("role", "unknown")
+            content = item.get("content", "").strip()
+            if not content:
+                continue
+            memory_texts.append(f"[{role.upper()}] {content}")
+            memory_metadatas.append({
+                "source": "history_memory_archive",
+                "type": "conversation_memory",
+                "role": role,
+            })
+
+        if memory_texts:
+            try:
+                self.vector_db.add_texts(texts=memory_texts, metadatas=memory_metadatas)
+                logger.info("✓ Vectorizados %d recuerdos antiguos en la base RAG.", len(memory_texts))
+                return len(memory_texts)
+            except Exception as e:
+                logger.warning("Error vectorizando memoria histórica: %s", e)
+        return 0
 
     def remove_path(self, target_path: str) -> int:
         """Elimina documentos de una ruta específica de la base RAG."""

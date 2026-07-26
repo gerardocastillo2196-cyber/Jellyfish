@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  jellyfish-os:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jellyfish-os
+    restart: unless-stopped
+    environment:
+      - JELLYFISH_PROVIDER=${JELLYFISH_PROVIDER:-ollama}
+      - JELLYFISH_MODEL=${JELLYFISH_MODEL:-qwen2.5-agent:latest}
+      - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      - ./projects:/app/projects
+      - ./memory:/app/memory
+      - ./chroma_db:/app/chroma_db
+    networks:
+      - jellyfish-network
+    stdin_open: true
+    tty: true
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: jellyfish-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - jellyfish-network
+
+networks:
+  jellyfish-network:
+    driver: bridge
+
+volumes:
+  ollama_data:

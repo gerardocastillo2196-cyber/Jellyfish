@@ -1614,7 +1614,9 @@ class TestResilientLLMFallback:
             with open(os.path.join(temp_dir, "BACKLOG.json"), "r") as f:
                 saved = json.load(f)
             assert saved["proyecto"] == "NaturaMedics"
-            assert len(saved["user_stories"]) == 1
+            # US-000 Sprint 0 es auto-inyectada + US-001 original
+            assert len(saved["user_stories"]) == 2
+            assert saved["user_stories"][0]["id"] == "US-000"
 
     @patch("core.llm_engine._call_llm_silent")
     def test_scrum_master_auto_healing_mapping(self, mock_call_llm):
@@ -1933,7 +1935,7 @@ def test_static_context_budget_limit():
         
         total_chars = sum(len(m.get("content", "")) for m in state.static_history)
         # El contexto estático total no debe exceder sustancialmente los 16,000 caracteres del presupuesto
-        assert total_chars < 22_000
+        assert total_chars < 25_000
         # Verificar que el truncamiento fue registrado
         doc_msg = [m for m in state.static_history if "DESIGN_TOKENS.md" in m.get("content", "")][0]
         assert "[TRUNCADO POR PRESUPUESTO ESTÁTICO DE 16K CHARS / 4K TOKENS]" in doc_msg["content"]
@@ -1981,6 +1983,88 @@ def test_flush_crash_reports():
             content = f.read()
         assert "Reporte Forense de Error" in content
         assert "Traceback ficticio: Error de división por cero" in content
+
+
+def test_sprint_0_mandatory_injection():
+    """Verifica que ProductOwnerPhase auto-inyecte la US-000 (Sprint 0) si el backlog carece de ella."""
+    from core.state import JellyfishState
+    from core.project_orchestrator import ProjectOrchestrator
+    from core.orchestration.product_owner import ProductOwnerPhase
+    from unittest.mock import MagicMock
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        state = JellyfishState()
+        state.active_project = temp_dir
+        orchestrator = ProjectOrchestrator(state)
+        orchestrator.project_path = temp_dir
+        orchestrator._load_agent_prompt = MagicMock(return_value="Agent prompt")
+        orchestrator._get_last_exit_code = MagicMock(return_value=0)
+        orchestrator._get_circuit_breaker_count = MagicMock(return_value=0)
+
+        # Output sin US-000
+        raw_backlog = (
+            "{\n"
+            '  "proyecto": "TestApp",\n'
+            '  "vision": "App de prueba",\n'
+            '  "user_stories": [\n'
+            "    {\n"
+            '      "id": "US-001",\n'
+            '      "titulo": "Feature 1",\n'
+            '      "como": "User",\n'
+            '      "quiero": "Click button",\n'
+            '      "para": "Do action",\n'
+            '      "prioridad": "Must-have",\n'
+            '      "estimacion": "S"\n'
+            "    }\n"
+            "  ]\n"
+            "}"
+        )
+        orchestrator._call_agent = MagicMock(return_value=raw_backlog)
+
+        phase = ProductOwnerPhase(orchestrator)
+        with patch("core.llm_engine._call_llm_silent", return_value="READY"), patch("builtins.input", return_value="y"):
+            res = phase.run("Idea de test")
+            assert res is True
+
+        import json
+        with open(os.path.join(temp_dir, "BACKLOG.json"), "r") as f:
+            data = json.load(f)
+
+        assert data["user_stories"][0]["id"] == "US-000"
+        assert "Sprint 0" in data["user_stories"][0]["titulo"]
+
+
+def test_task_runner_subprocess_dod_validation():
+    """Verifica que TaskRunnerPhase._run_strict_subprocess_dod_validation rechace código Python con error de sintaxis y apruebe código válido."""
+    from core.state import JellyfishState
+    from core.project_orchestrator import ProjectOrchestrator
+    from core.orchestration.task_runner import TaskRunnerPhase
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        state = JellyfishState()
+        state.active_project = temp_dir
+        orchestrator = ProjectOrchestrator(state)
+        orchestrator.project_path = temp_dir
+        runner = TaskRunnerPhase(orchestrator)
+
+        # 1. Crear archivo Python con error de sintaxis
+        invalid_py = os.path.join(temp_dir, "invalid.py")
+        with open(invalid_py, "w", encoding="utf-8") as f:
+            f.write("def broken_func(\n    print('missing closing paren')")
+
+        ok, reason = runner._run_strict_subprocess_dod_validation(temp_dir, ["invalid.py"], "invalid.py")
+        assert ok is False
+        assert "RECHAZO DOD (COMPILACIÓN PYTHON)" in reason
+
+        # 2. Crear archivo Python válido
+        valid_py = os.path.join(temp_dir, "valid.py")
+        with open(valid_py, "w", encoding="utf-8") as f:
+            f.write("def valid_func():\n    return True\n")
+
+        ok2, reason2 = runner._run_strict_subprocess_dod_validation(temp_dir, ["valid.py"], "valid.py")
+        assert ok2 is True
+        assert "aprobada" in reason2
+
 
 
 

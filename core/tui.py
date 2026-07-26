@@ -91,9 +91,11 @@ class TUIEngine:
 
         while True:
             try:
-                # El prompt será directamente session.prompt('🐙> ')
+                # Mostrar icono de Jellyfish y el nombre del agente activo en el prompt
+                active_agent = getattr(state, "active_agent", "default") if state else "default"
+                prompt_label = f"🐙 @{active_agent}> "
                 with patch_stdout():
-                    user_input = session.prompt('🐙> ')
+                    user_input = session.prompt(prompt_label)
                 user_input = user_input.strip()
                 if not user_input:
                     continue

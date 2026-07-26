@@ -171,31 +171,46 @@ class PluginManager:
                     logger.info("Plugin descubierto (sandbox): %s", plugin_name)
 
     def _load_module(self, plugin_name: str, filepath: str) -> None:
-        """Carga un módulo Python en memoria (modo legado, sin sandbox)."""
+        """Carga un módulo Python en memoria de forma ultra-segura (modo legado)."""
         try:
             spec = importlib.util.spec_from_file_location(plugin_name, filepath)
             if spec is None or spec.loader is None:
+                logger.warning("Plugin '%s' especificación o loader nulos: %s", plugin_name, filepath)
                 return
             module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
             
+            # Ejecución protegida del módulo
+            try:
+                spec.loader.exec_module(module)
+            except Exception as em_err:
+                logger.error("Error al ejecutar módulo del plugin '%s': %s", plugin_name, em_err)
+                console.print(f"[dim red]❌ Error al ejecutar código de plugin '{plugin_name}': {em_err}[/dim red]")
+                return
+
             # Comprobar si exporta una clase PluginInterface
             plugin_class = None
             try:
                 from plugins.plugin_core import PluginInterface
                 for name in dir(module):
-                    obj = getattr(module, name)
-                    if isinstance(obj, type) and issubclass(obj, PluginInterface) and obj != PluginInterface:
-                        plugin_class = obj
-                        break
+                    try:
+                        obj = getattr(module, name)
+                        if isinstance(obj, type) and issubclass(obj, PluginInterface) and obj != PluginInterface:
+                            plugin_class = obj
+                            break
+                    except Exception:
+                        continue
             except ImportError:
                 pass
 
             if plugin_class:
-                inst = plugin_class()
-                inst.initialize({"proxy": self.proxy})
-                self.plugins[plugin_name] = inst
-                logger.info("Plugin clase cargado (legado): %s", plugin_name)
+                try:
+                    inst = plugin_class()
+                    inst.initialize({"proxy": self.proxy})
+                    self.plugins[plugin_name] = inst
+                    logger.info("Plugin clase cargado (legado): %s", plugin_name)
+                except Exception as inst_err:
+                    logger.error("Error inicializando clase de plugin '%s': %s", plugin_name, inst_err)
+                    console.print(f"[dim red]⚠️ Falló inicialización de plugin '{plugin_name}': {inst_err}[/dim red]")
             elif hasattr(module, "execute") and callable(module.execute):
                 self.plugins[plugin_name] = module
                 logger.info("Plugin función cargado (legado): %s", plugin_name)
@@ -203,22 +218,29 @@ class PluginManager:
                 # Buscar cualquier clase con execute
                 found = False
                 for name in dir(module):
-                    obj = getattr(module, name)
-                    if isinstance(obj, type) and name.endswith("Plugin"):
-                        inst = obj()
-                        if hasattr(inst, "execute"):
-                            self.plugins[plugin_name] = inst
-                            found = True
-                            logger.info("Plugin clase genérica cargado (legado): %s", plugin_name)
-                            break
+                    try:
+                        obj = getattr(module, name)
+                        if isinstance(obj, type) and name.endswith("Plugin"):
+                            inst = obj()
+                            if hasattr(inst, "execute"):
+                                inst.initialize({"proxy": self.proxy}) if hasattr(inst, "initialize") else None
+                                self.plugins[plugin_name] = inst
+                                found = True
+                                logger.info("Plugin clase genérica cargado (legado): %s", plugin_name)
+                                break
+                    except Exception:
+                        continue
                 if not found:
                     logger.warning("Plugin '%s' no tiene execute() ni clase válida.", plugin_name)
         except SyntaxError as e:
             console.print(f"[dim red]Error de sintaxis en plugin {plugin_name}: {e}[/dim red]")
+            logger.error("Syntax error en plugin %s: %s", plugin_name, e)
         except ImportError as e:
             console.print(f"[dim red]Dependencia faltante en plugin {plugin_name}: {e}[/dim red]")
+            logger.error("Import error en plugin %s: %s", plugin_name, e)
         except Exception as e:
-            console.print(f"[dim red]Error cargando plugin {plugin_name}: {e}[/dim red]")
+            console.print(f"[dim red]Error crítico insospechado cargando plugin {plugin_name}: {e}[/dim red]")
+            logger.critical("Error crítico en plugin %s: %s", plugin_name, e, exc_info=True)
 
     def run_plugin(self, plugin_name: str, args: str) -> str:
         """Ejecuta un plugin por nombre."""
