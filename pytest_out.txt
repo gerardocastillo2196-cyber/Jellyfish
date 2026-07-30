@@ -1,0 +1,101 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.6, pytest-9.0.3, pluggy-1.6.0 -- /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish
+plugins: langsmith-0.8.7, anyio-4.13.0
+collecting ... collected 1 item
+
+tests/test_sequential_task_generation.py::test_sequential_generation_multiple_files FAILED [100%]
+
+=================================== FAILURES ===================================
+__________________ test_sequential_generation_multiple_files ___________________
+tests/test_sequential_task_generation.py:61: in test_sequential_generation_multiple_files
+    assert call_args_files == ["file1.py", "file2.py"]
+E   AssertionError: assert ['file1.py', 'file1.py', 'file1.py'] == ['file1.py', 'file2.py']
+E     
+E     At index 1 diff: 'file1.py' != 'file2.py'
+E     Left contains one more item: 'file1.py'
+E     
+E     Full diff:
+E       [
+E           'file1.py',
+E     -     'file2.py',
+E     ?          ^
+E     +     'file1.py',
+E     ?          ^
+E     +     'file1.py',
+E       ]
+----------------------------- Captured stdout call -----------------------------
+
+⚠️  ¡ADVERTENCIA DE CONCURRENCIA! El proyecto 
+/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/c ya 
+está abierto en otra instancia de Jellyfish OS (PID: 198416).
+Para prevenir corrupción de datos en ChromaDB y conflictos de archivos, por 
+favor evita realizar cambios simultáneos desde ambas sesiones.
+
+       ⚙ Tablero JSON estructurado cargado exitosamente.
+
+━━━ FASE 3: 🚀 Task Runner — 1 tareas ordenadas por dependencias (DAG) ━━━
+
+
+[⟳] INICIANDO: @developer -> Tarea T-001: Crear file1.py y file2.py...
+[✓] COMPLETADO: @developer -> auto_task_0 (42 tokens)
+
+       ✓ Bitácora de desarrollo actualizada (DEVELOPMENT_LOG.md)
+------------------------------ Captured log call -------------------------------
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/agents/developer.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/agents/developer.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DESIGN_TOKENS.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DATA_SCHEMA.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SECURITY.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SECURITY.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/COMPONENT_INDEX.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEVELOPMENT_LOG.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEPENDENCY_MANIFEST.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/PLAYBOOK.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/PLAYBOOK.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/BUSINESS_CONTEXT.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/BUSINESS_CONTEXT.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/PROJECT_TREE.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/PROJECT_TREE.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SPRINT_BOARD.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SPRINT_BOARD.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DESIGN_TOKENS.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DATA_SCHEMA.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SECURITY.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SECURITY.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/COMPONENT_INDEX.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEVELOPMENT_LOG.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEPENDENCY_MANIFEST.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/PLAYBOOK.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/PLAYBOOK.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/BUSINESS_CONTEXT.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/BUSINESS_CONTEXT.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/PROJECT_TREE.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/PROJECT_TREE.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SPRINT_BOARD.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SPRINT_BOARD.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DESIGN_TOKENS.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DATA_SCHEMA.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SECURITY.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SECURITY.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/COMPONENT_INDEX.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEVELOPMENT_LOG.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEPENDENCY_MANIFEST.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/PLAYBOOK.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/PLAYBOOK.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/BUSINESS_CONTEXT.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/BUSINESS_CONTEXT.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/PROJECT_TREE.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/PROJECT_TREE.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SPRINT_BOARD.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SPRINT_BOARD.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DAILY.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DAILY.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/DEVELOPMENT_LOG.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SPRINT_BOARD.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-5/test_sequential_generation_mul0/test_project/SPRINT_BOARD.md'
+=============================== warnings summary ===============================
+venv/lib64/python3.14/site-packages/chromadb/telemetry/opentelemetry/__init__.py:128
+  /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/chromadb/telemetry/opentelemetry/__init__.py:128: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    if asyncio.iscoroutinefunction(f):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sequential_task_generation.py::test_sequential_generation_multiple_files - AssertionError: assert ['file1.py', 'file1.py', 'file1.py'] == ['file1.py', 'file2.py']
+  
+  At index 1 diff: 'file1.py' != 'file2.py'
+  Left contains one more item: 'file1.py'
+  
+  Full diff:
+    [
+        'file1.py',
+  -     'file2.py',
+  ?          ^
+  +     'file1.py',
+  ?          ^
+  +     'file1.py',
+    ]
+========================= 1 failed, 1 warning in 1.45s =========================

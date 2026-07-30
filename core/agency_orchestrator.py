@@ -101,7 +101,7 @@ class AgencyOrchestrator(BaseOrchestrator):
         import subprocess
         from rich.panel import Panel
         from rich.markdown import Markdown
-        from core.ui import console
+        from core.terminal import screen_console as console
 
         # Cargar agente @Sentinel para tomar el control de la consola
         self.state.load_agent("sentinel")
@@ -212,12 +212,15 @@ class AgencyOrchestrator(BaseOrchestrator):
             elif choice == "4":
                 agent_py = os.path.join(self.state.agency_dir, "agents", f"{agent_name}.py")
                 agent_md = os.path.join(self.state.agency_dir, "agents", f"{agent_name}.md")
+                core_py = os.path.join(self.state.root_dir, "core", "orchestration", f"{agent_name}.py")
                 
                 file_to_open = None
                 if os.path.isfile(agent_py):
                     file_to_open = agent_py
                 elif os.path.isfile(agent_md):
                     file_to_open = agent_md
+                elif os.path.isfile(core_py):
+                    file_to_open = core_py
                 
                 if file_to_open:
                     editor = os.environ.get("EDITOR", "nano")

@@ -181,7 +181,96 @@ class BaseAgent(BaseModel):
         """
         return response
 
+    def execute_local_microtask_loop(self, state, epic_task: Dict[str, Any], context: Dict[str, Any]) -> str:
+        """Ejecuta el bucle de micro-tasking local para agentes desarrolladores/ejecutores.
+        
+        1. Desglosa la Épica en 3-5 micro-tareas técnicas usando el modelo local (Ollama).
+        2. Itera secuencialmente sobre cada micro-tarea localmente.
+        3. Acumula y construye el código incrementalmente.
+        4. Retorna el resultado consolidado final.
+        """
+        import json
+        import re
+        import logging
+        from core.llm_engine import _call_llm_silent, resolve_hybrid_agent_routing
+
+        logger = logging.getLogger(f"jellyfish.agent.{self.name}")
+        task_desc = epic_task.get("task", "")
+        output_file = epic_task.get("output_file", "")
+        accumulated_context = context.get("accumulated_context", "")
+
+        provider_name, model_name = resolve_hybrid_agent_routing(state, self.name)
+
+        # 1. Prompt de desglose de micro-tareas
+        prompt_breakdown = (
+            f"Como agente @{self.name}, tu tarea principal es implementar la Épica: '{task_desc}'.\n"
+            f"Archivo de salida esperado: '{output_file}'.\n\n"
+            "Desglosa esta Épica en una lista JSON de 3 a 5 micro-tareas técnicas secuenciales y específicas.\n"
+            "Formato esperado obligatorio JSON:\n"
+            '{\n  "micro_tasks": [\n    "1. Crear estructura base de clases/modelos",\n    "2. Implementar funciones/lógica principal",\n    "3. Añadir validaciones y exportaciones"\n  ]\n}'
+        )
+
+        sys_prompt = self.get_system_prompt()
+        messages_breakdown = [
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": prompt_breakdown}
+        ]
+
+        raw_breakdown = _call_llm_silent(state, messages_breakdown, agent_name=self.name, provider=provider_name, model=model_name, json_mode=True)
+        
+        micro_tasks = []
+        if raw_breakdown:
+            try:
+                match = re.search(r'(\{.*\}|\[.*\])', raw_breakdown, re.DOTALL)
+                if match:
+                    data = json.loads(match.group(1))
+                    if isinstance(data, dict):
+                        micro_tasks = data.get("micro_tasks", [])
+                    elif isinstance(data, list):
+                        micro_tasks = data
+            except Exception:
+                pass
+
+        if not micro_tasks:
+            micro_tasks = [
+                f"1. Estructura e interfaces base para {output_file}",
+                f"2. Lógica de negocio y handlers para {task_desc}",
+                f"3. Validaciones, exportaciones e integración en {output_file}"
+            ]
+
+        logger.info("Agente @%s desglosó Épica '%s' en %d micro-tareas locales.", self.name, epic_task.get("id"), len(micro_tasks))
+
+        # 2. Bucle iterativo sobre micro-tareas acumulando código
+        accumulated_code = ""
+        for i, micro in enumerate(micro_tasks, 1):
+            logger.info("Agente @%s ejecutando micro-tarea [%d/%d] en Ollama: %s", self.name, i, len(micro_tasks), micro)
+            
+            user_msg = (
+                f"ÉPICA PADRE: {task_desc}\n"
+                f"ARCHIVO DE SALIDA: {output_file}\n"
+                f"CONTEXTO DEL PROYECTO ACUMULADO:\n{accumulated_context}\n\n"
+                f"CÓDIGO GENERADO HASTA AHORA PARA {output_file}:\n```\n{accumulated_code}\n```\n\n"
+                f"MICRO-TAREA ACTUAL [{i}/{len(micro_tasks)}]: {micro}\n\n"
+                "Genera o actualiza el código completo para resolver esta micro-tarea. Devuelve el código completo actualizado dentro de un bloque ```."
+            )
+            
+            msgs = [
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": user_msg}
+            ]
+            
+            sub_res = _call_llm_silent(state, msgs, agent_name=self.name, provider=provider_name, model=model_name)
+            if sub_res and sub_res.strip():
+                matches = re.findall(r'```(?:\w+)?\n(.*?)\n```', sub_res, re.DOTALL)
+                if matches:
+                    accumulated_code = matches[-1].strip()
+                else:
+                    accumulated_code = sub_res.strip()
+
+        return accumulated_code
+
     # ── Representación ─────────────────────────────────────────
 
     def __repr__(self) -> str:
         return f"<Agent @{self.name} agency={self.agency} role={self.role!r}>"
+

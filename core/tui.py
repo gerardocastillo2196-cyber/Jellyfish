@@ -51,7 +51,8 @@ class TUIEngine:
         """Pide una entrada al usuario usando un PromptSession simple."""
         try:
             session = PromptSession()
-            return session.prompt(prompt_text)
+            with patch_stdout():
+                return session.prompt(prompt_text)
         except (KeyboardInterrupt, EOFError):
             return ""
 

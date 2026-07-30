@@ -153,6 +153,24 @@ def estimate_tokens(text: str) -> int:
     est = int((normal_chars / 4.2) + (special_chars * 0.75))
     return max(1, est)
 
+PLANNER_AGENTS = {
+    "product_owner", "po", "scrum_master", "sm",
+    "architect_software", "architect", "lead_planner",
+    "ceo", "translator", "sentinel"
+}
+
+EXECUTOR_AGENTS = {
+    "backend_dev", "frontend_dev", "devops_engineer", "qa_engineer",
+    "developer", "ui_designer", "security_auditor", "data_scientist", "coder"
+}
+
+def resolve_agent_role_category(agent_name: str) -> str:
+    """Categoriza el rol de un agente en 'planner' (Cloud API) o 'executor' (Local Ollama)."""
+    clean_name = (agent_name or "").strip().lower().lstrip("@")
+    if clean_name in PLANNER_AGENTS or any(p in clean_name for p in ["product_owner", "scrum_master", "architect", "planner"]):
+        return "planner"
+    return "executor"
+
 def load_config_from_env(state) -> None:
     """Carga y recarga de forma caliente la configuración de proveedores desde .env."""
     try:
@@ -163,6 +181,15 @@ def load_config_from_env(state) -> None:
     state.provider = normalize_provider(os.getenv("JELLYFISH_PROVIDER", "ollama"))
     state.model = os.getenv("JELLYFISH_MODEL", "qwen2.5-agent:latest")
     # No auto-upgrading to non-existent models.
+
+    # Enrutamiento Híbrido de Modelos por Rol
+    raw_planner_provider = os.getenv("JELLYFISH_PLANNER_PROVIDER", "gemini")
+    state.planner_provider = normalize_provider(raw_planner_provider)
+    state.planner_model = os.getenv("JELLYFISH_PLANNER_MODEL", "gemini-2.5-flash")
+
+    raw_executor_provider = os.getenv("JELLYFISH_EXECUTOR_PROVIDER", "ollama")
+    state.executor_provider = normalize_provider(raw_executor_provider)
+    state.executor_model = os.getenv("JELLYFISH_EXECUTOR_MODEL", "qwen2.5-coder:latest")
 
     state.provider_configs = PROVIDER_CONFIGS
     state.api_keys = {}

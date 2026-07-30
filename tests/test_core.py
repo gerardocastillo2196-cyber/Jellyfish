@@ -2066,6 +2066,106 @@ def test_task_runner_subprocess_dod_validation():
         assert "aprobada" in reason2
 
 
+def test_hybrid_model_routing():
+    """Verifica que resolve_hybrid_agent_routing enrute agentes planificadores a Cloud (Gemini) y ejecutores a Local (Ollama)."""
+    from core.state import JellyfishState
+    from core.llm_engine import resolve_hybrid_agent_routing
+
+    state = JellyfishState()
+    state.planner_provider = "gemini"
+    state.planner_model = "gemini-2.5-flash"
+    state.executor_provider = "ollama"
+    state.executor_model = "qwen2.5-coder:latest"
+
+    # Planificadores -> Gemini
+    for planner in ["product_owner", "scrum_master", "architect_software", "lead_planner"]:
+        prov, mod = resolve_hybrid_agent_routing(state, planner)
+        assert prov == "gemini"
+        assert mod == "gemini-2.5-flash"
+
+    # Ejecutores -> Ollama
+    for executor in ["backend_dev", "frontend_dev", "devops_engineer", "qa_engineer"]:
+        prov, mod = resolve_hybrid_agent_routing(state, executor)
+        assert prov == "ollama"
+        assert mod == "qwen2.5-coder:latest"
+
+
+def test_product_owner_15_epics_limit():
+    """Verifica que ProductOwnerPhase limite a máximo 15 Historias/Épicas en BACKLOG.json."""
+    from core.state import JellyfishState
+    from core.project_orchestrator import ProjectOrchestrator
+    from core.orchestration.product_owner import ProductOwnerPhase
+    from unittest.mock import MagicMock
+    import tempfile
+    import json
+    import os
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        state = JellyfishState()
+        state.active_project = temp_dir
+        orchestrator = ProjectOrchestrator(state)
+        orchestrator.project_path = temp_dir
+        orchestrator._load_agent_prompt = MagicMock(return_value="Agent prompt")
+        orchestrator._get_last_exit_code = MagicMock(return_value=0)
+        orchestrator._get_circuit_breaker_count = MagicMock(return_value=0)
+
+        # Generar 20 historias ficticias
+        stories = [{"id": f"US-{i:03d}", "titulo": f"Feature {i}", "como": "User", "quiero": "Action", "para": "Benefit", "prioridad": "Must-have", "estimacion": "S"} for i in range(1, 21)]
+        raw_backlog = json.dumps({"proyecto": "TestApp", "vision": "Test", "user_stories": stories})
+        orchestrator._call_agent = MagicMock(return_value=raw_backlog)
+
+        phase = ProductOwnerPhase(orchestrator)
+        with patch("core.llm_engine._call_llm_silent", return_value="READY"), patch("builtins.input", return_value="y"):
+            res = phase.run("Idea con muchas tareas")
+            assert res is True
+
+        with open(os.path.join(temp_dir, "BACKLOG.json"), "r") as f:
+            data = json.load(f)
+
+        assert len(data["user_stories"]) == 15
+        assert data["user_stories"][0]["id"] == "US-000"
+
+
+def test_local_microtask_loop():
+    """Verifica que execute_local_microtask_loop desglose Épicas y retorne el código acumulado."""
+    from core.state import JellyfishState
+    from core.agents.base import BaseAgent
+    from unittest.mock import patch
+
+    state = JellyfishState()
+    agent = BaseAgent(name="backend_dev", role="Backend Developer", expertise=["python", "fastapi"])
+
+    epic_task = {
+        "id": "T-001",
+        "task": "Crear API REST con FastAPI",
+        "output_file": "app.py"
+    }
+    context = {
+        "project_path": "/tmp",
+        "accumulated_context": "",
+        "output_file": "app.py"
+    }
+
+    raw_json_microtasks = json.dumps({
+        "micro_tasks": [
+            "1. Definir imports e inicialización FastAPI",
+            "2. Crear endpoints REST",
+        ]
+    })
+
+    with patch("core.llm_engine._call_llm_silent") as mock_llm:
+        mock_llm.side_effect = [
+            raw_json_microtasks,
+            "```python\nfrom fastapi import FastAPI\napp = FastAPI()\n```",
+            "```python\nfrom fastapi import FastAPI\napp = FastAPI()\n@app.get('/')\ndef root(): return {'ok': True}\n```"
+        ]
+        result_code = agent.execute_local_microtask_loop(state, epic_task, context)
+
+        assert "def root():" in result_code
+        assert mock_llm.call_count == 3
+
+
+
 
 
 

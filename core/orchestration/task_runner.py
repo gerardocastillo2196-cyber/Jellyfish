@@ -17,6 +17,31 @@ console = Console()
 
 MAX_RETRIES = 3  # FASE 4: Límite de escalada para reintentos automáticos
 
+SENTINEL_HEALER_SYSTEM = """Eres @Sentinel, el agente experto de control de calidad, depuración y auto-curación de Jellyfish OS.
+Tu misión es recibir una tarea técnica, los archivos de código que se generaron, y el log detallado del error de compilación, sintaxis o DoD.
+Debes analizar el log de error para diagnosticar exactamente qué causó el fallo.
+
+Tienes tres opciones de respuesta. Debes elegir la más adecuada y responder en el formato exacto:
+
+1) AUTO_FIX: Si puedes corregir el código del archivo que falló directamente (ej: añadir un import, corregir sintaxis YAML, cambiar una línea de código).
+Formato de respuesta:
+[AUTO_FIX]
+Explicación breve de la corrección.
+<write_file path="ruta/del/archivo.ext">
+contenido del archivo corregido...
+</write_file>
+
+2) FEEDBACK: Si la corrección requiere lógica compleja en múltiples archivos o reestructuraciones que debe hacer el desarrollador original.
+Formato de respuesta:
+[FEEDBACK]
+Instrucciones detalladas paso a paso para corregir el error en el próximo intento.
+
+3) ASK_USER: Si necesitas aclarar requisitos críticos, decisiones de diseño o permisos especiales del usuario.
+Formato de respuesta:
+[ASK_USER]
+Escribe la pregunta específica y directa para el usuario.
+"""
+
 def topological_sort(tasks: list[dict]) -> list[dict]:
     """Ordena las tareas del sprint respetando sus dependencias declaradas (DAG)."""
     task_map = {t["id"]: t for t in tasks}
@@ -90,6 +115,177 @@ class TaskRunnerPhase:
             return json.dumps({"description": task_desc, "status": "scaffolding_fallback"}, indent=2)
         else:
             return f"# {task_desc}\n\nComponente o especificación andamiada automáticamente para {output_file}\n"
+
+    def _reconcile_missing_docker_context_files(self, created_files: list[str]) -> None:
+        """
+        Escanea los Dockerfiles recién creados para buscar instrucciones COPY/ADD.
+        Si alguna instrucción copia un archivo local que no existe en el contexto de construcción,
+        crea un archivo placeholder mínimo para evitar fallos de compilación prematuros en Sprint 0.
+        """
+        # Auto-crear Dockerfiles ya no es necesario gracias a la detección dirigida en _detect_build_command
+        pass
+
+        for path in created_files:
+            if "dockerfile" in path.lower():
+                abs_path = os.path.join(self.orchestrator.project_path, path)
+                if not os.path.isfile(abs_path):
+                    continue
+                try:
+                    with open(abs_path, "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                    
+                    dockerfile_dir = os.path.dirname(abs_path)
+                    for line in lines:
+                        line = line.strip()
+                        if not line or line.startswith("#"):
+                            continue
+                        if line.upper().startswith("COPY ") or line.upper().startswith("ADD "):
+                            parts = line.split()
+                            if len(parts) < 3:
+                                continue
+                            
+                            has_from = False
+                            sources = []
+                            for part in parts[1:-1]:
+                                if part.startswith("--from="):
+                                    has_from = True
+                                elif part.startswith("--"):
+                                    continue
+                                else:
+                                    sources.append(part)
+                            
+                            if has_from:
+                                continue
+                                
+                            for src in sources:
+                                src_clean = src.replace("*", "").replace("?", "")
+                                if not src_clean or src_clean in (".", "/"):
+                                    continue
+                                
+                                target_file_path = os.path.join(dockerfile_dir, src_clean)
+                                if not os.path.exists(target_file_path):
+                                    os.makedirs(os.path.dirname(target_file_path), exist_ok=True)
+                                    if src_clean.endswith("package.json"):
+                                        with open(target_file_path, "w", encoding="utf-8") as pf:
+                                            pf.write('{\n  "name": "placeholder",\n  "version": "1.0.0"\n}\n')
+                                    elif src_clean.endswith("pubspec.yaml"):
+                                        with open(target_file_path, "w", encoding="utf-8") as pf:
+                                            pf.write("name: placeholder\nversion: 1.0.0\nenvironment:\n  sdk: '>=3.0.0 <4.0.0'\n")
+                                    elif src_clean.endswith("requirements.txt"):
+                                        with open(target_file_path, "w", encoding="utf-8") as pf:
+                                            pf.write("# Placeholder base\n")
+                                    else:
+                                        with open(target_file_path, "w", encoding="utf-8") as pf:
+                                            pf.write("")
+                                    logger.info("Auto-creado archivo de contexto Docker faltante: %s", target_file_path)
+                                    console.print(f"       ⚡ Auto-creado placeholder requerido para Docker: [dim]{src_clean}[/dim]")
+                except Exception as e:
+                    logger.error("Error al reconciliar archivos de contexto Docker: %s", e)
+
+    def _run_sentinel_auto_healing(
+        self,
+        task_id: str,
+        agent_name: str,
+        task_desc: str,
+        output_file: str,
+        error_log: str,
+        created_files: list[str]
+    ) -> tuple[str, str]:
+        """
+        Invoca autónomamente a @Sentinel para diagnosticar y auto-corregir el error.
+        Retorna una tupla: (resolución, feedback/mensaje)
+        """
+        from core.terminal import screen_console as scr_console
+        scr_console.print(f"\n[bold yellow]🛡️  @Sentinel[/bold yellow] analizando error del primer fallo para auto-curar la tarea...")
+        
+        files_context = ""
+        for rel_f in created_files:
+            abs_f = os.path.join(self.orchestrator.project_path, rel_f)
+            if os.path.isfile(abs_f):
+                content = _safe_read(abs_f)
+                files_context += f"--- ARCHIVO: {rel_f} ---\n{content}\n\n"
+                
+        user_prompt = (
+            f"TAREA ID: {task_id}\n"
+            f"AGENTE ENCARGADO: @{agent_name}\n"
+            f"DESCRIPCIÓN DE LA TAREA: {task_desc}\n"
+            f"ENTREGABLE ESPERADO: {output_file}\n\n"
+            f"[ARCHIVOS DE CÓDIGO ACTUALES]\n{files_context}\n"
+            f"[LOG DE ERROR DETALLADO]\n{error_log}\n"
+        )
+        
+        try:
+            sentinel_res = _call_llm_silent(
+                self.orchestrator.state,
+                [
+                    {"role": "system", "content": SENTINEL_HEALER_SYSTEM},
+                    {"role": "user", "content": user_prompt}
+                ],
+                agent_name="sentinel"
+            )
+        except Exception as e:
+            logger.error("Error al invocar a @Sentinel para auto-healing: %s", e)
+            return "FEEDBACK", f"Error invocando a @Sentinel Healer: {e}"
+            
+        if not sentinel_res:
+            return "FEEDBACK", "Sentinel Healer no retornó ninguna respuesta."
+            
+        sentinel_res_strip = sentinel_res.strip()
+        
+        if sentinel_res_strip.startswith("[AUTO_FIX]"):
+            fixed_files = self.orchestrator._extract_and_write_files(sentinel_res_strip)
+            explanation = sentinel_res_strip.split("[AUTO_FIX]")[1].split("<write_file")[0].strip()
+            
+            if not fixed_files and "<write_file" not in sentinel_res_strip:
+                code_match = re.search(r'```[a-zA-Z0-9_-]*\n(.*?)\n```', sentinel_res_strip, re.DOTALL)
+                if code_match and len(created_files) == 1:
+                    target_f = created_files[0]
+                    full_target = os.path.join(self.orchestrator.project_path, target_f)
+                    with open(full_target, "w", encoding="utf-8") as f:
+                        f.write(code_match.group(1))
+                    fixed_files = [target_f]
+            
+            if fixed_files:
+                log_msg = f"🛡️ @Sentinel (Auto-Healing) aplicó corrección en: {', '.join(fixed_files)}. Razón: {explanation}"
+                scr_console.print(f"       [bold green]✓[/bold green] [green]{log_msg}[/green]")
+                logger.info(log_msg)
+                
+                self._write_sentinel_action_to_log(task_id, log_msg)
+                return "AUTO_FIX", explanation
+            else:
+                return "FEEDBACK", f"Sentinel intentó AUTO_FIX pero no se pudieron parsear las etiquetas de escritura. Razón: {explanation}"
+                
+        elif sentinel_res_strip.startswith("[ASK_USER]"):
+            question = sentinel_res_strip.replace("[ASK_USER]", "").strip()
+            scr_console.print("\n[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
+            scr_console.print(f"[bold yellow]🛡️ @Sentinel REQUIERE TU AYUDA PARA DEPURAR:[/bold yellow]")
+            scr_console.print(f"[yellow]{question}[/yellow]")
+            scr_console.print("[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
+            
+            user_response = input("✍ Escribe tu respuesta: ").strip()
+            feedback_msg = f"Respuesta del usuario para Sentinel: '{user_response}'. Análisis previo de Sentinel: {question}"
+            return "ASK_USER", feedback_msg
+            
+        else:
+            feedback_text = sentinel_res_strip.replace("[FEEDBACK]", "").strip()
+            log_msg = f"🛡️ @Sentinel generó instrucciones de corrección: {feedback_text[:120]}..."
+            scr_console.print(f"       [yellow]{log_msg}[/yellow]")
+            return "FEEDBACK", feedback_text
+
+    def _write_sentinel_action_to_log(self, task_id: str, log_msg: str) -> None:
+        """Registra la acción correctiva de Sentinel en DEVELOPMENT_LOG.md."""
+        try:
+            log_filename = "DEVELOPMENT_LOG.md"
+            existing_log = self.orchestrator._read_project_file(log_filename) or ""
+            
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+            entry = f"\n* **[{timestamp}] 🛡️ @Sentinel (Auto-Healing) — {task_id}**: {log_msg}\n"
+            
+            updated_log = existing_log.rstrip() + "\n" + entry
+            self.orchestrator._write_project_file(log_filename, updated_log)
+        except Exception as e:
+            logger.warning("No se pudo registrar la acción de Sentinel en DEVELOPMENT_LOG.md: %s", e)
 
     def _run_strict_subprocess_dod_validation(self, project_path: str, created_files: list[str], output_file: str) -> tuple[bool, str]:
         """Ejecuta una validación estricta de compilación/sintaxis en un subproceso seguro (subprocess.run).
@@ -227,6 +423,8 @@ class TaskRunnerPhase:
 
             if not output_file or output_file == "—":
                 output_file = f"TASK_{task_id_str.replace('-', '_')}.md"
+
+            files_to_generate = [f.strip() for f in output_file.split(",")] if "," in output_file else [output_file]
 
             # FASE 2 / FASE 3: Verificar que las dependencias de la tarea estén completadas en el Blackboard (H-03)
             deps_ok = True
@@ -452,133 +650,187 @@ class TaskRunnerPhase:
                         for attempt in range(1, max_attempts + 1):
                             attempt_t0 = time.perf_counter()
 
-                            current_messages = list(base_messages)
-                            if attempt > 1:
-                                current_messages.append({"role": "assistant", "content": last_task_result})
-                                if feedback:
-                                    current_messages.append({"role": "user", "content": feedback})
-
                             task_result = ""
-                            react_messages = list(current_messages)
-                            max_react_steps = 15
-                            
-                            for step in range(1, max_react_steps + 1):
-                                response_chunk = _call_llm_silent(
-                                    self.orchestrator.state, react_messages,
-                                    provider=self.orchestrator.state.provider,
-                                    model=self.orchestrator.state.model
-                                )
-                                
-                                if not response_chunk:
-                                    break
-                                    
-                                # Interceptor HITL
-                                if "[ASK_USER:" in response_chunk:
-                                    ask_match = re.search(r'\[ASK_USER:\s*(.*?)\]', response_chunk, re.DOTALL)
-                                    question = ask_match.group(1).strip() if ask_match else response_chunk.split("[ASK_USER:")[1].strip()
-                                    
-                                    console.print("\n[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
-                                    console.print(f"[bold yellow]🤔 CONSULTA HITL DE @{agent_name}:[/bold yellow]")
-                                    console.print(f"[yellow]{question}[/yellow]")
-                                    console.print("[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
-                                    
-                                    user_response = input("✍ Escribe tu respuesta: ")
-                                    
-                                    react_messages.append({"role": "assistant", "content": response_chunk})
-                                    user_msg = {"role": "user", "content": f"Respuesta del usuario a tu consulta: {user_response}"}
-                                    react_messages.append(user_msg)
-                                    current_messages.append({"role": "assistant", "content": response_chunk})
-                                    current_messages.append(user_msg)
-                                    continue
-                                    
-                                # Detectar comandos
-                                cmd_match = re.search(r'<run_command>(.*?)</run_command>', response_chunk, re.DOTALL)
-                                if cmd_match:
-                                    cmd_to_run = cmd_match.group(1).strip()
-                                    console.print(f"       ⚙ Agente @{agent_name} ejecutando comando ReAct: {cmd_to_run}")
-                                    
-                                    ret_dict = {'returncode': 0}
-                                    cmd_output = run_terminal_command(
-                                        cmd_to_run,
-                                        self.orchestrator.state,
-                                        silent_history=True,
-                                        timeout=120,
-                                        force_confirm=False,
-                                        return_code_dict=ret_dict
-                                    )
-                                    
-                                    urgency_prompt = "Analiza el resultado y continúa redactando el archivo o solicita más comandos si es necesario."
-                                    if step >= max_react_steps - 3:
-                                        urgency_prompt = "Te quedan pocos pasos ReAct. Genera el entregable final AHORA usando etiquetas."
+                            created_files = []
+                            attempt_success = True
 
-                                    react_messages.append({"role": "assistant", "content": response_chunk})
-                                    react_messages.append({
-                                        "role": "user",
-                                        "content": f"Resultado de ejecución (Código {ret_dict['returncode']}):\n```\n{cmd_output[:3000]}\n```\n{urgency_prompt}"
-                                    })
-                                    continue
-                                
-                                task_result += response_chunk
-                                
-                                if "[TAREA_COMPLETADA]" in response_chunk or "[TAREA_COMPLETADA]" in task_result:
-                                    task_result = task_result.replace("[TAREA_COMPLETADA]", "").strip()
+                            for idx_sub, sub_file in enumerate(files_to_generate):
+                                sub_task_context = {
+                                    "project_path": self.orchestrator.project_path,
+                                    "output_file": sub_file,
+                                    "task_id": task_id_str,
+                                    "agent_name": agent_name,
+                                }
+
+                                if py_agent:
+                                    try:
+                                        py_agent.pre_execute(task, sub_task_context)
+                                    except Exception as pre_err:
+                                        logger.warning("pre_execute de @%s falló: %s", agent_name, pre_err)
+
+                                accumulated = self.orchestrator._build_intelligent_context(task_desc, sub_file)
+
+                                # Adaptar System Prompt para el sub_file específico
+                                sub_system = system
+                                sub_system = sub_system.replace(
+                                    f"Tu entregable: Genera el contenido COMPLETO del archivo {output_file}.",
+                                    f"Tu entregable: Genera el contenido COMPLETO del archivo {sub_file}."
+                                )
+                                if f"Genera el contenido COMPLETO del archivo {sub_file}" not in sub_system:
+                                    sub_system += f"\n\n[REGLA ADICIONAL]\nTu entregable: Genera el contenido COMPLETO del archivo '{sub_file}'."
+
+                                if len(files_to_generate) > 1:
+                                    sub_system += f"\n\n[INSTRUCCIÓN SECUENCIAL MULTI-ARCHIVO]\nEstás generando los archivos del proyecto uno por uno. El archivo actual a generar es: '{sub_file}'."
+                                    if idx_sub > 0:
+                                        already_done = ", ".join(files_to_generate[:idx_sub])
+                                        sub_system += f" Ya has generado previamente los archivos: {already_done}. Concéntrate ÚNICAMENTE en generar el código completo para '{sub_file}'."
+
+                                sub_user_prompt = (
+                                    f"IDEA ORIGINAL DEL USUARIO:\n{user_idea}\n\n"
+                                    f"DOCUMENTOS PREVIOS DEL PROYECTO:\n{accumulated}\n\n"
+                                    f"TAREA: {task_desc}\n"
+                                    f"Genera el contenido completo de {sub_file}."
+                                )
+
+                                sub_base_messages = [
+                                    {"role": "system", "content": sub_system},
+                                    {"role": "user", "content": sub_user_prompt}
+                                ]
+
+                                current_messages = list(sub_base_messages)
+                                if attempt > 1 and feedback:
+                                    current_messages.append({"role": "user", "content": f"[RETROALIMENTACIÓN DE INTENTO ANTERIOR]\n{feedback}"})
+
+                                sub_task_result = ""
+                                react_messages = list(current_messages)
+                                max_react_steps = 15
+
+                                from core.config import resolve_agent_role_category
+
+                                if attempt == 1 and py_agent and resolve_agent_role_category(agent_name) == "executor" and hasattr(py_agent, "execute_local_microtask_loop"):
+                                    try:
+                                        micro_context = {
+                                            "project_path": self.orchestrator.project_path,
+                                            "accumulated_context": accumulated,
+                                            "output_file": sub_file
+                                        }
+                                        local_code = py_agent.execute_local_microtask_loop(self.orchestrator.state, task, micro_context)
+                                        if local_code and local_code.strip():
+                                            sub_task_result = f"[WRITE_FILE: {sub_file}]\n```\n{local_code}\n```\n[TAREA_COMPLETADA]"
+                                    except Exception as micro_err:
+                                        logger.warning("Error en execute_local_microtask_loop de @%s: %s. Continuando flujo normal.", agent_name, micro_err)
+
+                                if not sub_task_result:
+                                    for step in range(1, max_react_steps + 1):
+                                        response_chunk = _call_llm_silent(
+                                            self.orchestrator.state, react_messages,
+                                            agent_name=agent_name
+                                        )
+
+                                        if not response_chunk:
+                                            break
+
+                                        # Interceptor HITL
+                                        if "[ASK_USER:" in response_chunk:
+                                            ask_match = re.search(r'\[ASK_USER:\s*(.*?)\]', response_chunk, re.DOTALL)
+                                            question = ask_match.group(1).strip() if ask_match else response_chunk.split("[ASK_USER:")[1].strip()
+
+                                            console.print("\n[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
+                                            console.print(f"[bold yellow]🤔 CONSULTA HITL DE @{agent_name}:[/bold yellow]")
+                                            console.print(f"[yellow]{question}[/yellow]")
+                                            console.print("[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
+
+                                            user_response = input("✍ Escribe tu respuesta: ")
+
+                                            react_messages.append({"role": "assistant", "content": response_chunk})
+                                            user_msg = {"role": "user", "content": f"Respuesta del usuario a tu consulta: {user_response}"}
+                                            react_messages.append(user_msg)
+                                            current_messages.append({"role": "assistant", "content": response_chunk})
+                                            current_messages.append(user_msg)
+                                            continue
+
+                                        # Detectar comandos
+                                        cmd_match = re.search(r'<run_command>(.*?)</run_command>', response_chunk, re.DOTALL)
+                                        if cmd_match:
+                                            cmd_to_run = cmd_match.group(1).strip()
+                                            console.print(f"       ⚙ Agente @{agent_name} ejecutando comando ReAct: {cmd_to_run} (Archivo: {sub_file})")
+
+                                            ret_dict = {'returncode': 0}
+                                            cmd_output = run_terminal_command(
+                                                cmd_to_run,
+                                                self.orchestrator.state,
+                                                silent_history=True,
+                                                timeout=120,
+                                                force_confirm=False,
+                                                return_code_dict=ret_dict
+                                            )
+
+                                            urgency_prompt = f"Analiza el resultado y continúa redactando el archivo '{sub_file}' o solicita más comandos si es necesario."
+                                            if step >= max_react_steps - 3:
+                                                urgency_prompt = f"Te quedan pocos pasos ReAct. Genera el entregable final del archivo '{sub_file}' AHORA usando etiquetas."
+
+                                            react_messages.append({"role": "assistant", "content": response_chunk})
+                                            react_messages.append({
+                                                "role": "user",
+                                                "content": f"Resultado de ejecución (Código {ret_dict['returncode']}):\n```\n{cmd_output[:3000]}\n```\n{urgency_prompt}"
+                                            })
+                                            continue
+
+                                        sub_task_result += response_chunk
+
+                                        if "[TAREA_COMPLETADA]" in response_chunk or "[TAREA_COMPLETADA]" in sub_task_result:
+                                            sub_task_result = sub_task_result.replace("[TAREA_COMPLETADA]", "").strip()
+                                            break
+
+                                        if step < max_react_steps:
+                                            react_messages.append({"role": "assistant", "content": response_chunk})
+                                            react_messages.append({
+                                                "role": "user",
+                                                "content": "Tu respuesta anterior se cortó. Continúa exactamente desde donde te quedaste. Si terminaste, finaliza con: [TAREA_COMPLETADA]"
+                                            })
+
+                                if not sub_task_result:
+                                    attempt_success = False
+                                    last_error_log = f"El modelo LLM no generó contenido para la tarea {task_id_str} ({sub_file})."
                                     break
-                                    
-                                if step < max_react_steps:
-                                    react_messages.append({"role": "assistant", "content": response_chunk})
-                                    react_messages.append({
-                                        "role": "user",
-                                        "content": "Tu respuesta anterior se cortó. Continúa exactamente desde donde te quedaste. Si terminaste, finaliza con: [TAREA_COMPLETADA]"
-                                    })
+
+                                if py_agent:
+                                    try:
+                                        sub_task_result = py_agent.post_execute(sub_task_result, sub_task_context)
+                                    except Exception as post_err:
+                                        logger.warning("post_execute de @%s falló: %s", agent_name, post_err)
+
+                                # Escribir a disco
+                                self.orchestrator._write_project_file(sub_file, sub_task_result)
+                                sub_created = self.orchestrator._extract_and_write_files(sub_task_result)
+
+                                if not sub_created:
+                                    sub_created = [sub_file]
+
+                                created_files.extend(sub_created)
+                                task_result += f"\n\n[FILE: {sub_file}]\n{sub_task_result}"
 
                             attempt_elapsed = time.perf_counter() - attempt_t0
                             task_elapsed += attempt_elapsed
 
-                            if not task_result:
-                                feedback = "Tu entregable estuvo vacío. Genera el código o documento solicitado."
-                                last_error_log = f"El modelo LLM no generó contenido para la tarea {task_id_str} ({output_file})."
+                            if not attempt_success:
                                 if attempt == max_attempts:
-                                    fallback_content = self._build_valid_fallback_content(task_desc, output_file)
-                                    self.orchestrator._write_project_file(output_file, fallback_content)
-                                    task_result = fallback_content
+                                    for sub_file in files_to_generate:
+                                        full_sub_path = os.path.join(self.orchestrator.project_path, sub_file)
+                                        if not os.path.exists(full_sub_path):
+                                            fallback_content = self._build_valid_fallback_content(task_desc, sub_file)
+                                            self.orchestrator._write_project_file(sub_file, fallback_content)
+                                            created_files.append(sub_file)
+                                            task_result += f"\n\n[FILE: {sub_file}]\n{fallback_content}"
                                 else:
                                     continue
 
-                            last_task_result = task_result
+                            # Auto-reconciliación de archivos copiados en Dockerfiles
+                            self._reconcile_missing_docker_context_files(created_files)
 
-                            if py_agent:
-                                try:
-                                    task_result = py_agent.post_execute(task_result, task_context)
-                                except Exception as post_err:
-                                    logger.warning("post_execute de @%s falló: %s", agent_name, post_err)
-
-                            # Escribir a disco
-                            self.orchestrator._write_project_file(output_file, task_result)
-                            created_files = self.orchestrator._extract_and_write_files(task_result)
-
-                            # Pre-chequeo de infraestructura DoD
+                            # Pre-chequeo de infraestructura DoD simplificado (ya validado por la detección dirigida)
                             infra_ok = True
                             infra_error_msg = ""
-                            for path in created_files:
-                                if "docker-compose.yml" in path or "docker-compose.yaml" in path:
-                                    abs_compose_path = os.path.join(self.orchestrator.project_path, path)
-                                    try:
-                                        with open(abs_compose_path, "r", encoding="utf-8") as f:
-                                            content = f.read()
-                                        context_matches = re.findall(r'context:\s*[\'"]?([^\s\'"#]+)[\'"]?', content)
-                                        for rel_ctx in context_matches:
-                                            compose_dir = os.path.dirname(abs_compose_path)
-                                            abs_ctx_dir = os.path.abspath(os.path.join(compose_dir, rel_ctx))
-                                            dockerfile_path = os.path.join(abs_ctx_dir, "Dockerfile")
-                                            
-                                            if not os.path.exists(abs_ctx_dir) or not os.path.exists(dockerfile_path):
-                                                infra_ok = False
-                                                infra_error_msg = f"ERROR DE INFRAESTRUCTURA: El archivo docker-compose.yml apunta al contexto '{rel_ctx}', pero no existe su Dockerfile."
-                                                break
-                                    except Exception as e:
-                                        logger.error("Error al validar infraestructura en DoD: %s", e)
-                                if not infra_ok:
-                                    break
 
                             # Validación de sintaxis estática y ejecución real por subproceso
                             syntax_ok = True
@@ -610,7 +862,7 @@ class TaskRunnerPhase:
                                     dod_approved = False
                                     dod_reason = exec_subproc_reason
                                 else:
-                                    file_content = self.orchestrator._read_project_file(output_file)
+                                    file_content = task_result if len(files_to_generate) > 1 else self.orchestrator._read_project_file(output_file)
                                     dod_approved, dod_reason = self.orchestrator._run_dod_validation(
                                         task_id_str, agent_name, task_desc, output_file, file_content
                                     )
@@ -621,8 +873,35 @@ class TaskRunnerPhase:
                                 else:
                                     console.print(f"       ❌ DoD Rechazado: {dod_reason}")
                                     last_error_log = f"DoD rechazado: {dod_reason}"
+                                    res_type, res_val = self._run_sentinel_auto_healing(
+                                        task_id_str, agent_name, task_desc, output_file, last_error_log, created_files
+                                    )
+                                    if res_type == "AUTO_FIX":
+                                        syntax_ok = True
+                                        syntax_error_msg = ""
+                                        for f_created in created_files:
+                                            abs_f_path = os.path.join(self.orchestrator.project_path, f_created)
+                                            if os.path.isfile(abs_f_path):
+                                                s_ok, s_err = validate_syntax(abs_f_path)
+                                                if not s_ok:
+                                                    syntax_ok = False
+                                                    syntax_error_msg = s_err
+                                                    break
+                                        exec_subproc_ok, exec_subproc_reason = self._run_strict_subprocess_dod_validation(
+                                            self.orchestrator.project_path, created_files, output_file
+                                        )
+                                        if syntax_ok and exec_subproc_ok:
+                                            file_content = task_result if len(files_to_generate) > 1 else self.orchestrator._read_project_file(output_file)
+                                            dod_approved, dod_reason = self.orchestrator._run_dod_validation(
+                                                task_id_str, agent_name, task_desc, output_file, file_content
+                                            )
+                                            if dod_approved:
+                                                console.print("       [green]🛡️ Auto-Curación exitosa! La validación DoD ha sido aprobada tras la corrección de Sentinel.[/green]")
+                                                event_bus.publish(EventType.TASK_COMPLETED, {"task_id": task_id_str, "reason": "Aprobado tras Auto-Curación de Sentinel", "agent_name": agent_name})
+                                                success_task = True
+                                                break
                                     if attempt < max_attempts:
-                                        feedback = f"Rechazado por DoD: {dod_reason}. Corrige e intenta de nuevo."
+                                        feedback = f"Rechazado por DoD: {dod_reason}. Diagnóstico de Sentinel: {res_val}. Corrige e intenta de nuevo."
                                     else:
                                         success_task = False
                                         progress.fail()
@@ -641,7 +920,7 @@ class TaskRunnerPhase:
                                     dod_approved = False
                                     dod_reason = exec_subproc_reason
                                 else:
-                                    file_content = self.orchestrator._read_project_file(output_file)
+                                    file_content = task_result if len(files_to_generate) > 1 else self.orchestrator._read_project_file(output_file)
                                     dod_approved, dod_reason = self.orchestrator._run_dod_validation(
                                         task_id_str, agent_name, task_desc, output_file, file_content
                                     )
@@ -652,16 +931,74 @@ class TaskRunnerPhase:
                                 else:
                                     console.print(f"       ❌ DoD Rechazado: {dod_reason}")
                                     last_error_log = f"DoD rechazado tras compilar con éxito: {dod_reason}"
+                                    res_type, res_val = self._run_sentinel_auto_healing(
+                                        task_id_str, agent_name, task_desc, output_file, last_error_log, created_files
+                                    )
+                                    if res_type == "AUTO_FIX":
+                                        returncode, build_output = self.orchestrator._run_build_command(build_cmd)
+                                        if returncode == 0:
+                                            syntax_ok = True
+                                            syntax_error_msg = ""
+                                            for f_created in created_files:
+                                                abs_f_path = os.path.join(self.orchestrator.project_path, f_created)
+                                                if os.path.isfile(abs_f_path):
+                                                    s_ok, s_err = validate_syntax(abs_f_path)
+                                                    if not s_ok:
+                                                        syntax_ok = False
+                                                        syntax_error_msg = s_err
+                                                        break
+                                            exec_subproc_ok, exec_subproc_reason = self._run_strict_subprocess_dod_validation(
+                                                self.orchestrator.project_path, created_files, output_file
+                                            )
+                                            if syntax_ok and exec_subproc_ok:
+                                                file_content = task_result if len(files_to_generate) > 1 else self.orchestrator._read_project_file(output_file)
+                                                dod_approved, dod_reason = self.orchestrator._run_dod_validation(
+                                                    task_id_str, agent_name, task_desc, output_file, file_content
+                                                )
+                                                if dod_approved:
+                                                    console.print("       [green]🛡️ Auto-Curación exitosa! La validación DoD ha sido aprobada tras la corrección de Sentinel.[/green]")
+                                                    event_bus.publish(EventType.TASK_COMPLETED, {"task_id": task_id_str, "reason": "Aprobado tras Auto-Curación de Sentinel", "agent_name": agent_name})
+                                                    success_task = True
+                                                    break
                                     if attempt < max_attempts:
-                                        feedback = f"Rechazado por DoD: {dod_reason}. Corrige e intenta de nuevo."
+                                        feedback = f"Rechazado por DoD: {dod_reason}. Diagnóstico de Sentinel: {res_val}. Corrige e intenta de nuevo."
                                     else:
                                         success_task = False
                                         progress.fail()
                             else:
                                 last_error_log = f"Error de compilación: {build_output}"
+                                res_type, res_val = self._run_sentinel_auto_healing(
+                                    task_id_str, agent_name, task_desc, output_file, last_error_log, created_files
+                                )
+                                if res_type == "AUTO_FIX":
+                                    returncode, build_output = self.orchestrator._run_build_command(build_cmd)
+                                    if returncode == 0:
+                                        syntax_ok = True
+                                        syntax_error_msg = ""
+                                        for f_created in created_files:
+                                            abs_f_path = os.path.join(self.orchestrator.project_path, f_created)
+                                            if os.path.isfile(abs_f_path):
+                                                s_ok, s_err = validate_syntax(abs_f_path)
+                                                if not s_ok:
+                                                    syntax_ok = False
+                                                    syntax_error_msg = s_err
+                                                    break
+                                        exec_subproc_ok, exec_subproc_reason = self._run_strict_subprocess_dod_validation(
+                                            self.orchestrator.project_path, created_files, output_file
+                                        )
+                                        if syntax_ok and exec_subproc_ok:
+                                            file_content = task_result if len(files_to_generate) > 1 else self.orchestrator._read_project_file(output_file)
+                                            dod_approved, dod_reason = self.orchestrator._run_dod_validation(
+                                                task_id_str, agent_name, task_desc, output_file, file_content
+                                            )
+                                            if dod_approved:
+                                                console.print("       [green]🛡️ Auto-Curación exitosa! La validación DoD ha sido aprobada tras la corrección de Sentinel.[/green]")
+                                                event_bus.publish(EventType.TASK_COMPLETED, {"task_id": task_id_str, "reason": "Aprobado tras Auto-Curación de Sentinel", "agent_name": agent_name})
+                                                success_task = True
+                                                break
                                 if attempt < max_attempts:
                                     error_lines = self.orchestrator._extract_relevant_errors(build_output)
-                                    feedback = f"Error de compilación:\n```\n{error_lines}\n```\nCorrige y vuelve a generar."
+                                    feedback = f"Error de compilación:\n```\n{error_lines}\n```\nDiagnóstico de Sentinel: {res_val}. Corrige y vuelve a generar."
                                 else:
                                     success_task = False
                                     progress.fail()

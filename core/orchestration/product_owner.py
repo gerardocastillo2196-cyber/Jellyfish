@@ -265,6 +265,8 @@ class ProductOwnerPhase:
             "[INSTRUCCIONES ESPECÍFICAS]\n"
             "Tu ÚNICO entregable es una especificación estructurada en formato JSON puro. "
             "NO generes texto conversacional, ni explicaciones, ni bloques de código adicionales fuera del JSON.\n\n"
+            "REGLA DE PLANIFICACIÓN JERÁRQUICA POR ÉPICAS (MÁXIMO 15 ÉPICAS):\n"
+            "Debes desglosar el proyecto en un MÁXIMO DE 15 ÉPICAS (macro-historias de usuario de alto nivel con alcance amplio). PROHIBIDO generar más de 15 historias en el campo 'user_stories'.\n\n"
             "REGLA DE INFRAESTRUCTURA Y SPRINT 0 (MUST-HAVE BLOQUEANTE):\n"
             "El backlog DEBE incluir obligatoriamente como PRIMERA HISTORIA DE USUARIO (id: 'US-000') el 'Sprint 0: Infraestructura y Entorno Base' con prioridad 'Must-have'. "
             "Esta historia DEBE exigir explícitamente la creación del gestor de dependencias del proyecto (ej: package.json, requirements.txt, build.gradle, go.mod), los archivos Docker (Dockerfile, docker-compose.yml) y el punto de entrada principal con el andamiaje base de la app (ej: server.js, main.py, App.tsx, index.ts). "
@@ -402,6 +404,11 @@ class ProductOwnerPhase:
                 ]
             }
             parsed_backlog["user_stories"].insert(0, sprint_0_story)
+
+        # Enforzar límite estricto de máximo 15 Épicas en el backlog
+        if len(parsed_backlog.get("user_stories", [])) > 15:
+            logger.warning("El backlog posee %d historias/épicas. Recortando estrictamente a 15 para la arquitectura jerárquica.", len(parsed_backlog["user_stories"]))
+            parsed_backlog["user_stories"] = parsed_backlog["user_stories"][:15]
 
         try:
             self.orchestrator._write_project_file("BACKLOG.json", json.dumps(parsed_backlog, indent=2, ensure_ascii=False))

@@ -341,8 +341,13 @@ class ProjectOrchestrator:
             console.print(f"Error escribiendo {filename_clean}: {e}")
             return False
 
-    def _call_agent(self, system_prompt: str, user_prompt: str, json_mode: bool = False, timeout: float | None = None, temperature: float | None = None) -> str:
-        """Llama al LLM en modo silencioso garantizando que nunca retorne un string vacío."""
+    def _call_agent(self, system_prompt: str, user_prompt: str, json_mode: bool = False, timeout: float | None = None, temperature: float | None = None, agent_name: str | None = None) -> str:
+        """Llama al LLM en modo silencioso garantizando enrutamiento híbrido según el rol del agente."""
+        if not agent_name and "# AGENTE: @" in system_prompt:
+            match = re.search(r'# AGENTE: @([A-Za-z0-9_]+)', system_prompt)
+            if match:
+                agent_name = match.group(1).lower()
+
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -350,14 +355,13 @@ class ProjectOrchestrator:
         try:
             response = _call_llm_silent(
                 self.state, messages,
-                provider=self.state.provider,
-                model=self.state.model,
+                agent_name=agent_name,
                 json_mode=json_mode,
                 timeout=timeout,
                 temperature=temperature,
             )
             if not response or not response.strip():
-                logger.error(f"⚠️ El modelo {self.state.model} ({self.state.provider}) retornó un output vacío.")
+                logger.error("⚠️ El agente %s retornó un output vacío.", agent_name or "desconocido")
                 return ""
             return response
         except Exception as e:
@@ -527,14 +531,26 @@ class ProjectOrchestrator:
             "tiempo": elapsed, "status": "✅",
         })
 
-    # ─── FASE 1: Product Owner ──────────────────────────────────────────
+    # ─── FASE ÚNICA (Sprint 14): Mega-Agente Planificador ─────────────────
+
+    def _run_mega_planner(self, user_idea: str) -> bool:
+        """Sprint 14 — Consolida PO + DoR + SM en 2 llamadas LLM máximas.
+
+        Reemplaza la cascada: Translator → CEO → PO (refinamiento + backlog) → Scrum Master.
+        Los artefactos físicos (BACKLOG.json/md, ARCHITECTURE.md, SPRINT_BOARD.md/json)
+        se generan con Python puro sin consumir cuota adicional del LLM.
+        """
+        from core.orchestration.mega_planner import MegaPlannerPhase
+        return MegaPlannerPhase(self).run(user_idea)
+
+    # ─── FASE 1: Product Owner (modo /project manual) ────────────────────
 
     def _run_product_owner(self, user_idea: str) -> bool:
         """Genera BACKLOG.md y solicita aprobación del usuario."""
         from core.orchestration.product_owner import ProductOwnerPhase
         return ProductOwnerPhase(self).run(user_idea)
 
-    # ─── FASE 2: Scrum Master (Team Assembly + Sprint Planning) ─────────
+    # ─── FASE 2: Scrum Master (modo /project manual) ─────────────────────
 
     def _run_scrum_master(self, user_idea: str) -> bool:
         """SM escanea agentes, arma equipo y genera el tablero correspondiente a la agencia."""
@@ -701,7 +717,42 @@ class ProjectOrchestrator:
             
         docker_yml = os.path.join(self.project_path, "docker-compose.yml")
         if os.path.isfile(docker_yml):
-            return "docker compose build"
+            services_to_build = []
+            try:
+                import yaml
+                with open(docker_yml, "r", encoding="utf-8") as f:
+                    dc_data = yaml.safe_load(f)
+                
+                if dc_data and isinstance(dc_data, dict) and "services" in dc_data:
+                    for s_name, s_config in dc_data["services"].items():
+                        if not isinstance(s_config, dict):
+                            continue
+                        build_conf = s_config.get("build")
+                        if not build_conf:
+                            continue
+                        
+                        context_dir = None
+                        dockerfile_name = "Dockerfile"
+                        if isinstance(build_conf, str):
+                            context_dir = build_conf
+                        elif isinstance(build_conf, dict):
+                            context_dir = build_conf.get("context")
+                            dockerfile_name = build_conf.get("dockerfile", "Dockerfile")
+                        
+                        if context_dir:
+                            abs_context = os.path.normpath(os.path.join(self.project_path, context_dir))
+                            abs_dockerfile = os.path.join(abs_context, dockerfile_name)
+                            if os.path.isfile(abs_dockerfile):
+                                with open(abs_dockerfile, "r", encoding="utf-8") as df:
+                                    df_content = df.read()
+                                if "Placeholder generated by Jellyfish" not in df_content:
+                                    services_to_build.append(s_name)
+            except Exception as e:
+                logger.error("Error al detectar servicios activos para docker compose: %s", e)
+            
+            if services_to_build:
+                return f"docker compose build {' '.join(services_to_build)}"
+            return "docker compose config"
             
         gradlew = os.path.join(self.project_path, "gradlew")
         if os.path.isfile(gradlew):
@@ -1246,30 +1297,23 @@ class ProjectOrchestrator:
                 except Exception:
                     pass
             console.print("[bold cyan]🧹 Tablero anterior y artefactos limpiados. Iniciando planificación del nuevo requerimiento...[/bold cyan]")
+            self.state.set_pipeline_status("OK")
 
-            # Fase 1: Product Owner
-            if not self._run_product_owner(user_idea):
+            # ── Sprint 14: Mega-Agente Planificador ──────────────────────────
+            # Consolida: Translator + PO (refinamiento + backlog) + DoR + SM
+            # en un máximo de 2 llamadas al LLM. Ahorra ~85% de cuota RPM.
+            if not self._run_mega_planner(user_idea):
                 total_time = time.perf_counter() - total_start
                 self._print_summary_table(total_time)
-                return "Pipeline detenido en fase de Product Owner."
-
-            # Validación de Definition of Ready (DoR)
-            if not self._run_dor_validation():
-                total_time = time.perf_counter() - total_start
-                self._print_summary_table(total_time)
-                return "Pipeline detenido por fallo en la validación del Definition of Ready (DoR)."
+                return "Pipeline detenido en fase de Mega-Agente Planificador."
 
             # Validación Bloqueante de Entorno (Fase 0/DevOps)
+            # Se ejecuta después del plan maestro para informar al Task Runner
+            # del estado real del entorno antes de codificar.
             if not self._validate_environment_blocking(user_idea):
                 total_time = time.perf_counter() - total_start
                 self._print_summary_table(total_time)
                 return "Pipeline detenido por [IMPEDIMENTO CRÍTICO]: Faltan binarios en el sistema operativo."
-
-            # Fase 2: Scrum Master (Team Assembly)
-            if not self._run_scrum_master(user_idea):
-                total_time = time.perf_counter() - total_start
-                self._print_summary_table(total_time)
-                return "Pipeline detenido en fase de Scrum Master."
 
         # Fase 3: Task Runner (Ejecución Dinámica) y Compilación automática final (Sprint 11)
         self.state.silent_execution = True

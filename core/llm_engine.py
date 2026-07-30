@@ -316,7 +316,10 @@ def _prepare_payload(provider_name: str, url: str, model_name: str, messages: li
     }
     if json_mode:
         if provider_name == "ollama":
-            payload["format"] = "json"
+            # DeepSeek-R1 y modelos de razonamiento fallan con format="json" 
+            # porque no pueden emitir las etiquetas <think> iniciales.
+            if "deepseek" not in model_name.lower():
+                payload["format"] = "json"
         elif not is_native_anthropic:
             payload["response_format"] = {"type": "json_object"}
     if is_cloud:
@@ -372,36 +375,120 @@ def _prepare_payload(provider_name: str, url: str, model_name: str, messages: li
     return payload
 
 
+def resolve_hybrid_agent_routing(state, agent_name: str | None = None, requested_provider: str | None = None, requested_model: str | None = None) -> tuple[str, str]:
+    """Resuelve el proveedor y modelo según la arquitectura híbrida por roles.
+
+    - Agentes planificadores (product_owner, scrum_master, architect, lead_planner): Cloud API (Gemini).
+    - Agentes ejecutores (backend_dev, frontend_dev, devops_engineer, qa_engineer, etc.): Local Ollama.
+    """
+    if requested_provider and requested_provider != getattr(state, "provider", None):
+        return normalize_provider(requested_provider), (requested_model or getattr(state, "model", "qwen2.5-coder:latest"))
+
+    if not agent_name:
+        return normalize_provider(requested_provider or getattr(state, "provider", "ollama")), (requested_model or getattr(state, "model", "qwen2.5-coder:latest"))
+
+    from core.config import resolve_agent_role_category
+    role_cat = resolve_agent_role_category(agent_name)
+
+    if role_cat == "planner":
+        prov = getattr(state, "planner_provider", "gemini")
+        mod = getattr(state, "planner_model", "gemini-2.5-flash")
+    else:  # executor
+        prov = getattr(state, "executor_provider", "ollama")
+        mod = getattr(state, "executor_model", "qwen2.5-coder:latest")
+
+    return normalize_provider(prov), mod
+
+
+def _get_available_ollama_models(state) -> list[str]:
+    """Consulta la API de Ollama para obtener los nombres de los modelos instalados."""
+    base_url = getattr(state, "ollama_base_url", "http://localhost:11434").rstrip("/")
+    from urllib.parse import urlparse
+    parsed = urlparse(base_url)
+    if parsed.scheme and parsed.netloc:
+        base_url = f"{parsed.scheme}://{parsed.netloc}"
+    api_url = f"{base_url}/api/tags"
+
+    try:
+        with httpx.Client(timeout=1.5) as client:
+            resp = client.get(api_url)
+            if resp.status_code == 200:
+                data = resp.json()
+                models = [m["name"] for m in data.get("models", [])]
+                # Filtrar modelos de embeddings
+                llm_models = [m for m in models if "embed" not in m.lower()]
+                if llm_models:
+                    return llm_models
+                return models
+    except Exception:
+        pass
+    return []
+
+
+def _get_fallback_ollama_model(state, exclude_model: str | None = None) -> str:
+    """Obtiene el modelo de Ollama configurado en el sistema, evitando modelos no instalados o excluidos."""
+    available = _get_available_ollama_models(state)
+    if exclude_model and available and exclude_model in available:
+        try:
+            available.remove(exclude_model)
+        except ValueError:
+            pass
+    
+    # 1. Intentar el configurado para ejecutor
+    exec_model = getattr(state, "executor_model", None)
+    if exec_model and exec_model != exclude_model and (not available or exec_model in available):
+        return exec_model
+        
+    # 2. Intentar el modelo por defecto si el proveedor es ollama
+    default_model = getattr(state, "model", None)
+    if default_model and default_model != exclude_model and getattr(state, "provider", "") == "ollama" and (not available or default_model in available):
+        return default_model
+
+    # 3. Intentar el modelo ollama_model si está configurado
+    ollama_model = getattr(state, "ollama_model", None)
+    if ollama_model and ollama_model != exclude_model and (not available or ollama_model in available):
+        return ollama_model
+
+    # 4. Si el modelo configurado no está disponible localmente pero hay otros instalados, usar el primero disponible
+    if available:
+        for model in available:
+            if any(p in model.lower() for p in ("qwen", "quewn", "llama", "deepseek")):
+                return model
+        return available[0]
+
+    if exclude_model == "qwen2.5-coder:latest":
+        return getattr(state, "model", "qwen2.5-coder:latest")
+    return "qwen2.5-coder:latest"
+
+
 def _call_llm_silent(
     state,
     messages: list,
+    agent_name: str | None = None,
     provider: str | None = None,
     model: str | None = None,
     timeout: float | None = None,
     json_mode: bool = False,
     temperature: float | None = None,
 ) -> str | None:
-    """Llama al LLM sin mostrar streaming en pantalla (para subagentes internos).
+    """Llama al LLM sin mostrar streaming en pantalla (para subagentes internos)."""
+    if agent_name or not (provider and model):
+        provider_name, model_name = resolve_hybrid_agent_routing(state, agent_name, provider, model)
+    else:
+        provider_name = normalize_provider(provider or state.provider)
+        model_name = model or state.model
 
-    Sprint 1.2 — Usa httpx en modo síncrono con streaming silencioso.
-    Sprint 3.1 — Migrado de requests a httpx.
-    Auditoría — Reestructurado el bucle de reintento: el bug anterior hacía
-    que el `continue` dentro del `with client.stream(...)` no escapara al
-    loop de reintentos, causando ráfagas masivas de 429 sin backoff real.
-    Auditoría — Añadida caché L1 por turno para evitar llamadas duplicadas.
-    """
-    provider_name = normalize_provider(provider or state.provider)
     url, headers = _get_provider_config(state, provider_name)
     is_cloud = provider_name != "ollama"
-    model_name = model or state.model
 
     # Si la cuota de la nube está en período de enfriamiento (cooldown activa por 429), enrutar directamente a Ollama
     if is_cloud and getattr(state, "gemini_cooldown_until", 0) > time.time():
         logger.info("Enfriamiento por cuota 429 activo en %s. Enrutando llamada directamente a Ollama.", provider_name)
         try:
+            fallback_model = _get_fallback_ollama_model(state)
             return _call_llm_silent(
                 state, messages, provider="ollama",
-                model=getattr(state, "ollama_model", "deepseek-r1:8b"),
+                model=fallback_model,
                 timeout=timeout, json_mode=json_mode, temperature=temperature
             )
         except Exception as cooldown_err:
@@ -468,9 +555,27 @@ def _call_llm_silent(
                     except Exception:
                         pass
                 elif response.status_code != 200:
+                    err_body = ""
+                    try:
+                        err_body = response.read().decode("utf-8", errors="ignore")
+                    except Exception:
+                        pass
                     logger.warning(
-                        "_call_llm_silent HTTP %s de %s", response.status_code, provider_name
+                        "_call_llm_silent HTTP %s de %s (modelo: %s): %s",
+                        response.status_code, provider_name, model_name, err_body[:200]
                     )
+                    if provider_name == "ollama" and response.status_code == 404:
+                        fallback_model = _get_fallback_ollama_model(state, exclude_model=model_name)
+                        if fallback_model and fallback_model != model_name:
+                            logger.warning(
+                                "Modelo '%s' no encontrado en Ollama (404). Conmutando al modelo de fallback: '%s'",
+                                model_name, fallback_model
+                            )
+                            return _call_llm_silent(
+                                state, messages, provider="ollama",
+                                model=fallback_model,
+                                timeout=timeout, json_mode=json_mode, temperature=temperature
+                            )
                     break
                 else:
                     # Status 200 — procesar stream normalmente
@@ -485,9 +590,10 @@ def _call_llm_silent(
             if should_retry:
                 delay = retry_delay_suggested if retry_delay_suggested else initial_delay * (backoff_factor ** (attempt - 1))
                 if is_rate_limit:
-                    if attempt >= 5:
-                        console.print("\n[yellow]⚠️ Cuota de Gemini (429) persistente tras 5 reintentos. Conmutando a Ollama de respaldo...[/yellow]")
-                        logger.warning("Cuota Gemini 429 persistente tras 5 intentos. Activando fallback...")
+                    setattr(state, "gemini_cooldown_until", time.time() + 60.0)
+                    if attempt >= 2 or delay > 10.0:
+                        console.print("\n[yellow]⚠️ Cuota de Gemini (429) excedida. Conmutando inmediatamente a Ollama de respaldo...[/yellow]")
+                        logger.warning("Cuota Gemini 429 excedida en intento %d (delay=%.1fs). Activando fallback a Ollama...", attempt, delay)
                         break
                     console.print(f"\n[yellow]⏳ Límite de peticiones (RPM) en Gemini alcanzado. Pausando {delay:.0f}s para restaurar cuota (Intento {attempt}/5)...[/yellow]")
                     logger.warning("Cuota Gemini 429 excedida. Pausando %.1fs (Intento %d/5)...", delay, attempt)
@@ -512,8 +618,8 @@ def _call_llm_silent(
                 if attempt < max_attempts:
                     delay = initial_delay * (backoff_factor ** (attempt - 1))
                     logger.warning(
-                        "_call_llm_silent retornó output vacío de %s. Reintentando en %.1fs...",
-                        provider_name, delay
+                        "_call_llm_silent retornó output vacío de %s (%s). Reintentando en %.1fs...",
+                        provider_name, model_name, delay
                     )
                     time.sleep(delay)
                     continue
@@ -536,16 +642,17 @@ def _call_llm_silent(
 
     # Fallback automático a Ollama si el proveedor en la nube agotó cuota (429) o falló
     if provider_name != "ollama":
+        fallback_model = _get_fallback_ollama_model(state)
         logger.warning(
-            "_call_llm_silent: El proveedor principal '%s' no produjo respuesta (cuota 429/error). Ejecutando fallback a Ollama...",
-            provider_name
+            "_call_llm_silent: El proveedor principal '%s' no produjo respuesta (cuota 429/error). Ejecutando fallback a Ollama (modelo: %s)...",
+            provider_name, fallback_model
         )
         try:
             return _call_llm_silent(
                 state,
                 messages,
                 provider="ollama",
-                model=getattr(state, "ollama_model", "deepseek-r1:8b"),
+                model=fallback_model,
                 timeout=timeout,
                 json_mode=json_mode,
                 temperature=temperature

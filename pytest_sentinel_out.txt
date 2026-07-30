@@ -1,0 +1,149 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.6, pytest-9.0.3, pluggy-1.6.0 -- /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish
+plugins: langsmith-0.8.7, anyio-4.13.0
+collecting ... collected 1 item
+
+tests/test_sentinel_auto_healing.py::test_sentinel_auto_healing_autofix FAILED [100%]
+
+=================================== FAILURES ===================================
+______________________ test_sentinel_auto_healing_autofix ______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0')
+
+    def test_sentinel_auto_healing_autofix(tmp_path):
+        """Verifica que si la validación DoD falla en el primer intento, Sentinel interviene con AUTO_FIX y cura la tarea."""
+        state = JellyfishState()
+        project_dir = tmp_path / "test_project"
+        project_dir.mkdir()
+        state.active_project = str(project_dir)
+        state.provider = "ollama"
+        state.model = "qwen"
+    
+        # Crear un SPRINT_BOARD.json de prueba
+        board_json_path = project_dir / "SPRINT_BOARD.json"
+        board_md_path = project_dir / "SPRINT_BOARD.md"
+    
+        tasks = [
+            {
+                "id": "T-001",
+                "task": "Crear main.py",
+                "agent": "developer",
+                "status": "TODO",
+                "state": "TODO",
+                "output_file": "main.py",
+                "dependencies": []
+            }
+        ]
+    
+        with open(board_json_path, "w", encoding="utf-8") as f:
+            json.dump(tasks, f)
+    
+        orchestrator = ProjectOrchestrator(state)
+        runner = TaskRunnerPhase(orchestrator)
+    
+        call_count = 0
+    
+        def mock_call_silent(state_arg, messages, agent_name=None, **kwargs):
+            nonlocal call_count
+            call_count += 1
+    
+            # Primera llamada: El desarrollador genera un main.py erróneo
+            if agent_name == "developer":
+                return "[WRITE_FILE: main.py]\n```python\n# Codigo con error\nprint('Hello world'\n```\n[TAREA_COMPLETADA]"
+    
+            # Segunda llamada: Sentinel Healer entra en acción
+            if agent_name == "sentinel":
+                # Sentinel devuelve un AUTO_FIX con el código corregido
+                return '[AUTO_FIX]\nCorregí el paréntesis faltante en el print.\n<write_file path="main.py">\nprint(\'Hello world\')\n</write_file>'
+    
+            return ""
+    
+        # Mockear las validaciones DoD para que fallen la primera vez, y pasen la segunda vez
+        dod_calls = 0
+        def mock_dod_validation(task_id, agent_name, task_desc, output_file, file_content):
+            nonlocal dod_calls
+            dod_calls += 1
+            if dod_calls == 1:
+                return False, "Sintaxis incorrecta (paréntesis faltante)"
+            return True, "Aprobado"
+    
+        with patch("core.orchestration.task_runner._call_llm_silent", side_effect=mock_call_silent), \
+             patch("core.project_orchestrator.ProjectOrchestrator._run_dod_validation", side_effect=mock_dod_validation):
+    
+             runner.run("Crear main.py")
+    
+        # Verificar que el desarrollador fue llamado una vez
+        # Y que Sentinel fue llamado una vez para resolver el problema
+>       assert call_count == 2
+E       assert 5 == 2
+
+tests/test_sentinel_auto_healing.py:74: AssertionError
+----------------------------- Captured stdout call -----------------------------
+       ⚙ Tablero JSON estructurado cargado exitosamente.
+
+━━━ FASE 3: 🚀 Task Runner — 1 tareas ordenadas por dependencias (DAG) ━━━
+
+
+[⟳] INICIANDO: @developer -> Tarea T-001: Crear main.py...
+       ❌ DoD Rechazado: Error de sintaxis estática detectado por el analizador:
+SyntaxError: '(' was never closed (<unknown>, line 2)
+
+🛡️  @Sentinel analizando error del primer fallo para auto-curar la tarea...
+       ✓ 🛡️ @Sentinel (Auto-Healing) aplicó corrección en: main.py. Razón: 
+Corregí el paréntesis faltante en el print.
+       ❌ DoD Rechazado: Error de sintaxis estática detectado por el analizador:
+SyntaxError: '(' was never closed (<unknown>, line 2)
+
+🛡️  @Sentinel analizando error del primer fallo para auto-curar la tarea...
+       ✓ 🛡️ @Sentinel (Auto-Healing) aplicó corrección en: main.py. Razón: 
+Corregí el paréntesis faltante en el print.
+       🛡️ Auto-Curación exitosa! La validación DoD ha sido aprobada tras la 
+corrección de Sentinel.
+[✓] COMPLETADO: @developer -> auto_task_0 (27 tokens)
+
+       ✓ Bitácora de desarrollo actualizada (DEVELOPMENT_LOG.md)
+------------------------------ Captured log call -------------------------------
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/agents/developer.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/agents/developer.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DESIGN_TOKENS.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DATA_SCHEMA.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SECURITY.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SECURITY.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/COMPONENT_INDEX.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DEVELOPMENT_LOG.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DEPENDENCY_MANIFEST.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/PLAYBOOK.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/PLAYBOOK.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/BUSINESS_CONTEXT.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/BUSINESS_CONTEXT.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/PROJECT_TREE.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/PROJECT_TREE.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SPRINT_BOARD.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SPRINT_BOARD.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DESIGN_TOKENS.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DATA_SCHEMA.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SECURITY.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SECURITY.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/COMPONENT_INDEX.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DEVELOPMENT_LOG.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DEPENDENCY_MANIFEST.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/PLAYBOOK.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/PLAYBOOK.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/BUSINESS_CONTEXT.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/BUSINESS_CONTEXT.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/PROJECT_TREE.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/PROJECT_TREE.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SPRINT_BOARD.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SPRINT_BOARD.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DEVELOPMENT_LOG.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DESIGN_TOKENS.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DATA_SCHEMA.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SECURITY.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SECURITY.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/COMPONENT_INDEX.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DEPENDENCY_MANIFEST.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/PLAYBOOK.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/PLAYBOOK.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/BUSINESS_CONTEXT.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/BUSINESS_CONTEXT.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/PROJECT_TREE.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/PROJECT_TREE.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SPRINT_BOARD.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SPRINT_BOARD.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DAILY.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/DAILY.md'
+WARNING  jellyfish.project_manager:state.py:148 No se pudo leer /tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SPRINT_BOARD.md: [Errno 2] No such file or directory: '/tmp/pytest-of-gerardo/pytest-12/test_sentinel_auto_healing_aut0/test_project/SPRINT_BOARD.md'
+=============================== warnings summary ===============================
+venv/lib64/python3.14/site-packages/chromadb/telemetry/opentelemetry/__init__.py:128
+  /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/venv/lib64/python3.14/site-packages/chromadb/telemetry/opentelemetry/__init__.py:128: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    if asyncio.iscoroutinefunction(f):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sentinel_auto_healing.py::test_sentinel_auto_healing_autofix - assert 5 == 2
+========================= 1 failed, 1 warning in 1.96s =========================

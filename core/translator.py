@@ -101,8 +101,7 @@ class IntentTranslator:
             response = _call_llm_silent(
                 self.state,
                 messages,
-                provider=self.state.provider,
-                model=self.state.model
+                agent_name="translator"
             )
 
         if not response:
@@ -190,8 +189,7 @@ class IntentTranslator:
                 response = _call_llm_silent(
                     self.state,
                     refinement_history,
-                    provider=self.state.provider,
-                    model=self.state.model
+                    agent_name="translator"
                 )
                 
             if not response:
@@ -232,8 +230,7 @@ class IntentTranslator:
             check_resp = _call_llm_silent(
                 self.state,
                 check_messages,
-                provider=self.state.provider,
-                model=self.state.model
+                agent_name="translator"
             )
             if check_resp and "READY" in check_resp.upper():
                 break
