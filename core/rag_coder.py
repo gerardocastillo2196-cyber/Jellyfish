@@ -258,7 +258,7 @@ class CodeKnowledgeBase:
         self.indexed_file_count: int = 0
         self.indexed_chunk_count: int = 0
         self.indexed_dir: str = ""    # Directorio actualmente indexado
-        self.enabled: bool = True     # Permite apagar el RAG sin borrar la base de datos
+        self.enabled: bool = False     # Permite apagar el RAG sin borrar la base de datos
 
         if self.ollama_connected:
             try:

@@ -38,10 +38,12 @@ def _handle_add(arg: str, state, rag, display_header_func):
         console.print()
         try:
             rag.index_codebase(path)
+            rag.enabled = True
         except KeyboardInterrupt:
             console.print("\n[bold yellow]⚠ Indexación cancelada por el usuario.[/bold yellow]")
     else:
         state.add_context_file(path)
+        rag.enabled = True
 
     state.refresh_static_context()
     console.print(f"✓ Contexto actualizado: {len(state.context_files)} archivos.")
@@ -108,6 +110,7 @@ def _handle_rag(arg: str, rag, display_header_func):
             if os.path.isdir(exp_val):
                 rag.clear_index()
                 rag.index_codebase(exp_val)
+                rag.enabled = True
             else:
                 console.print(f"Ruta no válida: {val}")
 
