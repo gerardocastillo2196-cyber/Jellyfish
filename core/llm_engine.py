@@ -393,10 +393,23 @@ def resolve_hybrid_agent_routing(state, agent_name: str | None = None, requested
     if requested_provider and requested_provider != getattr(state, "provider", None):
         return normalize_provider(requested_provider), (requested_model or getattr(state, "model", "qwen2.5-coder:latest"))
 
-    if not agent_name:
-        return normalize_provider(requested_provider or getattr(state, "provider", "ollama")), (requested_model or getattr(state, "model", "qwen2.5-coder:latest"))
+    if not agent_name or agent_name == "default":
+        prov = getattr(state, "planner_provider", "gemini")
+        mod = getattr(state, "planner_model", "gemini-2.5-flash")
+        return normalize_provider(prov), mod
 
-    from core.config import resolve_agent_role_category
+    from core.config import resolve_agent_role_category, PLANNER_AGENTS, EXECUTOR_AGENTS
+    clean_name = (agent_name or "").strip().lower().lstrip("@")
+    is_known = (
+        clean_name in PLANNER_AGENTS or 
+        clean_name in EXECUTOR_AGENTS or
+        any(p in clean_name for p in ["product_owner", "scrum_master", "architect", "planner", "dev", "engineer", "designer", "auditor", "scientist", "coder"])
+    )
+    if not is_known:
+        prov = requested_provider or getattr(state, "provider", "ollama")
+        mod = requested_model or getattr(state, "model", "qwen2.5-coder:latest")
+        return normalize_provider(prov), mod
+
     role_cat = resolve_agent_role_category(agent_name)
 
     if role_cat == "planner":
@@ -865,8 +878,9 @@ def _stream_request(
     fallback_attempt = 0
 
     while fallback_attempt <= max_fallbacks:
-        provider_name = normalize_provider(provider or state.provider)
-        model_name = model or state.model
+        prov_name, mod_name = resolve_hybrid_agent_routing(state, agent_name, provider, model)
+        provider_name = normalize_provider(prov_name)
+        model_name = mod_name
         url, headers = _get_provider_config(state, provider_name)
         is_cloud = provider_name != "ollama"
 
