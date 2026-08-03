@@ -2066,6 +2066,15 @@ def test_task_runner_subprocess_dod_validation():
         assert "aprobada" in reason2
 
 
+@patch("core.config.load_dotenv", lambda *args, **kwargs: None)
+@patch.dict(os.environ, {
+    "JELLYFISH_PROVIDER": "ollama",
+    "JELLYFISH_MODEL": "qwen2.5-agent:latest",
+    "JELLYFISH_PLANNER_PROVIDER": "gemini",
+    "JELLYFISH_PLANNER_MODEL": "gemini-2.5-flash",
+    "JELLYFISH_EXECUTOR_PROVIDER": "ollama",
+    "JELLYFISH_EXECUTOR_MODEL": "qwen2.5-coder:latest",
+}, clear=True)
 def test_hybrid_model_routing():
     """Verifica que resolve_hybrid_agent_routing enrute agentes planificadores a Cloud (Gemini) y ejecutores a Local (Ollama)."""
     from core.state import JellyfishState
@@ -2088,6 +2097,7 @@ def test_hybrid_model_routing():
         prov, mod = resolve_hybrid_agent_routing(state, executor)
         assert prov == "ollama"
         assert mod == "qwen2.5-coder:latest"
+
 
 
 def test_product_owner_15_epics_limit():

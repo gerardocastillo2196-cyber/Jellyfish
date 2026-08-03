@@ -452,7 +452,7 @@ def _get_fallback_ollama_model(state, exclude_model: str | None = None) -> str:
     # 4. Si el modelo configurado no está disponible localmente pero hay otros instalados, usar el primero disponible
     if available:
         for model in available:
-            if any(p in model.lower() for p in ("qwen", "quewn", "llama", "deepseek")):
+            if any(p in model.lower() for p in ("qwen", "llama", "deepseek")):
                 return model
         return available[0]
 
