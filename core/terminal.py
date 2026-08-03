@@ -330,6 +330,7 @@ def run_terminal_command(
             if isinstance(popen_command, list):
                 popen_command = [
                     "bwrap",
+                    "--unshare-net",
                     "--ro-bind", "/", "/",
                     "--dev", "/dev",
                     "--proc", "/proc",
@@ -339,7 +340,7 @@ def run_terminal_command(
                 ] + popen_command
             else:
                 import shlex
-                bwrap_prefix = f"bwrap --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp --bind {shlex.quote(exec_cwd)} {shlex.quote(exec_cwd)} --chdir {shlex.quote(exec_cwd)}"
+                bwrap_prefix = f"bwrap --unshare-net --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp --bind {shlex.quote(exec_cwd)} {shlex.quote(exec_cwd)} --chdir {shlex.quote(exec_cwd)}"
                 popen_command = f"{bwrap_prefix} sh -c {shlex.quote(popen_command)}"
 
         # Check if silent execution is active

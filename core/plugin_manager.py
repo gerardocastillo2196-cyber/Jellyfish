@@ -179,9 +179,22 @@ class PluginManager:
                 return
             module = importlib.util.module_from_spec(spec)
             
-            # Ejecución protegida del módulo
+            # Ejecución protegida del módulo con timeout estricto de 5 segundos
             try:
-                spec.loader.exec_module(module)
+                import signal
+                def alarm_handler(signum, frame):
+                    raise TimeoutError("La carga del plugin superó el tiempo límite de 5 segundos.")
+                
+                has_alarm = hasattr(signal, "SIGALRM")
+                if has_alarm:
+                    old_handler = signal.signal(signal.SIGALRM, alarm_handler)
+                    signal.alarm(5)
+                try:
+                    spec.loader.exec_module(module)
+                finally:
+                    if has_alarm:
+                        signal.alarm(0)
+                        signal.signal(signal.SIGALRM, old_handler)
             except Exception as em_err:
                 logger.error("Error al ejecutar módulo del plugin '%s': %s", plugin_name, em_err)
                 console.print(f"[dim red]❌ Error al ejecutar código de plugin '{plugin_name}': {em_err}[/dim red]")
@@ -343,6 +356,7 @@ class PluginManager:
             "--die-with-parent",
             "--new-session",
             "--unshare-all",
+            "--unshare-net",
             "--proc", "/proc",
             "--dev", "/dev",
             "--tmpfs", "/tmp",

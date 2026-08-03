@@ -182,6 +182,27 @@ class TaskRunnerPhase:
                 except Exception as e:
                     logger.error("Error al reconciliar archivos de contexto Docker: %s", e)
 
+    def _get_user_input_nonblocking(self, prompt: str) -> str:
+        """Obtiene respuesta del usuario usando prompt_toolkit con un timeout de 60s."""
+        import asyncio
+        from prompt_toolkit import PromptSession
+        from prompt_toolkit.patch_stdout import patch_stdout
+        from core.terminal import screen_console as scr_console
+
+        session = PromptSession()
+        async def get_input():
+            with patch_stdout():
+                return await session.prompt_async(prompt)
+
+        try:
+            return asyncio.run(asyncio.wait_for(get_input(), timeout=60))
+        except TimeoutError:
+            scr_console.print("\n✗ Tiempo de espera agotado (60s). Asumiendo deny/skip por defecto.")
+            return "deny/skip"
+        except (KeyboardInterrupt, EOFError):
+            scr_console.print("\n✗ Entrada interrumpida.")
+            return "deny/skip"
+
     def _run_sentinel_auto_healing(
         self,
         task_id: str,
@@ -262,7 +283,7 @@ class TaskRunnerPhase:
             scr_console.print(f"[yellow]{question}[/yellow]")
             scr_console.print("[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
             
-            user_response = input("✍ Escribe tu respuesta: ").strip()
+            user_response = self._get_user_input_nonblocking("✍ Escribe tu respuesta: ").strip()
             feedback_msg = f"Respuesta del usuario para Sentinel: '{user_response}'. Análisis previo de Sentinel: {question}"
             return "ASK_USER", feedback_msg
             
@@ -740,7 +761,7 @@ class TaskRunnerPhase:
                                             console.print(f"[yellow]{question}[/yellow]")
                                             console.print("[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
 
-                                            user_response = input("✍ Escribe tu respuesta: ")
+                                            user_response = self._get_user_input_nonblocking("✍ Escribe tu respuesta: ")
 
                                             react_messages.append({"role": "assistant", "content": response_chunk})
                                             user_msg = {"role": "user", "content": f"Respuesta del usuario a tu consulta: {user_response}"}

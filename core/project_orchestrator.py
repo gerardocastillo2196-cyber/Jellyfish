@@ -594,7 +594,7 @@ class ProjectOrchestrator:
         for key, cmd in commands.items():
             try:
                 res = subprocess.run(
-                    cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5
+                    ["bash", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5
                 )
                 output = (res.stdout.strip() + "\n" + res.stderr.strip()).strip()
                 if res.returncode == 0 and output:
