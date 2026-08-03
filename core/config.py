@@ -180,7 +180,7 @@ def load_config_from_env(state) -> None:
 
     state.provider = normalize_provider(os.getenv("JELLYFISH_PROVIDER", "ollama"))
     state.model = os.getenv("JELLYFISH_MODEL", "qwen2.5-agent:latest")
-    # No auto-upgrading to non-existent models.
+    state.use_hybrid = os.getenv("JELLYFISH_USE_HYBRID", "1") == "1"
 
     # Enrutamiento Híbrido de Modelos por Rol
     raw_planner_provider = os.getenv("JELLYFISH_PLANNER_PROVIDER", "gemini")
@@ -298,6 +298,11 @@ def save_config_to_env(state, **kwargs) -> None:
         "active_project": "JELLYFISH_ACTIVE_PROJECT",
         "project_methodology": "JELLYFISH_PROJECT_METHODOLOGY",
         "show_guides": "JELLYFISH_SHOW_GUIDES",
+        "use_hybrid": "JELLYFISH_USE_HYBRID",
+        "planner_provider": "JELLYFISH_PLANNER_PROVIDER",
+        "planner_model": "JELLYFISH_PLANNER_MODEL",
+        "executor_provider": "JELLYFISH_EXECUTOR_PROVIDER",
+        "executor_model": "JELLYFISH_EXECUTOR_MODEL",
     }
 
     updated = set()

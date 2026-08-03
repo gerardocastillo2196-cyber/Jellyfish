@@ -446,23 +446,112 @@ def _fetch_api_models(base_url: str, api_key: str) -> list[str]:
         pass
     return sorted(list(set(models)))
 
-
 def _handle_model_picker(state, display_header_func) -> None:
-    """Permite seleccionar de forma interactiva el proveedor y el modelo, con autodetect de API/Endpoint."""
-    import httpx
-    # Removiendo import redundante de PromptSession
-    pass
-    
-    provider_options = [
-        "Ollama (Local)",
-        "Gemini (Google)",
-        "Claude (Anthropic)",
-        "[➕ Configurar API Key / Endpoint de cualquier otra IA (DeepSeek, OpenAI, etc.)]",
+    """Selector de modelos interactivo (/m) con soporte para arquitectura híbrida o modelo global."""
+    options = [
+        "1. Sistema de IA (Híbrido vs Modelo Global)",
+        "2. Configurar Modelo Local (Ejecutores / Devs)",
+        "3. Configurar Modelo en la Nube (Planificadores / Scrum)",
     ]
     
-    selected_prov = interactive_picker("SELECCIONAR PROVEEDOR", provider_options)
-    if not selected_prov:
+    choice = interactive_picker("CONFIGURACIÓN DE MODELOS (/m)", options)
+    if not choice:
         return
+        
+    from rich.prompt import Confirm
+
+    if choice.startswith("1."):
+        system_choices = [
+            "Híbrido (Planificación en Nube, Ejecución en Local) [Recomendado]",
+            "Modelo Global Único (Un solo modelo para todas las tareas)"
+        ]
+        sel_sys = interactive_picker("ELEGIR SISTEMA DE IA", system_choices)
+        if not sel_sys:
+            return
+        if sel_sys.startswith("Híbrido"):
+            state.save_config(use_hybrid="1")
+            console.print("[green]✓ Sistema Híbrido activado.[/green]")
+        else:
+            state.save_config(use_hybrid="0")
+            console.print("[green]✓ Modo de Modelo Global Único activado.[/green]")
+            if Confirm.ask("\n¿Quieres seleccionar el Modelo Global ahora?"):
+                _select_global_model(state, display_header_func)
+                return
+        
+        display_header_func()
+        input("\nPresiona Enter para continuar...")
+        
+    elif choice.startswith("2."):
+        _select_local_model(state, display_header_func)
+        
+    elif choice.startswith("3."):
+        _select_cloud_model(state, display_header_func)
+
+
+def _select_global_model(state, display_header_func):
+    prov, mod, key, url = _interactive_select_provider_and_model(state, "MODELO GLOBAL")
+    if prov and mod:
+        config = {"provider": prov, "model": mod}
+        if key:
+            config[f"{prov}_key"] = key
+            state.api_keys[prov] = key
+        if url:
+            config[f"{prov}_base_url"] = url
+            state.base_urls[prov] = url
+        state.save_config(**config)
+        console.print(f"[green]✓ Modelo Global configurado: {prov} -> {mod}[/green]")
+        display_header_func()
+        input("\nPresiona Enter para continuar...")
+
+
+def _select_local_model(state, display_header_func):
+    prov, mod, key, url = _interactive_select_provider_and_model(state, "MODELO LOCAL (EJECUTORES)", restrict_local=True)
+    if prov and mod:
+        config = {"executor_provider": prov, "executor_model": mod}
+        if key:
+            config[f"{prov}_key"] = key
+            state.api_keys[prov] = key
+        if url:
+            config[f"{prov}_base_url"] = url
+            state.base_urls[prov] = url
+        state.save_config(**config)
+        console.print(f"[green]✓ Modelo Local (Ejecutor) configurado: {prov} -> {mod}[/green]")
+        display_header_func()
+        input("\nPresiona Enter para continuar...")
+
+
+def _select_cloud_model(state, display_header_func):
+    prov, mod, key, url = _interactive_select_provider_and_model(state, "MODELO EN LA NUBE (PLANIFICADORES)", restrict_cloud=True)
+    if prov and mod:
+        config = {"planner_provider": prov, "planner_model": mod}
+        if key:
+            config[f"{prov}_key"] = key
+            state.api_keys[prov] = key
+        if url:
+            config[f"{prov}_base_url"] = url
+            state.base_urls[prov] = url
+        state.save_config(**config)
+        console.print(f"[green]✓ Modelo en la Nube (Planificador) configurado: {prov} -> {mod}[/green]")
+        display_header_func()
+        input("\nPresiona Enter para continuar...")
+
+
+def _interactive_select_provider_and_model(state, title_prefix: str, restrict_cloud: bool = False, restrict_local: bool = False) -> tuple[str, str, str, str]:
+    import httpx
+    # Select provider
+    provider_options = []
+    if not restrict_cloud:
+        provider_options.append("Ollama (Local)")
+    if not restrict_local:
+        provider_options.extend([
+            "Gemini (Google)",
+            "Claude (Anthropic)",
+            "[➕ Configurar API Key / Endpoint de cualquier otra IA (DeepSeek, OpenAI, etc.)]"
+        ])
+    
+    selected_prov = interactive_picker(f"{title_prefix} - PROVEEDOR", provider_options)
+    if not selected_prov:
+        return None, None, None, None
         
     prov_map = {
         "Ollama (Local)": "ollama",
@@ -470,7 +559,6 @@ def _handle_model_picker(state, display_header_func) -> None:
         "Claude (Anthropic)": "claude",
     }
     
-    # Usando inputs nativos integrados en el TUIEngine
     target_prov = None
     api_key = None
     base_url = None
@@ -494,7 +582,6 @@ def _handle_model_picker(state, display_header_func) -> None:
     else:
         target_prov = prov_map[selected_prov]
         
-    # Verificar y solicitar API Key si no está configurada para proveedores cloud
     if target_prov != "ollama":
         current_key = state.api_keys.get(target_prov, "")
         if not current_key and not api_key:
@@ -506,17 +593,6 @@ def _handle_model_picker(state, display_header_func) -> None:
             meta = PROVIDER_CONFIGS.get(target_prov, {})
             default_url = meta.get("default_base_url", "")
             base_url = input(f"Base URL [default: {default_url}]: ").strip() or default_url
-
-    # Guardar credenciales de forma preliminar para poder realizar el listado de modelos
-    config_to_save = {"provider": target_prov}
-    if api_key:
-        config_to_save[f"{target_prov}_key"] = api_key
-        state.api_keys[target_prov] = api_key
-    if base_url:
-        config_to_save[f"{target_prov}_base_url"] = base_url
-        state.base_urls[target_prov] = base_url
-    
-    state.save_config(**config_to_save)
 
     # Determinar el base_url y api_key finales para el fetch de modelos
     final_url = base_url or state.base_urls.get(target_prov, "")
@@ -577,20 +653,17 @@ def _handle_model_picker(state, display_header_func) -> None:
             models = ["moonshot-v1-8k", "moonshot-v1-32k"]
         elif target_prov == "zhipu":
             models = ["glm-4", "glm-4-flash"]
-        else:
-            models = []
             
-    # Añadir siempre la opción de ingresar el nombre de forma manual
     models.append("[✍ Ingresar nombre de modelo personalizado]")
     
-    selected_model = interactive_picker(f"SELECCIONAR MODELO ({target_prov.upper()})", models)
+    selected_model = interactive_picker(f"{title_prefix} - MODELO ({target_prov.upper()})", models)
     if not selected_model:
-        return
+        return None, None, None, None
         
     if selected_model == "[➕ Descargar nuevo modelo de Ollama]":
         model_to_pull = input("Nombre del modelo a descargar (ej. llama3, qwen2.5-coder:7b): ").strip()
         if not model_to_pull:
-            return
+            return None, None, None, None
         console.print(f"📥 Descargando modelo '{model_to_pull}' mediante Ollama... (esto puede tardar varios minutos)")
         import subprocess
         try:
@@ -600,30 +673,29 @@ def _handle_model_picker(state, display_header_func) -> None:
         except Exception as e:
             console.print(f"❌ Error al descargar el modelo: {e}")
             input("\nPresiona Enter para volver...")
-            return
-
+            return None, None, None, None
+ 
     elif selected_model == "[📁 Cargar modelo GGUF desde un directorio]":
         from core.ui import interactive_file_browser
         default_dir = os.path.expanduser("~")
         chosen_path = interactive_file_browser(default_dir, ext=".gguf")
         
         if not chosen_path:
-            return
+            return None, None, None, None
             
         default_name = os.path.splitext(os.path.basename(chosen_path))[0].lower().replace(" ", "_")[:40]
         model_name = input(
             f"Nombre del modelo en Ollama [default: {default_name}]: "
         ).strip() or default_name
         if not model_name:
-            return
+            return None, None, None, None
         ok = _register_gguf_with_ollama(chosen_path, model_name)
         if not ok:
             input("\nPresiona Enter para volver...")
-            return
+            return None, None, None, None
         selected_model = model_name
-
+ 
     elif selected_model == "[🔍 Buscar modelos GGUF en mi sistema]":
-        # Rutas comunes donde suelen estar los modelos
         home = os.path.expanduser("~")
         search_paths = [
             home,
@@ -640,38 +712,32 @@ def _handle_model_picker(state, display_header_func) -> None:
         found = _scan_gguf_files(search_paths)
         if not found:
             console.print("[yellow]No se encontraron archivos .gguf en las rutas comunes.[/yellow]")
-            console.print("[dim]Intenta con '📁 Cargar modelo GGUF desde un directorio' para especificar una ruta.[/dim]")
             input("\nPresiona Enter para volver...")
-            return
+            return None, None, None, None
         console.print(f"[green]✓ Se encontraron {len(found)} modelo(s) .gguf.[/green]")
         gguf_options = [m["display"] for m in found]
         chosen_display = interactive_picker("SELECCIONAR ARCHIVO .GGUF", gguf_options)
         if not chosen_display:
-            return
+            return None, None, None, None
         chosen = next((m for m in found if m["display"] == chosen_display), None)
         if not chosen:
-            return
+            return None, None, None, None
         default_name = chosen["name"].lower().replace(" ", "_")[:40]
         model_name = input(
             f"Nombre del modelo en Ollama [default: {default_name}]: "
         ).strip() or default_name
         if not model_name:
-            return
+            return None, None, None, None
         ok = _register_gguf_with_ollama(chosen["path"], model_name)
         if not ok:
             input("\nPresiona Enter para volver...")
-            return
+            return None, None, None, None
         selected_model = model_name
-
+ 
     elif selected_model == "[✍ Ingresar nombre de modelo personalizado]":
         custom_model = input("Escribe el nombre del modelo a utilizar: ").strip()
         if not custom_model:
-            return
+            return None, None, None, None
         selected_model = custom_model
-
-    state.save_config(provider=target_prov, model=selected_model)
-    console.print(f"✓ Proveedor cambiado a: {target_prov}")
-    console.print(f"✓ Modelo cambiado a: {selected_model}")
-    
-    display_header_func()
-    input("\nPresiona Enter para continuar...")
+        
+    return target_prov, selected_model, api_key, base_url

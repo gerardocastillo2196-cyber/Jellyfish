@@ -381,6 +381,15 @@ def resolve_hybrid_agent_routing(state, agent_name: str | None = None, requested
     - Agentes planificadores (product_owner, scrum_master, architect, lead_planner): Cloud API (Gemini).
     - Agentes ejecutores (backend_dev, frontend_dev, devops_engineer, qa_engineer, etc.): Local Ollama.
     """
+    use_hybrid = getattr(state, "use_hybrid", True)
+    if isinstance(use_hybrid, str):
+        use_hybrid = use_hybrid == "1" or use_hybrid.lower() == "true"
+        
+    if not use_hybrid:
+        prov = requested_provider or getattr(state, "provider", "ollama")
+        mod = requested_model or getattr(state, "model", "qwen2.5-coder:latest")
+        return normalize_provider(prov), mod
+
     if requested_provider and requested_provider != getattr(state, "provider", None):
         return normalize_provider(requested_provider), (requested_model or getattr(state, "model", "qwen2.5-coder:latest"))
 
