@@ -25,7 +25,8 @@ from rich.table import Table
 from rich.text import Text
 from rich.prompt import Confirm
 
-from core.state import JellyfishState, AGENCY_DIR, _safe_read, estimate_tokens
+from core.state import JellyfishState, AGENCY_DIR, estimate_tokens
+from core.utils import _safe_read
 from core.llm_engine import _call_llm_silent
 from core.tui import tui_engine, TaskProgress
 from core.agents.registry import AgentRegistry
@@ -845,141 +846,18 @@ class ProjectOrchestrator:
 
     def _classify_build_error(self, output: str) -> str:
         """Clasifica el error de compilación para guiar al Auto-Healing."""
-        out_lower = output.lower()
-        if "dependency" in out_lower or "cannot find module" in out_lower or "no module named" in out_lower or "unresolved reference" in out_lower or "import error" in out_lower:
-            return "ERROR DE DEPENDENCIAS: Faltan paquetes o librerías en el entorno."
-        if "permission denied" in out_lower or "command not found" in out_lower or "not recognized" in out_lower:
-            return "ERROR DE ENTORNO/PERMISOS: Falta ejecutar herramientas o configurar permisos de ejecución."
-        if "syntax" in out_lower or "compile error" in out_lower or "indentationerror" in out_lower or "unexpected token" in out_lower:
-            return "ERROR DE SINTAXIS/CÓDIGO: El código generado tiene errores de sintaxis o de compilación estática."
-        return "ERROR GENERAL DE COMPILACIÓN: Error de lógica o configuración."
+        from core.orchestration.build_healer import classify_build_error
+        return classify_build_error(output)
 
     def _is_safe_healing_command(self, cmd: str) -> bool:
         """Verifica si un comando del auto-healing es seguro (control de blast radius)."""
-        cmd_lower = cmd.lower()
-        dangerous = ["rm ", "rm -", "uninstall", "purge", "delete", "fdisk", "mkfs", "dd ", "shred"]
-        for d in dangerous:
-            if d in cmd_lower:
-                allowed_rm = [
-                    "rm -rf build", "rm -rf dist", "rm -rf .pytest_cache", 
-                    "rm -rf __pycache__", "rm -rf node_modules", 
-                    "rm -rf .venv", "rm -rf venv", "rm -f package-lock.json",
-                    "rm -f yarn.lock", "rm -f pnpm-lock.yaml"
-                ]
-                is_allowed = False
-                for clean_rm in allowed_rm:
-                    if clean_rm in cmd_lower:
-                        is_allowed = True
-                if not is_allowed:
-                    return False
-        return True
+        from core.orchestration.build_healer import is_safe_healing_command
+        return is_safe_healing_command(cmd)
 
     def _auto_heal_build_error(self, cmd: str, returncode: int, build_output: str) -> tuple[int, str]:
-        """Bucle Autónomo de Resolución de Errores (Auto-Healing Loop) con un máximo de 3 iteraciones (Auto-ReAct)."""
-        from core.terminal import run_terminal_command
-        from core.llm_engine import _call_llm_silent
-        
-        current_code = returncode
-        current_output = build_output
-        healing_attempts_log = []
-        
-        error_class = self._classify_build_error(build_output)
-        
-        for attempt in range(1, 4):
-            console.print(f"\n       ⚡ [Auto-Healing Loop] Intento {attempt}/3 para resolver fallo de compilación...")
-            console.print(f"       [dim]Clasificación del fallo: {error_class}[/dim]")
-            
-            # DIAGNÓSTICO: Analizar archivos del entorno para dar contexto
-            files_list = []
-            for root, dirs, files in os.walk(self.project_path):
-                dirs[:] = [d for d in dirs if d not in ('.git', 'node_modules', '.venv', 'venv', '__pycache__')]
-                for f in files:
-                    files_list.append(os.path.relpath(os.path.join(root, f), self.project_path))
-                    
-            files_context = "\n".join(files_list[:100])
-            
-            system_prompt = (
-                "Eres un Agente Especialista en Auto-Recuperación de Sistemas (Auto-Healing Agent).\n"
-                "Tu objetivo es diagnosticar y reparar problemas del entorno (ej. dependencias no instaladas, permisos faltantes, configuraciones erróneas, Dockerfiles rotos, etc.) para que el comando de compilación/verificación tenga éxito.\n\n"
-                "Instrucciones:\n"
-                "1. Analiza el comando que falló y la salida exacta del error.\n"
-                "2. Propón la solución:\n"
-                "   - Para escribir/modificar un archivo, usa:\n"
-                "     <write_file path=\"ruta/relativa/archivo.ext\">\n"
-                "     contenido corregido del archivo\n"
-                "     </write_file>\n"
-                "   - Para ejecutar comandos que solucionen el entorno (ej. chmod +x, npm install, export, mkdir, etc.), usa:\n"
-                "     <run_command>comando a ejecutar</run_command>\n\n"
-                "No des introducciones, sé ultra directo y responde solo con código y parches."
-            )
-            
-            user_prompt = (
-                f"COMANDO QUE FALLÓ:\n`{cmd}`\n\n"
-                f"CÓDIGO DE SALIDA: {current_code}\n\n"
-                f"TIPO DE ERROR DETECTADO: {error_class}\n\n"
-                f"SALIDA DE ERROR (stdout/stderr):\n```\n{current_output}\n```\n\n"
-                f"ARCHIVOS DISPONIBLES EN EL PROYECTO:\n{files_context}\n\n"
-                f"Genera tus parches de corrección usando <write_file> y/o <run_command>."
-            )
-            
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ]
-            
-            response = _call_llm_silent(self.state, messages, provider=self.state.provider, model=self.state.model)
-            if not response:
-                console.print("       ⚠ No se obtuvo respuesta del Agente de Auto-Recuperación.")
-                healing_attempts_log.append(f"Intento {attempt}: Sin respuesta del modelo.")
-                continue
-                
-            # EJECUCIÓN DE PARCHE
-            created_files = self._extract_and_write_files(response)
-            executed_cmds = []
-            cmd_matches = re.findall(r'<run_command>(.*?)</run_command>', response, re.DOTALL)
-            for cmd_to_run in cmd_matches:
-                cmd_clean = cmd_to_run.strip()
-                if cmd_clean:
-                    if not self._is_safe_healing_command(cmd_clean):
-                        console.print(f"       🛡 Bloqueado comando potencialmente peligroso en Auto-Healing: {cmd_clean}")
-                        healing_attempts_log.append(f"Intento {attempt}: Comando peligroso '{cmd_clean}' bloqueado por seguridad.")
-                        continue
-                    console.print(f"       ⚙ Ejecutando parche de entorno: {cmd_clean}")
-                    run_terminal_command(cmd_clean, self.state, silent_history=True)
-                    executed_cmds.append(cmd_clean)
-                    
-            healing_attempts_log.append(
-                f"Intento {attempt}:\n"
-                f"  - Archivos modificados: {created_files}\n"
-                f"  - Comandos ejecutados: {executed_cmds}"
-            )
-            
-            # REINTENTO
-            console.print(f"       🔄 Reintentando comando original: {cmd}")
-            ret_dict = {'returncode': 0}
-            new_output = run_terminal_command(
-                cmd,
-                self.state,
-                silent_history=True,
-                timeout=300,
-                force_confirm=True,
-                return_code_dict=ret_dict
-            )
-            
-            current_code = ret_dict['returncode']
-            current_output = new_output
-            
-            if current_code == 0:
-                console.print("       ✓ ¡Auto-Healing exitoso! El entorno se ha auto-recuperado.")
-                return 0, current_output
-                
-        # ESCALAMIENTO
-        console.print("       ❌ Auto-Healing Loop falló tras 3 intentos. Escalando error.")
-        if not hasattr(self.state, "healing_failures"):
-            self.state.healing_failures = {}
-        self.state.healing_failures[cmd] = "\n".join(healing_attempts_log)
-        
-        return current_code, current_output
+        """Bucle Autónomo de Resolución de Errores (Auto-Healing Loop) con un máximo de 3 iteraciones."""
+        from core.orchestration.build_healer import auto_heal_build_error
+        return auto_heal_build_error(self, cmd, returncode, build_output)
 
     def _get_last_exit_code(self) -> int:
         """Obtiene el último exit_code persistido del proyecto o 0 por defecto."""
@@ -1026,37 +904,8 @@ class ProjectOrchestrator:
 
     def _extract_and_write_files(self, content: str) -> list[str]:
         """Extrae y escribe en disco los archivos de código real desde el contenido generado."""
-        created_files = []
-        
-        xml_matches = re.findall(r'<write_file\s+path="([^"]+)">\s*\n?(.*?)\s*\n?</write_file>', content, re.DOTALL)
-        for rel_path, file_content in xml_matches:
-            clean_rel_path = rel_path.strip().replace("`", "")
-            full_path = os.path.join(self.project_path, clean_rel_path)
-            try:
-                os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                with open(full_path, "w", encoding="utf-8") as f:
-                    f.write(file_content)
-                created_files.append(clean_rel_path)
-            except Exception as e:
-                console.print(f"       ✗ Error creando archivo {clean_rel_path}: {e}")
-                logger.error("Error al escribir archivo real de agente: %s", e)
-
-        md_matches = re.findall(r'\[WRITE_FILE:\s*([^\]\s]+)\]\s*\n*```[a-zA-Z0-9_-]*\n(.*?)\n```', content, re.DOTALL)
-        for rel_path, file_content in md_matches:
-            rel_clean = rel_path.strip().replace("`", "")
-            if rel_clean in created_files:
-                continue
-            full_path = os.path.join(self.project_path, rel_clean)
-            try:
-                os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                with open(full_path, "w", encoding="utf-8") as f:
-                    f.write(file_content)
-                created_files.append(rel_clean)
-            except Exception as e:
-                console.print(f"       ✗ Error creando archivo {rel_clean}: {e}")
-                logger.error("Error al escribir archivo real de agente: %s", e)
-                
-        return created_files
+        from core.orchestration.file_writer import extract_and_write_files
+        return extract_and_write_files(self.project_path, content)
 
     def _run_task_runner(self, user_idea: str) -> None:
         """Parsea el tablero de la agencia y ejecuta cada tarea con su agente asignado."""

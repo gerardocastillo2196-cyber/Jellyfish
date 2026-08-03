@@ -323,7 +323,7 @@ def _prepare_payload(provider_name: str, url: str, model_name: str, messages: li
         elif not is_native_anthropic:
             payload["response_format"] = {"type": "json_object"}
     if is_cloud:
-        payload["temperature"] = temperature if temperature is not None else max(0.0, 0.2 - 0.05 * (attempt - 1))
+        payload["temperature"] = temperature if temperature is not None else max(0.1, 0.2 - 0.05 * (attempt - 1))
     else:
         limit = getattr(state, "local_context_limit", 4096) if state is not None else 4096
         if not isinstance(limit, int):
@@ -334,7 +334,7 @@ def _prepare_payload(provider_name: str, url: str, model_name: str, messages: li
         
         payload["options"] = {
             "num_ctx": actual_num_ctx,
-            "temperature": temperature if temperature is not None else max(0.0, 0.2 - 0.05 * (attempt - 1)),
+            "temperature": temperature if temperature is not None else max(0.1, 0.2 - 0.05 * (attempt - 1)),
         }
 
     # Consolidar todos los mensajes de sistema en uno solo para evitar alucinaciones
@@ -536,18 +536,25 @@ def _call_llm_silent(
                 if response.status_code == 429:
                     should_retry = True
                     is_rate_limit = True
-                    try:
-                        resp_bytes = response.read()
-                        resp_text = resp_bytes.decode("utf-8", errors="ignore")
-                        # Extraer sugerencia de reintento de Gemini "Please retry in X.Xs" o cabecera Retry-After
-                        match_delay = re.search(r'retry in ([0-9\.]+)s', resp_text, re.IGNORECASE)
-                        if match_delay:
-                            retry_delay_suggested = float(match_delay.group(1)) + 1.0
-                        else:
-                            # Si Gemini no especifica segundos exactos, pausar 60s hasta que la cuota por minuto se restablezca
-                            retry_delay_suggested = 60.0
-                    except Exception:
-                        retry_delay_suggested = 60.0
+                    retry_after = response.headers.get("retry-after") or response.headers.get("Retry-After")
+                    if retry_after:
+                        try:
+                            retry_delay_suggested = float(retry_after)
+                        except ValueError:
+                            pass
+                    if retry_delay_suggested is None:
+                        try:
+                            resp_bytes = response.read()
+                            resp_text = resp_bytes.decode("utf-8", errors="ignore")
+                            # Extraer sugerencia de reintento de Gemini "Please retry in X.Xs"
+                            match_delay = re.search(r'retry in ([0-9\.]+)s', resp_text, re.IGNORECASE)
+                            if match_delay:
+                                retry_delay_suggested = float(match_delay.group(1)) + 1.0
+                            else:
+                                # Ajustar fallback estático de 60s a 30s
+                                retry_delay_suggested = 30.0
+                        except Exception:
+                            retry_delay_suggested = 30.0
                 elif 500 <= response.status_code < 600:
                     should_retry = True
                     try:

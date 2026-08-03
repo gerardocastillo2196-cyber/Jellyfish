@@ -139,14 +139,7 @@ def get_term_height() -> int:
     return shutil.get_terminal_size(fallback=(120, 24)).lines
 
 
-def _safe_read(filepath: str) -> str:
-    """Lee un archivo de texto de forma segura con encoding UTF-8."""
-    try:
-        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-            return f.read()
-    except (OSError, IOError) as e:
-        logger.warning("No se pudo leer %s: %s", filepath, e)
-        return ""
+from core.utils import _safe_read
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 

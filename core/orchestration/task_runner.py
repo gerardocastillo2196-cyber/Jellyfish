@@ -5,7 +5,8 @@ import logging
 from rich.console import Console
 from rich.prompt import Confirm
 from core.tui import tui_engine, TaskProgress
-from core.state import estimate_tokens, _safe_read
+from core.state import estimate_tokens
+from core.utils import _safe_read
 from core.llm_engine import _call_llm_silent, LocalLLMTimeoutError
 from core.terminal import run_terminal_command
 from core.agents.registry import AgentRegistry
@@ -216,97 +217,17 @@ class TaskRunnerPhase:
         Invoca autónomamente a @Sentinel para diagnosticar y auto-corregir el error.
         Retorna una tupla: (resolución, feedback/mensaje)
         """
-        from core.terminal import screen_console as scr_console
-        scr_console.print(f"\n[bold yellow]🛡️  @Sentinel[/bold yellow] analizando error del primer fallo para auto-curar la tarea...")
-        
-        files_context = ""
-        for rel_f in created_files:
-            abs_f = os.path.join(self.orchestrator.project_path, rel_f)
-            if os.path.isfile(abs_f):
-                content = _safe_read(abs_f)
-                files_context += f"--- ARCHIVO: {rel_f} ---\n{content}\n\n"
-                
-        user_prompt = (
-            f"TAREA ID: {task_id}\n"
-            f"AGENTE ENCARGADO: @{agent_name}\n"
-            f"DESCRIPCIÓN DE LA TAREA: {task_desc}\n"
-            f"ENTREGABLE ESPERADO: {output_file}\n\n"
-            f"[ARCHIVOS DE CÓDIGO ACTUALES]\n{files_context}\n"
-            f"[LOG DE ERROR DETALLADO]\n{error_log}\n"
+        from core.orchestration.build_healer import run_sentinel_auto_healing
+        return run_sentinel_auto_healing(
+            self.orchestrator,
+            task_id,
+            agent_name,
+            task_desc,
+            output_file,
+            error_log,
+            created_files,
+            self._get_user_input_nonblocking
         )
-        
-        try:
-            sentinel_res = _call_llm_silent(
-                self.orchestrator.state,
-                [
-                    {"role": "system", "content": SENTINEL_HEALER_SYSTEM},
-                    {"role": "user", "content": user_prompt}
-                ],
-                agent_name="sentinel"
-            )
-        except Exception as e:
-            logger.error("Error al invocar a @Sentinel para auto-healing: %s", e)
-            return "FEEDBACK", f"Error invocando a @Sentinel Healer: {e}"
-            
-        if not sentinel_res:
-            return "FEEDBACK", "Sentinel Healer no retornó ninguna respuesta."
-            
-        sentinel_res_strip = sentinel_res.strip()
-        
-        if sentinel_res_strip.startswith("[AUTO_FIX]"):
-            fixed_files = self.orchestrator._extract_and_write_files(sentinel_res_strip)
-            explanation = sentinel_res_strip.split("[AUTO_FIX]")[1].split("<write_file")[0].strip()
-            
-            if not fixed_files and "<write_file" not in sentinel_res_strip:
-                code_match = re.search(r'```[a-zA-Z0-9_-]*\n(.*?)\n```', sentinel_res_strip, re.DOTALL)
-                if code_match and len(created_files) == 1:
-                    target_f = created_files[0]
-                    full_target = os.path.join(self.orchestrator.project_path, target_f)
-                    with open(full_target, "w", encoding="utf-8") as f:
-                        f.write(code_match.group(1))
-                    fixed_files = [target_f]
-            
-            if fixed_files:
-                log_msg = f"🛡️ @Sentinel (Auto-Healing) aplicó corrección en: {', '.join(fixed_files)}. Razón: {explanation}"
-                scr_console.print(f"       [bold green]✓[/bold green] [green]{log_msg}[/green]")
-                logger.info(log_msg)
-                
-                self._write_sentinel_action_to_log(task_id, log_msg)
-                return "AUTO_FIX", explanation
-            else:
-                return "FEEDBACK", f"Sentinel intentó AUTO_FIX pero no se pudieron parsear las etiquetas de escritura. Razón: {explanation}"
-                
-        elif sentinel_res_strip.startswith("[ASK_USER]"):
-            question = sentinel_res_strip.replace("[ASK_USER]", "").strip()
-            scr_console.print("\n[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
-            scr_console.print(f"[bold yellow]🛡️ @Sentinel REQUIERE TU AYUDA PARA DEPURAR:[/bold yellow]")
-            scr_console.print(f"[yellow]{question}[/yellow]")
-            scr_console.print("[bold yellow]──────────────────────────────────────────────────────────────────────[/bold yellow]")
-            
-            user_response = self._get_user_input_nonblocking("✍ Escribe tu respuesta: ").strip()
-            feedback_msg = f"Respuesta del usuario para Sentinel: '{user_response}'. Análisis previo de Sentinel: {question}"
-            return "ASK_USER", feedback_msg
-            
-        else:
-            feedback_text = sentinel_res_strip.replace("[FEEDBACK]", "").strip()
-            log_msg = f"🛡️ @Sentinel generó instrucciones de corrección: {feedback_text[:120]}..."
-            scr_console.print(f"       [yellow]{log_msg}[/yellow]")
-            return "FEEDBACK", feedback_text
-
-    def _write_sentinel_action_to_log(self, task_id: str, log_msg: str) -> None:
-        """Registra la acción correctiva de Sentinel en DEVELOPMENT_LOG.md."""
-        try:
-            log_filename = "DEVELOPMENT_LOG.md"
-            existing_log = self.orchestrator._read_project_file(log_filename) or ""
-            
-            from datetime import datetime
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-            entry = f"\n* **[{timestamp}] 🛡️ @Sentinel (Auto-Healing) — {task_id}**: {log_msg}\n"
-            
-            updated_log = existing_log.rstrip() + "\n" + entry
-            self.orchestrator._write_project_file(log_filename, updated_log)
-        except Exception as e:
-            logger.warning("No se pudo registrar la acción de Sentinel en DEVELOPMENT_LOG.md: %s", e)
 
     def _run_strict_subprocess_dod_validation(self, project_path: str, created_files: list[str], output_file: str) -> tuple[bool, str]:
         """Ejecuta una validación estricta de compilación/sintaxis en un subproceso seguro (subprocess.run).
