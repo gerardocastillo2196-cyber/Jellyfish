@@ -67,6 +67,46 @@ def is_safe_healing_command(cmd: str) -> bool:
                 return False
     return True
 
+def try_deterministic_healing(orchestrator, cmd: str, build_output: str) -> tuple[bool, int, str]:
+    """Intenta curar errores comunes de forma determinista sin usar IA."""
+    from core.terminal import run_terminal_command
+    
+    # 1. Módulo Python faltante o error de importación
+    python_import_match = re.search(r"ModuleNotFoundError:\s+No\s+module\s+named\s+['\"]?([a-zA-Z0-9_-]+)['\"]?", build_output)
+    if not python_import_match:
+        python_import_match = re.search(r"ImportError:\s+cannot\s+import\s+name\s+['\"]?([a-zA-Z0-9_-]+)['\"]?", build_output)
+        
+    if python_import_match:
+        module_name = python_import_match.group(1)
+        console.print(f"       [bold green]✓[/bold green] [green]Curación Determinista: Detectado módulo Python faltante '{module_name}'. Instalando...[/green]")
+        pip_cmd = "pip"
+        for venv_dir in ("venv", ".venv"):
+            venv_pip = os.path.join(orchestrator.project_path, venv_dir, "bin", "pip")
+            if os.path.exists(venv_pip):
+                pip_cmd = venv_pip
+                break
+        
+        run_terminal_command(f"{pip_cmd} install {module_name}", orchestrator.state, silent_history=True)
+        
+        # Re-correr comando original
+        ret_dict = {'returncode': 0}
+        new_output = run_terminal_command(cmd, orchestrator.state, silent_history=True, force_confirm=True, return_code_dict=ret_dict)
+        return True, ret_dict['returncode'], new_output
+
+    # 2. Módulo Node.js/npm faltante
+    node_import_match = re.search(r"Cannot\s+find\s+module\s+['\"]?([a-zA-Z0-9_-]+)['\"]?", build_output)
+    if node_import_match:
+        module_name = node_import_match.group(1)
+        console.print(f"       [bold green]✓[/bold green] [green]Curación Determinista: Detectado módulo npm faltante '{module_name}'. Instalando...[/green]")
+        run_terminal_command(f"npm install {module_name}", orchestrator.state, silent_history=True)
+        
+        # Re-correr comando original
+        ret_dict = {'returncode': 0}
+        new_output = run_terminal_command(cmd, orchestrator.state, silent_history=True, force_confirm=True, return_code_dict=ret_dict)
+        return True, ret_dict['returncode'], new_output
+
+    return False, 0, ""
+
 def auto_heal_build_error(orchestrator, cmd: str, returncode: int, build_output: str) -> tuple[int, str]:
     """Bucle Autónomo de Resolución de Errores (Auto-Healing Loop) con un máximo de 3 iteraciones."""
     from core.terminal import run_terminal_command
@@ -76,7 +116,17 @@ def auto_heal_build_error(orchestrator, cmd: str, returncode: int, build_output:
     current_output = build_output
     healing_attempts_log = []
     
-    error_class = classify_build_error(build_output)
+    # Intentar curación determinista rápida antes de recurrir a la IA
+    resolved, code, out = try_deterministic_healing(orchestrator, cmd, build_output)
+    if resolved:
+        if code == 0:
+            console.print("       ✓ ¡Auto-Healing Determinista exitoso! El entorno se ha auto-recuperado.")
+            return 0, out
+        else:
+            current_code = code
+            current_output = out
+            
+    error_class = classify_build_error(current_output)
     
     for attempt in range(1, 4):
         console.print(f"\n       ⚡ [Auto-Healing Loop] Intento {attempt}/3 para resolver fallo de compilación...")
