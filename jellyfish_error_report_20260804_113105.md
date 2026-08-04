@@ -1,9 +1,9 @@
 # 🛡️ Reporte Forense de Error — Jellyfish OS
 
-**Fecha y Hora:** 2026-07-29T19:52:08.352073
-**Proyecto Activo:** `/tmp/tmppfg0btur`
+**Fecha y Hora:** 2026-08-04T11:31:05.519936
+**Proyecto Activo:** `/tmp/tmp0kbjuopf`
 **Agente Activo:** `@default`
-**Proveedor / Modelo:** `ollama` / `quewn:latest`
+**Proveedor / Modelo:** `ollama` / `qwen2.5-agent:latest`
 
 ---
 ## 🚨 Traza de Errores Capturados (1):

@@ -18,11 +18,15 @@ class ProductOwnerPhase:
         self.orchestrator = orchestrator
 
     def _build_md_backlog(self, backlog_dict: dict) -> str:
+        from core.local_transformers import local_ai_manager
         md = f"# Backlog: {backlog_dict.get('proyecto', 'Proyecto Jellyfish')}\n\n"
         md += f"**Visión:** {backlog_dict.get('vision', '')}\n\n"
         md += "## Historias de Usuario\n\n"
         for us in backlog_dict.get("user_stories", []):
-            md += f"### {us.get('id')}: {us.get('titulo')}\n"
+            desc_text = f"{us.get('titulo', '')} {us.get('quiero', '')} {us.get('para', '')}"
+            tags = local_ai_manager.tag_backlog_item(desc_text)
+            tag_str = " ".join([f"**[{t}]**" for t in tags])
+            md += f"### {us.get('id')}: {tag_str} {us.get('titulo')}\n"
             md += f"- **Como:** {us.get('como')}\n"
             md += f"- **Quiero:** {us.get('quiero')}\n"
             md += f"- **Para:** {us.get('para')}\n"

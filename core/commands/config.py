@@ -1,18 +1,19 @@
 import os
+import json
+import httpx
 from rich.panel import Panel
 from rich.table import Table
 # Removiendo import redundante de PromptSession para evitar choques de terminal TUI
-from core.ui import console
+from core.ui import console, interactive_picker
 from core.config import (
     PROVIDER_CONFIGS, PROVIDER_ALIASES, supported_provider_names
 )
-from core.ui import interactive_picker
 
 def handle_config_command(command: str, arg: str, state, display_header_func) -> None:
     if command == "/config":
         _handle_config(arg, state, display_header_func)
     elif command == "/model":
-        _handle_model_picker(state, display_header_func)
+        _handle_model_picker(state, display_header_func, arg)
     elif command == "/provider":
         _show_provider_info(state)
 
@@ -280,6 +281,62 @@ def _handle_config(arg: str, state, display_header_func):
 
     console.print("Subcomando /config desconocido. Usa /config show o /config menu.")
 
+def _detect_provider_from_name(model_name: str) -> str:
+    """Detecta el proveedor IA estimado según el nombre o prefijo del modelo."""
+    m = model_name.strip().lower()
+    if "gemini" in m:
+        return "gemini"
+    if "claude" in m:
+        return "claude"
+    if any(m.startswith(x) for x in ["gpt-", "o1-", "o3-", "dall-e"]):
+        return "openai"
+    if "deepseek" in m:
+        return "deepseek"
+    return "ollama"
+
+def _get_installed_ollama_models(state) -> list[str]:
+    """Obtiene la lista de modelos instalados en el servidor local de Ollama (filtrando modelos de embeddings)."""
+    try:
+        base_url = getattr(state, "ollama_base_url", "http://localhost:11434").rstrip("/")
+        with httpx.Client(timeout=3.0) as client:
+            resp = client.get(f"{base_url}/api/tags")
+            if resp.status_code == 200:
+                models_data = resp.json().get("models", [])
+                models = []
+                for m in models_data:
+                    name = m.get("name", "")
+                    if name and not any(k in name.lower() for k in ["embed", "nomic"]):
+                        models.append(name)
+                return sorted(models)
+    except Exception:
+        pass
+    return []
+
+def _pull_ollama_model(state, model_name: str) -> bool:
+    """Descarga (pull) un modelo de Ollama mostrando el progreso con httpx.stream."""
+    try:
+        base_url = getattr(state, "ollama_base_url", "http://localhost:11434").rstrip("/")
+        url = f"{base_url}/api/pull"
+        console.print(f"\n[bold cyan]⏬ Descargando modelo local '{model_name}' en Ollama...[/bold cyan]")
+        with httpx.stream("POST", url, json={"name": model_name}, timeout=1800.0) as response:
+            if response.status_code != 200:
+                console.print(f"[red]❌ Error HTTP {response.status_code} al descargar el modelo.[/red]")
+                return False
+            for line in response.iter_lines():
+                if line:
+                    try:
+                        data = json.loads(line.decode("utf-8") if isinstance(line, bytes) else line)
+                        status = data.get("status", "")
+                        if status == "success":
+                            console.print(f"[green]✔ ¡Modelo '{model_name}' descargado exitosamente![/green]")
+                            return True
+                    except Exception:
+                        pass
+        return True
+    except Exception as e:
+        console.print(f"[red]❌ Error durante la descarga del modelo en Ollama: {e}[/red]")
+        return False
+
 def _auto_detect_provider(api_key: str, base_url: str) -> str:
     """Detecta el proveedor basándose en el prefijo de la API Key o el dominio del Base URL."""
     api_key_clean = api_key.strip().lower()
@@ -446,12 +503,50 @@ def _fetch_api_models(base_url: str, api_key: str) -> list[str]:
         pass
     return sorted(list(set(models)))
 
-def _handle_model_picker(state, display_header_func) -> None:
+def _handle_model_picker(state, display_header_func, arg: str = None) -> None:
     """Selector de modelos interactivo (/m) con soporte para arquitectura híbrida o modelo global."""
+    from core.ui import interactive_picker
+    if arg:
+        target_model = arg.strip()
+        prov = _detect_provider_from_name(target_model)
+        if prov == "ollama" and target_model not in _get_installed_ollama_models(state):
+            choice = interactive_picker(f"El modelo local '{target_model}' no está instalado.", ["Sí, descargar automáticamente (Auto-Pull)", "Cancelar"])
+            if not choice or not choice.startswith("Sí"):
+                return
+            if not _pull_ollama_model(state, target_model):
+                return
+        role_choice = interactive_picker(f"¿Dónde deseas asignar el modelo '{target_model}'?", [
+            "🏠 Configurar como modelo LOCAL / EJECUTOR (Devs / Constructores)",
+            "☁️ Configurar como modelo NUBE / PLANIFICADOR (Scrum / Architect)",
+            "🔍 Configurar como modelo AUDITORÍA / QA (QA / Sentinel / Juez)",
+            "🌐 Configurar como modelo GLOBAL (todas las tareas)"
+        ])
+        if not role_choice:
+            return
+        if "LOCAL" in role_choice:
+            state.save_config(
+                executor_provider=prov,
+                executor_model=target_model,
+                subagent_provider=prov,
+                subagent_model=target_model
+            )
+            console.print(f"[green]✓ Asignado '{target_model}' como modelo LOCAL / EJECUTOR.[/green]")
+        elif "NUBE" in role_choice:
+            state.save_config(planner_provider=prov, planner_model=target_model)
+            console.print(f"[green]✓ Asignado '{target_model}' como modelo NUBE / PLANIFICADOR.[/green]")
+        elif "AUDITORÍA" in role_choice or "QA" in role_choice:
+            state.save_config(qa_provider=prov, qa_model=target_model)
+            console.print(f"[green]✓ Asignado '{target_model}' como modelo de AUDITORÍA / QA.[/green]")
+        elif "GLOBAL" in role_choice:
+            state.save_config(provider=prov, model=target_model)
+            console.print(f"[green]✓ Asignado '{target_model}' como modelo GLOBAL.[/green]")
+        return
+
     options = [
-        "1. Sistema de IA (Híbrido vs Modelo Global)",
-        "2. Configurar Modelo Local (Ejecutores / Devs)",
-        "3. Configurar Modelo en la Nube (Planificadores / Scrum)",
+        "1. Sistema de IA (Enjambre / Híbrido vs Modelo Global)",
+        "2. Configurar Modelo Local / Ejecutor (@developer / Constructores)",
+        "3. Configurar Modelo de Nube / Planificador (@architect / Scrum)",
+        "4. Configurar Modelo de Auditoría / QA (@qa_engineer / @sentinel -> Groq/Otros)",
     ]
     
     choice = interactive_picker("CONFIGURACIÓN DE MODELOS (/m)", options)
@@ -462,15 +557,15 @@ def _handle_model_picker(state, display_header_func) -> None:
 
     if choice.startswith("1."):
         system_choices = [
-            "Híbrido (Planificación en Nube, Ejecución en Local) [Recomendado]",
+            "Enjambre / Híbrido (Planificador, Ejecutor y Auditor diferenciados) [Recomendado]",
             "Modelo Global Único (Un solo modelo para todas las tareas)"
         ]
         sel_sys = interactive_picker("ELEGIR SISTEMA DE IA", system_choices)
         if not sel_sys:
             return
-        if sel_sys.startswith("Híbrido"):
+        if sel_sys.startswith("Enjambre") or sel_sys.startswith("Híbrido"):
             state.save_config(use_hybrid="1")
-            console.print("[green]✓ Sistema Híbrido activado.[/green]")
+            console.print("[green]✓ Sistema de Enjambre Híbrido activado.[/green]")
         else:
             state.save_config(use_hybrid="0")
             console.print("[green]✓ Modo de Modelo Global Único activado.[/green]")
@@ -486,6 +581,9 @@ def _handle_model_picker(state, display_header_func) -> None:
         
     elif choice.startswith("3."):
         _select_cloud_model(state, display_header_func)
+
+    elif choice.startswith("4."):
+        _select_qa_model(state, display_header_func)
 
 
 def _select_global_model(state, display_header_func):
@@ -536,6 +634,22 @@ def _select_cloud_model(state, display_header_func):
         input("\nPresiona Enter para continuar...")
 
 
+def _select_qa_model(state, display_header_func):
+    prov, mod, key, url = _interactive_select_provider_and_model(state, "MODELO DE AUDITORÍA / QA (DEBATE ENJAMBRE)")
+    if prov and mod:
+        config = {"qa_provider": prov, "qa_model": mod}
+        if key:
+            config[f"{prov}_key"] = key
+            state.api_keys[prov] = key
+        if url:
+            config[f"{prov}_base_url"] = url
+            state.base_urls[prov] = url
+        state.save_config(**config)
+        console.print(f"[green]✓ Modelo de Auditoría / QA configurado: {prov} -> {mod}[/green]")
+        display_header_func()
+        input("\nPresiona Enter para continuar...")
+
+
 def _interactive_select_provider_and_model(state, title_prefix: str, restrict_cloud: bool = False, restrict_local: bool = False) -> tuple[str, str, str, str]:
     import httpx
     # Select provider
@@ -546,6 +660,7 @@ def _interactive_select_provider_and_model(state, title_prefix: str, restrict_cl
         provider_options.extend([
             "Gemini (Google)",
             "Claude (Anthropic)",
+            "Groq Cloud (Baja Latencia)",
             "[➕ Configurar API Key / Endpoint de cualquier otra IA (DeepSeek, OpenAI, etc.)]"
         ])
     
@@ -557,6 +672,7 @@ def _interactive_select_provider_and_model(state, title_prefix: str, restrict_cl
         "Ollama (Local)": "ollama",
         "Gemini (Google)": "gemini",
         "Claude (Anthropic)": "claude",
+        "Groq Cloud (Baja Latencia)": "groq",
     }
     
     target_prov = None

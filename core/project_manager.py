@@ -3,6 +3,17 @@ import logging
 
 logger = logging.getLogger("jellyfish.project_manager")
 
+def is_same_session_process(pid: int) -> bool:
+    """Verifica si el PID especificado pertenece a la misma sesión/grupo que el proceso actual."""
+    if pid <= 0:
+        return False
+    try:
+        if os.getpgid(pid) == os.getpgid(0):
+            return True
+    except OSError:
+        pass
+    return pid == os.getpid()
+
 def cleanup_lock(project_path: str) -> None:
     """Libera el lock del proyecto."""
     if project_path and os.path.isdir(project_path):

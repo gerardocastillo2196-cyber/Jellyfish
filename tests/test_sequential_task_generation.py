@@ -43,7 +43,9 @@ def test_sequential_generation_multiple_files(tmp_path):
     def mock_call_silent(state_arg, messages, agent_name=None, **kwargs):
         user_content = messages[1]["content"]
         
-        if "Genera el contenido completo de file1.py" in user_content:
+        if agent_name == "qa_engineer":
+            return "[APPROVED]\nConsenso alcanzado."
+        elif "Genera el contenido completo de file1.py" in user_content:
             call_args_files.append("file1.py")
             return "[WRITE_FILE: file1.py]\n```python\n# code file 1\n```\n[TAREA_COMPLETADA]"
         elif "Genera el contenido completo de file2.py" in user_content:

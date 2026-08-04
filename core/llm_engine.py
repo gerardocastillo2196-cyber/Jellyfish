@@ -378,51 +378,73 @@ def _prepare_payload(provider_name: str, url: str, model_name: str, messages: li
     return payload
 
 
-def resolve_hybrid_agent_routing(state, agent_name: str | None = None, requested_provider: str | None = None, requested_model: str | None = None) -> tuple[str, str]:
-    """Resuelve el proveedor y modelo según la arquitectura híbrida por roles.
-
-    - Agentes planificadores (product_owner, scrum_master, architect, lead_planner): Cloud API (Gemini).
-    - Agentes ejecutores (backend_dev, frontend_dev, devops_engineer, qa_engineer, etc.): Local Ollama.
+class SwarmRouter:
+    """Enrutador Heterogéneo y Fábrica LLM (Agent Swarm v6.9.15).
+    
+    Asigna en tiempo de ejecución el proveedor y modelo más eficiente para cada agente:
+    - Agentes de auditoría/crítica (qa_engineer, security_auditor, critic): Groq (Baja latencia / QA ultrastating).
+    - Agentes constructores/planificadores (developer, architect, scrum_master, product_owner): Gemini (Contexto largo / Código masivo).
     """
-    use_hybrid = getattr(state, "use_hybrid", True)
-    if isinstance(use_hybrid, str):
-        use_hybrid = use_hybrid == "1" or use_hybrid.lower() == "true"
+    QA_AGENTS = {"qa_engineer", "security_auditor", "tester", "critic", "code_reviewer", "qa"}
+    
+    @classmethod
+    def route_agent(cls, state, agent_name: str | None = None, requested_provider: str | None = None, requested_model: str | None = None) -> tuple[str, str]:
+        if requested_provider and requested_provider != getattr(state, "provider", None):
+            return normalize_provider(requested_provider), (requested_model or getattr(state, "model", "qwen2.5-coder:latest"))
+            
+        clean_name = (agent_name or "").strip().lower().lstrip("@")
         
-    if not use_hybrid:
-        prov = requested_provider or getattr(state, "provider", "ollama")
-        mod = requested_model or getattr(state, "model", "qwen2.5-coder:latest")
-        return normalize_provider(prov), mod
+        # 1. Agentes de Auditoría / QA -> Usar modelo QA dedicado, o fallback a Groq si hay llave configurada
+        if clean_name in cls.QA_AGENTS or any(k in clean_name for k in ["qa", "auditor", "tester", "critic", "sentinel"]):
+            qa_prov = getattr(state, "qa_provider", None)
+            qa_mod = getattr(state, "qa_model", None)
+            if isinstance(qa_prov, str) and isinstance(qa_mod, str) and qa_prov and qa_mod:
+                return normalize_provider(qa_prov), qa_mod
+            
+            # Solo usar Groq como fallback implícito si la llave de Groq está configurada
+            groq_key = state.api_keys.get("groq") or getattr(state, "groq_api_key", None) or os.getenv("GROQ_API_KEY", "")
+            if isinstance(groq_key, str) and groq_key:
+                return "groq", os.getenv("JELLYFISH_QA_MODEL", "llama-3.3-70b-versatile")
+                
+        use_hybrid = getattr(state, "use_hybrid", True)
+        if isinstance(use_hybrid, str):
+            use_hybrid = use_hybrid == "1" or use_hybrid.lower() == "true"
+            
+        if not use_hybrid:
+            prov = requested_provider or getattr(state, "provider", "ollama")
+            mod = requested_model or getattr(state, "model", "qwen2.5-coder:latest")
+            return normalize_provider(prov), mod
 
-    if requested_provider and requested_provider != getattr(state, "provider", None):
-        return normalize_provider(requested_provider), (requested_model or getattr(state, "model", "qwen2.5-coder:latest"))
+        if not agent_name or agent_name == "default":
+            prov = getattr(state, "planner_provider", "gemini")
+            mod = getattr(state, "planner_model", "gemini-3.6-flash")
+            return normalize_provider(prov), mod
 
-    if not agent_name or agent_name == "default":
-        prov = getattr(state, "planner_provider", "gemini")
-        mod = getattr(state, "planner_model", "gemini-3.6-flash")
-        return normalize_provider(prov), mod
+        from core.config import resolve_agent_role_category, PLANNER_AGENTS, EXECUTOR_AGENTS
+        is_known = (
+            clean_name in PLANNER_AGENTS or 
+            clean_name in EXECUTOR_AGENTS or
+            any(p in clean_name for p in ["product_owner", "scrum_master", "architect", "planner", "dev", "engineer", "designer", "auditor", "scientist", "coder", "qa"])
+        )
+        if not is_known:
+            prov = requested_provider or getattr(state, "provider", "ollama")
+            mod = requested_model or getattr(state, "model", "qwen2.5-coder:latest")
+            return normalize_provider(prov), mod
 
-    from core.config import resolve_agent_role_category, PLANNER_AGENTS, EXECUTOR_AGENTS
-    clean_name = (agent_name or "").strip().lower().lstrip("@")
-    is_known = (
-        clean_name in PLANNER_AGENTS or 
-        clean_name in EXECUTOR_AGENTS or
-        any(p in clean_name for p in ["product_owner", "scrum_master", "architect", "planner", "dev", "engineer", "designer", "auditor", "scientist", "coder"])
-    )
-    if not is_known:
-        prov = requested_provider or getattr(state, "provider", "ollama")
-        mod = requested_model or getattr(state, "model", "qwen2.5-coder:latest")
-        return normalize_provider(prov), mod
+        role_cat = resolve_agent_role_category(agent_name)
+        if role_cat == "planner":
+            prov = getattr(state, "planner_provider", "gemini")
+            mod = getattr(state, "planner_model", "gemini-3.6-flash")
+            return normalize_provider(prov), mod
+        else:
+            prov = getattr(state, "executor_provider", "ollama")
+            mod = getattr(state, "executor_model", "qwen2.5-coder:latest")
+            return normalize_provider(prov), mod
 
-    role_cat = resolve_agent_role_category(agent_name)
 
-    if role_cat == "planner":
-        prov = getattr(state, "planner_provider", "gemini")
-        mod = getattr(state, "planner_model", "gemini-3.6-flash")
-        return normalize_provider(prov), mod
-    else:  # executor
-        prov = getattr(state, "executor_provider", "ollama")
-        mod = getattr(state, "executor_model", "qwen2.5-coder:latest")
-        return normalize_provider(prov), mod
+def resolve_hybrid_agent_routing(state, agent_name: str | None = None, requested_provider: str | None = None, requested_model: str | None = None) -> tuple[str, str]:
+    """Resuelve el proveedor y modelo usando la fábrica heterogénea SwarmRouter."""
+    return SwarmRouter.route_agent(state, agent_name, requested_provider, requested_model)
 
 
 def _get_available_ollama_models(state) -> list[str]:
@@ -695,6 +717,61 @@ def _call_llm_silent(
     return None
 
 
+async def get_ai_response_async(
+    state,
+    messages: list,
+    agent_name: str | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+    timeout: float | None = 60.0,
+    json_mode: bool = False,
+    temperature: float | None = None,
+) -> str | None:
+    """Invocación LLM asíncrona no bloqueante (Swarm Architecture v6.9.15).
+    
+    Permite a múltiples agentes del enjambre consultar modelos concurrentemente vía httpx.AsyncClient.
+    """
+    if agent_name or not (provider and model):
+        provider_name, model_name = SwarmRouter.route_agent(state, agent_name, provider, model)
+    else:
+        provider_name = normalize_provider(provider or state.provider)
+        model_name = model or state.model
+
+    url, headers = _get_provider_config(state, provider_name)
+    payload = _prepare_payload(provider_name, url, model_name, messages, attempt=1, state=state, json_mode=json_mode, temperature=temperature)
+    
+    if "stream" in payload:
+        payload["stream"] = False
+        
+    try:
+        async with httpx.AsyncClient(timeout=timeout or 60.0) as client:
+            resp = await client.post(url, headers=headers, json=payload)
+            if resp.status_code == 200:
+                data = resp.json()
+                if provider_name == "ollama":
+                    content = data.get("message", {}).get("content", "")
+                elif provider_name == "claude" and "content" in data and isinstance(data["content"], list):
+                    content = "".join(c.get("text", "") for c in data["content"] if isinstance(c, dict))
+                else:
+                    choices = data.get("choices", [])
+                    content = choices[0].get("message", {}).get("content", "") if choices else ""
+                
+                if content:
+                    content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
+                    tokens_total = estimate_tokens(content) + sum(estimate_tokens(m.get("content", "")) for m in messages)
+                    if hasattr(state, "add_session_tokens"):
+                        state.add_session_tokens(tokens_total)
+                    return content
+            else:
+                logger.warning("get_ai_response_async HTTP %s de %s (%s): %s", resp.status_code, provider_name, model_name, resp.text[:200])
+    except Exception as e:
+        logger.error("Error en get_ai_response_async con %s (%s): %s", provider_name, model_name, e)
+        if provider_name != "ollama":
+            fallback_model = _get_fallback_ollama_model(state)
+            return await get_ai_response_async(state, messages, provider="ollama", model=fallback_model, timeout=timeout, json_mode=json_mode, temperature=temperature)
+    return None
+
+
 def _get_models_list_url_and_headers(state, provider_name: str) -> tuple[str, dict]:
     """Retorna (url, headers) para consultar la lista de modelos del proveedor."""
     provider_name = normalize_provider(provider_name)
@@ -797,6 +874,7 @@ def _fetch_ollama_models_local(state) -> list[str]:
 def _select_fallback_model(provider_name: str, available_models: list[str], failed_models: set[str]) -> str | None:
     priorities = {
         "gemini": ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+        "groq": ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "llama3-70b-8192"],
         "claude": ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"],
         "openai": ["gpt-4o", "gpt-4o-mini", "o1-preview", "o1-mini"],
         "deepseek": ["deepseek-coder", "deepseek-chat"],
@@ -879,9 +957,11 @@ def _stream_request(
     failed_models = set()
     max_fallbacks = 3
     fallback_attempt = 0
+    current_provider = provider
+    current_model = model
 
     while fallback_attempt <= max_fallbacks:
-        prov_name, mod_name = resolve_hybrid_agent_routing(state, agent_name, provider, model)
+        prov_name, mod_name = resolve_hybrid_agent_routing(state, agent_name, current_provider, current_model)
         provider_name = normalize_provider(prov_name)
         model_name = mod_name
         url, headers = _get_provider_config(state, provider_name)
@@ -1039,6 +1119,8 @@ def _stream_request(
                     try:
                         new_prov, new_model = _fallback_to_local_ollama(state)
                         log_msg(f"✓ Cambiando a proveedor local: {new_prov} (Modelo: {new_model})")
+                        current_provider = new_prov
+                        current_model = new_model
                         max_fallbacks += 1
                         fallback_attempt += 1
                         continue
@@ -1057,6 +1139,7 @@ def _stream_request(
                 if new_model:
                     state.save_config(model=new_model)
                     log_msg(f"✓ Cambiando a modelo de respaldo dinámico: {new_model}")
+                    current_model = new_model
                     fallback_attempt += 1
                     continue
                 else:
@@ -1073,6 +1156,8 @@ def _stream_request(
                 try:
                     new_prov, new_model = _fallback_to_local_ollama(state)
                     log_msg(f"✓ Cambiando a proveedor local: {new_prov} (Modelo: {new_model})")
+                    current_provider = new_prov
+                    current_model = new_model
                     fallback_attempt += 1
                     continue
                 except Exception as local_err:

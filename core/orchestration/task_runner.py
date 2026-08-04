@@ -17,6 +17,7 @@ logger = logging.getLogger("jellyfish.orchestration.task_runner")
 console = Console()
 
 MAX_RETRIES = 3  # FASE 4: Límite de escalada para reintentos automáticos
+MAX_DEBATE_CYCLES = 3  # FASE 5: Límite del Juez (Circuit Breaker) en debates Multi-Agente
 
 SENTINEL_HEALER_SYSTEM = """Eres @Sentinel, el agente experto de control de calidad, depuración y auto-curación de Jellyfish OS.
 Tu misión es recibir una tarea técnica, los archivos de código que se generaron, y el log detallado del error de compilación, sintaxis o DoD.
@@ -324,6 +325,74 @@ class TaskRunnerPhase:
                     logger.warning("Error ejecutando docker compose config: %s", e)
 
         return True, "Validación de compilación y ejecución por subproceso (DoD) aprobada."
+
+    def _run_swarm_consensus_debate(self, task_id_str: str, developer_agent: str, task_desc: str, output_file: str, file_content: str, attempt: int, task=None, tasks=None) -> tuple[bool, str, bool]:
+        """Bucle de Consenso del Enjambre entre @developer y @qa_engineer con Circuit Breaker (El Juez).
+
+        Retorna: (dod_approved: bool, reason_or_feedback: str, breaker_tripped: bool)
+        """
+        self.orchestrator.state.blackboard.set(f"code_{task_id_str}", file_content)
+        event_bus.publish(EventType.CODE_SUBMITTED, {
+            "task_id": task_id_str,
+            "file": output_file,
+            "developer": developer_agent,
+            "attempt": attempt
+        })
+        console.print(f"[cyan]       🔄 [Agent Swarm] Código enviado al pizarrón para debate: @{developer_agent} -> @qa_engineer...[/cyan]")
+
+        qa_prompt = (
+            f"Eres @qa_engineer en el Enjambre Multi-Agente de Jellyfish OS.\n"
+            f"Tu rol es auditar y evaluar con rigor extremo el código propuesto para el archivo '{output_file}'.\n"
+            f"TAREA SOLICITADA: {task_desc}\n"
+            f"CÓDIGO ENTREGADO POR @{developer_agent}:\n```\n{file_content[:3000]}\n```\n\n"
+            f"INSTRUCCIONES DE DEBATE:\n"
+            f"Si el código cumple con los requisitos y no tiene errores lógicos críticos ni placeholders innecesarios, responde ÚNICAMENTE con:\n"
+            f"[APPROVED]\nConsenso alcanzado: código verificado correctamente.\n\n"
+            f"Si detectas errores de arquitectura, bugs o incumplimiento de requisitos, responde con:\n"
+            f"[REJECTED]\nExplica claramente qué debe corregir @{developer_agent} en su próximo ciclo de debate."
+        )
+        qa_messages = [
+            {"role": "system", "content": "Eres @qa_engineer, crítico riguroso del enjambre."},
+            {"role": "user", "content": qa_prompt}
+        ]
+        try:
+            res = _call_llm_silent(self.orchestrator.state, qa_messages, agent_name="qa_engineer")
+            qa_response = res[0] if isinstance(res, (tuple, list)) else str(res)
+        except Exception as e:
+            logger.warning("Error consultando a @qa_engineer en debate: %s", e)
+            dod_ok, dod_reason = self.orchestrator._run_dod_validation(task_id_str, developer_agent, task_desc, output_file, file_content)
+            return dod_ok, dod_reason, False
+
+        if "[APPROVED]" in qa_response or "APPROVED" in qa_response[:50]:
+            event_bus.publish(EventType.CODE_APPROVED, {"task_id": task_id_str, "reviewer": "qa_engineer"})
+            console.print("       [green]🤝 Consenso del Enjambre alcanzado: @qa_engineer aprobó la entrega.[/green]")
+            return True, "Consenso alcanzado entre @developer y @qa_engineer.", False
+        
+        debates_key = f"debate_cycles_{task_id_str}"
+        cycles = self.orchestrator.state.blackboard.get(debates_key, 0) + 1
+        self.orchestrator.state.blackboard.set(debates_key, cycles)
+        reason = qa_response.replace("[REJECTED]", "").strip() or "Rechazo de QA en el debate del enjambre."
+        
+        if cycles >= MAX_DEBATE_CYCLES:
+            logger.warning("El Juez: Tarea %s bloqueada tras %d ciclos de debate sin consenso.", task_id_str, cycles)
+            console.print(f"       [red]⛔ Circuit Breaker (El Juez): Tarea {task_id_str} bloqueada por superar {MAX_DEBATE_CYCLES} ciclos sin consenso.[/red]")
+            event_bus.publish(EventType.CIRCUIT_BREAKER_TRIPPED, {
+                "task_id": task_id_str,
+                "cycles": cycles,
+                "reason": f"Máximos ciclos de debate ({MAX_DEBATE_CYCLES}) alcanzados sin consenso."
+            })
+            event_bus.publish(EventType.TASK_BLOCKED, {"task_id": task_id_str, "reason": reason})
+            self.orchestrator.state.blackboard.set(f"task_status_{task_id_str}", "blocked")
+            if task is not None and tasks is not None:
+                task["status"] = "BLOCKED"
+                task["state"] = "BLOCKED"
+                self.orchestrator._save_board(tasks)
+            return False, f"El Juez intervino: {reason}", True
+            
+        event_bus.publish(EventType.CODE_REJECTED, {"task_id": task_id_str, "reviewer": "qa_engineer", "cycle": cycles})
+        event_bus.publish(EventType.DEBATE_CYCLE_STARTED, {"task_id": task_id_str, "cycle": cycles + 1})
+        console.print(f"       [yellow]💬 [@qa_engineer rechazó (Ciclo {cycles}/{MAX_DEBATE_CYCLES})]: {reason[:100]}...[/yellow]")
+        return False, f"[DEBATE ENJAMBRE - CRÍTICA DE @qa_engineer (Ciclo {cycles}/{MAX_DEBATE_CYCLES})]:\n{reason}", False
 
     def run(self, user_idea: str) -> None:
         """Parsea el tablero de la agencia y ejecuta cada tarea con su agente asignado."""
@@ -805,9 +874,13 @@ class TaskRunnerPhase:
                                     dod_reason = exec_subproc_reason
                                 else:
                                     file_content = task_result if len(files_to_generate) > 1 else self.orchestrator._read_project_file(output_file)
-                                    dod_approved, dod_reason = self.orchestrator._run_dod_validation(
-                                        task_id_str, agent_name, task_desc, output_file, file_content
+                                    dod_approved, dod_reason, breaker_tripped = self._run_swarm_consensus_debate(
+                                        task_id_str, agent_name, task_desc, output_file, file_content, attempt, task, tasks
                                     )
+                                    if breaker_tripped:
+                                        success_task = False
+                                        progress.fail()
+                                        break
                                 if dod_approved:
                                     event_bus.publish(EventType.TASK_COMPLETED, {"task_id": task_id_str, "reason": dod_reason, "agent_name": agent_name})
                                     success_task = True
@@ -834,9 +907,13 @@ class TaskRunnerPhase:
                                         )
                                         if syntax_ok and exec_subproc_ok:
                                             file_content = task_result if len(files_to_generate) > 1 else self.orchestrator._read_project_file(output_file)
-                                            dod_approved, dod_reason = self.orchestrator._run_dod_validation(
-                                                task_id_str, agent_name, task_desc, output_file, file_content
+                                            dod_approved, dod_reason, breaker_tripped = self._run_swarm_consensus_debate(
+                                                task_id_str, agent_name, task_desc, output_file, file_content, attempt, task, tasks
                                             )
+                                            if breaker_tripped:
+                                                success_task = False
+                                                progress.fail()
+                                                break
                                             if dod_approved:
                                                 console.print("       [green]🛡️ Auto-Curación exitosa! La validación DoD ha sido aprobada tras la corrección de Sentinel.[/green]")
                                                 event_bus.publish(EventType.TASK_COMPLETED, {"task_id": task_id_str, "reason": "Aprobado tras Auto-Curación de Sentinel", "agent_name": agent_name})
@@ -863,9 +940,13 @@ class TaskRunnerPhase:
                                     dod_reason = exec_subproc_reason
                                 else:
                                     file_content = task_result if len(files_to_generate) > 1 else self.orchestrator._read_project_file(output_file)
-                                    dod_approved, dod_reason = self.orchestrator._run_dod_validation(
-                                        task_id_str, agent_name, task_desc, output_file, file_content
+                                    dod_approved, dod_reason, breaker_tripped = self._run_swarm_consensus_debate(
+                                        task_id_str, agent_name, task_desc, output_file, file_content, attempt, task, tasks
                                     )
+                                    if breaker_tripped:
+                                        success_task = False
+                                        progress.fail()
+                                        break
                                 if dod_approved:
                                     event_bus.publish(EventType.TASK_COMPLETED, {"task_id": task_id_str, "reason": dod_reason, "agent_name": agent_name})
                                     success_task = True
@@ -894,9 +975,13 @@ class TaskRunnerPhase:
                                             )
                                             if syntax_ok and exec_subproc_ok:
                                                 file_content = task_result if len(files_to_generate) > 1 else self.orchestrator._read_project_file(output_file)
-                                                dod_approved, dod_reason = self.orchestrator._run_dod_validation(
-                                                    task_id_str, agent_name, task_desc, output_file, file_content
+                                                dod_approved, dod_reason, breaker_tripped = self._run_swarm_consensus_debate(
+                                                    task_id_str, agent_name, task_desc, output_file, file_content, attempt, task, tasks
                                                 )
+                                                if breaker_tripped:
+                                                    success_task = False
+                                                    progress.fail()
+                                                    break
                                                 if dod_approved:
                                                     console.print("       [green]🛡️ Auto-Curación exitosa! La validación DoD ha sido aprobada tras la corrección de Sentinel.[/green]")
                                                     event_bus.publish(EventType.TASK_COMPLETED, {"task_id": task_id_str, "reason": "Aprobado tras Auto-Curación de Sentinel", "agent_name": agent_name})
@@ -930,9 +1015,13 @@ class TaskRunnerPhase:
                                         )
                                         if syntax_ok and exec_subproc_ok:
                                             file_content = task_result if len(files_to_generate) > 1 else self.orchestrator._read_project_file(output_file)
-                                            dod_approved, dod_reason = self.orchestrator._run_dod_validation(
-                                                task_id_str, agent_name, task_desc, output_file, file_content
+                                            dod_approved, dod_reason, breaker_tripped = self._run_swarm_consensus_debate(
+                                                task_id_str, agent_name, task_desc, output_file, file_content, attempt, task, tasks
                                             )
+                                            if breaker_tripped:
+                                                success_task = False
+                                                progress.fail()
+                                                break
                                             if dod_approved:
                                                 console.print("       [green]🛡️ Auto-Curación exitosa! La validación DoD ha sido aprobada tras la corrección de Sentinel.[/green]")
                                                 event_bus.publish(EventType.TASK_COMPLETED, {"task_id": task_id_str, "reason": "Aprobado tras Auto-Curación de Sentinel", "agent_name": agent_name})

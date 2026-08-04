@@ -248,7 +248,8 @@ class ScrumMasterPhase:
             return False
 
         target_board = self.orchestrator.board_filename
-
+        from core.local_transformers import local_ai_manager
+        result = local_ai_manager.tag_markdown_backlog(result)
         self.orchestrator._write_project_file(target_board, result)
         tokens = estimate_tokens(result)
 

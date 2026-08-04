@@ -27,46 +27,100 @@ except ImportError:
 
 logger = logging.getLogger("jellyfish.state")
 
+import threading
+import asyncio
+import inspect
+
 class Blackboard:
-    """Registro centralizado inmutable (Blackboard) para comunicación desacoplada.
+    """Registro centralizado inmutable (Blackboard) con cerrojos duales para concurrencia segura.
     
-    FASE 3: Los agentes no se comunican directamente sino escribiendo y leyendo de aquí.
-    Soporta eventos reactivos mediante suscripciones.
+    FASE 3/4: Los agentes del enjambre no se comunican directamente sino escribiendo y leyendo de aquí
+    bajo protección de locks concurrentes (threading.Lock & asyncio.Lock).
     """
     def __init__(self):
         self._variables = {}
         self._subscribers = {}
+        self._lock = threading.Lock()
+        self._async_lock = None
+
+    def _get_async_lock(self):
+        if self._async_lock is None:
+            self._async_lock = asyncio.Lock()
+        return self._async_lock
 
     def get(self, key: str, default=None):
-        """Retorna el último valor registrado para una variable."""
-        values = self._variables.get(key)
-        if values:
-            return values[-1]  # Inmutable: el histórico se preserva, retornamos el último
-        return default
+        """Retorna el último valor registrado para una variable en modo síncrono."""
+        with self._lock:
+            values = self._variables.get(key)
+            if values:
+                return values[-1]
+            return default
+
+    async def aget(self, key: str, default=None):
+        """Retorna el último valor registrado para una variable en modo corutina asíncrona."""
+        async with self._get_async_lock():
+            with self._lock:
+                values = self._variables.get(key)
+                if values:
+                    return values[-1]
+                return default
 
     def get_history(self, key: str) -> list:
         """Retorna el historial completo de cambios de una variable."""
-        return list(self._variables.get(key, []))
+        with self._lock:
+            return list(self._variables.get(key, []))
+
+    async def aget_history(self, key: str) -> list:
+        """Retorna el historial completo asincronamente."""
+        async with self._get_async_lock():
+            with self._lock:
+                return list(self._variables.get(key, []))
 
     def set(self, key: str, value) -> None:
-        """Registra un nuevo valor para una variable (historial inmutable)."""
-        if key not in self._variables:
-            self._variables[key] = []
-        self._variables[key].append(value)
+        """Registra un nuevo valor para una variable (historial inmutable thread-safe)."""
+        with self._lock:
+            if key not in self._variables:
+                self._variables[key] = []
+            self._variables[key].append(value)
+            subscribers = list(self._subscribers.get(key, []))
         
-        # Notificar a suscriptores reactivos
-        if key in self._subscribers:
-            for callback in self._subscribers[key]:
-                try:
+        for callback in subscribers:
+            try:
+                if inspect.iscoroutinefunction(callback):
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(callback(key, value))
+                    except RuntimeError:
+                        asyncio.run(callback(key, value))
+                else:
                     callback(key, value)
-                except Exception as e:
-                    logger.error("Error al notificar al suscriptor de la variable %s: %s", key, e)
+            except Exception as e:
+                logger.error("Error al notificar al suscriptor de la variable %s: %s", key, e)
+
+    async def aset(self, key: str, value) -> None:
+        """Registra un nuevo valor asincrónicamente e invoca callbacks."""
+        async with self._get_async_lock():
+            with self._lock:
+                if key not in self._variables:
+                    self._variables[key] = []
+                self._variables[key].append(value)
+                subscribers = list(self._subscribers.get(key, []))
+                
+        for callback in subscribers:
+            try:
+                if inspect.iscoroutinefunction(callback):
+                    await callback(key, value)
+                else:
+                    callback(key, value)
+            except Exception as e:
+                logger.error("Error asíncrono en suscriptor de variable %s: %s", key, e)
 
     def subscribe(self, key: str, callback) -> None:
-        """Registra una función callback para reaccionar a cambios en una variable."""
-        if key not in self._subscribers:
-            self._subscribers[key] = []
-        self._subscribers[key].append(callback)
+        """Registra una función callback (síncrona o corroutine) para reaccionar a cambios."""
+        with self._lock:
+            if key not in self._subscribers:
+                self._subscribers[key] = []
+            self._subscribers[key].append(callback)
 
 # Import config constants, variables and functions
 from core.config import (
@@ -649,22 +703,49 @@ class JellyfishState:
             else:
                 _tracking_files = _intelligence_files + ["SPRINT_BOARD.md", "DAILY.md"]
             
+            active_agent = getattr(self, "active_agent", "default")
+            is_default = (active_agent == "default" or not active_agent)
+            
             project_state_parts = []
+            toc_files = []
             for tracking_file in _tracking_files:
                 tracking_path = os.path.join(self.active_project, tracking_file)
                 if tracking_path not in self.context_files and os.path.isfile(tracking_path):
-                    content = _safe_read(tracking_path)
-                    if content and total_ctx_chars < max_static:
-                        remaining_budget = max(0, max_static - total_ctx_chars)
-                        max_allowed = min(self.MAX_FILE_CHARS, remaining_budget)
-                        if len(content) > max_allowed:
-                            content = content[:max_allowed] + "\n\n... [TRUNCADO POR PRESUPUESTO ESTÁTICO DE 16K CHARS / 4K TOKENS]"
-                        total_ctx_chars += len(content)
-                        project_state_parts.append(
-                            f'<internal_doc name="{_xml_attr(tracking_file)}" absolute_path="{_xml_attr(tracking_path)}">\n'
-                            f'{content}\n'
-                            f'</internal_doc>'
-                        )
+                    toc_files.append(tracking_file)
+                    should_load = True
+                    if is_default:
+                        tf_lower = tracking_file.lower()
+                        if any(k in tf_lower for k in ["sprint", "daily", "board", "gantt"]):
+                            should_load = any(w in recent_text for w in ["sprint", "tarea", "avance", "progreso", "board", "daily"])
+                        elif any(k in tf_lower for k in ["security", "auth"]):
+                            should_load = any(w in recent_text for w in ["seguridad", "security", "auth", "políticas", "token", "permiso", "jwt"])
+                        elif any(k in tf_lower for k in ["design", "component", "ui"]):
+                            should_load = any(w in recent_text for w in ["diseño", "design", "css", "component", "ui", "ux"])
+                        elif any(k in tf_lower for k in ["data", "schema"]):
+                            should_load = any(w in recent_text for w in ["datos", "data", "schema", "base de datos", "db", "tabla"])
+                        else:
+                            should_load = False
+
+                    if should_load:
+                        content = _safe_read(tracking_path)
+                        if content and total_ctx_chars < max_static:
+                            remaining_budget = max(0, max_static - total_ctx_chars)
+                            max_allowed = min(self.MAX_FILE_CHARS, remaining_budget)
+                            if len(content) > max_allowed:
+                                content = content[:max_allowed] + "\n\n... [TRUNCADO POR PRESUPUESTO ESTÁTICO DE 16K CHARS / 4K TOKENS]"
+                            total_ctx_chars += len(content)
+                            project_state_parts.append(
+                                f'<internal_doc name="{_xml_attr(tracking_file)}" absolute_path="{_xml_attr(tracking_path)}">\n'
+                                f'{content}\n'
+                                f'</internal_doc>'
+                            )
+            
+            if is_default and toc_files:
+                toc_str = "\n".join(f"- {f}" for f in toc_files)
+                self.static_history.append({
+                    "role": "system",
+                    "content": f"[ARCHIVOS TÉCNICOS Y DE GESTIÓN DISPONIBLES]\n{toc_str}\n(Usa herramientas o menciona el tema específico para cargar su contenido completo)"
+                })
             
             if project_state_parts:
                 project_name = os.path.basename(self.active_project)

@@ -12,162 +12,127 @@ from core.terminal import run_terminal_command
 
 # Manual content from core/crud.py
 _MANUAL = """
-# 🪼 Jellyfish OS v6.9.12 — Manual del Usuario
+# 🪼 Jellyfish OS v6.9.15 — Manual del Usuario
 
-Jellyfish es un framework de agentes técnicos impulsados por IA. Combina modelos locales o en la nube (Ollama, OpenAI, DeepSeek, OpenRouter) con ejecución autónoma (Auto-ReAct), recuperación de código vectorial (RAG) y un **Orquestador Multi-Agente** para investigaciones complejas.
+Jellyfish OS v6.9.15 es un sistema operativo y framework corporativo de agentes técnicos cognitivos impulsados por IA. Integra el **Enjambre Multi-Agencia (Swarm Architecture)** con enrutamiento heterogéneo (Ollama, Gemini 3.x Flash, Claude, Groq, OpenAI), ejecución autónoma y auto-reparación determinística (Auto-ReAct & Auto-Healing), recuperación de código vectorial con AST Splitter (RAG) y el **Mega Planner** para orquestar desarrollos y proyectos de software complejos en entornos Linux.
 
 ---
 
-## 📚 1. CONCEPTOS FUNDAMENTALES
+## 📚 1. CONCEPTOS FUNDAMENTALES & ARQUITECTURA SWARM
 
-**A. Contexto Activo vs. Contexto RAG**
-*   **Contexto Activo:** Archivos añadidos con `/add` se cargan COMPLETOS en la memoria de la IA. Ideal para 1-4 archivos donde necesitas precisión absoluta.
-*   **Contexto RAG (Indexación Vectorial):** Al hacer `/add` sobre una *carpeta*, Jellyfish trocea el código y lo guarda en una base vectorial (ChromaDB) aislada por proyecto. Cada pregunta recupera solo los fragmentos más relevantes.
-*   **Importante:** El RAG ahora crea una base de datos separada por cada proyecto indexado (basada en el hash del directorio), evitando que el código de proyectos distintos se mezcle.
+**A. Enrutador Heterogéneo (Swarm Router)**
+En v6.9.15, los agentes se organizan en **Agencies & Swarms**. El `SwarmRouter` enruta cada rol al modelo y proveedor más eficiente:
+*   **Agentes de Auditoría & Crítica (`@qa_engineer`, `@security_auditor`, `@critic`):** Enrutados a modelos de baja latencia y alta precisión lógica (ej. Groq / Llama 3.3 70B o modelos QA dedicados) para evaluación ultrarrapida sin sesgo de autor.
+*   **Agentes Constructores & Planificadores (`@developer`, `@architect`, `@scrum_master`):** Enrutados a modelos con ventanas de contexto masivo y alta capacidad de codificación y razonamiento extensivo (ej. Gemini 3.6 Flash / Pro, Claude 3.5, OpenAI, o Qwen 2.5 local).
 
-**B. Bucle Auto-ReAct (Autonomía y Permisos Dinámicos)**
-Cuando el modelo o el Task Runner sugieren comandos Bash, Jellyfish detiene la ejecución para pedir confirmación interactiva a través de un sistema de permisos:
-*   `[y] Permitir una vez:` Ejecuta el comando actual de forma aislada.
-*   `[n] Denegar:` Detiene de forma segura y devuelve un mensaje de cancelación al agente.
-*   `[a] Permitir siempre para este proyecto:` Activa la auto-aprobación permanente para el proyecto actual, persistiendo la decisión en `.jellyfish_project_config.json`.
-*   **Lista negra rígida:** Los comandos destructivos (como `rm` recursivo destructivo, `mkfs`, `fdisk`, `dd of=/dev/`, `chmod`/`chown` masivos en directorios raíz, y `curl | sh`) se abortan de inmediato y reportan un incidente de seguridad, sin dar opción de omisión al usuario.
-*   **Auto-rechazo:** Si no respondes en 60 segundos, el comando se rechaza automáticamente.
-*   **Ctrl+C grácil:** Interrumpir el stream conserva la respuesta parcial ya recibida sin matar Jellyfish.
+**B. Contexto Activo vs. Contexto RAG Inteligente (Auto-Habilitado)**
+*   **Estado RAG por Defecto (OFF):** Para optimizar la memoria y latencia, el motor vectorial inicia en estado `OFF` por defecto en v6.9.15. Se activa de forma 100% automática tan pronto se realiza un import o ingesta de código con el comando `/add`.
+*   **Contexto Activo:** Archivos individuales añadidos con `/add` se cargan completos en memoria de la IA. Ideal para precisión absoluta en 1-4 archivos de edición directa.
+*   **Contexto RAG (Indexación Vectorial AST):** Al importar carpetas completas, Jellyfish procesa el código utilizando transformadores y analizadores AST en Python para mantener integras funciones y clases, indexándolas en bases ChromaDB separadas y aisladas con hash criptográfico por cada proyecto.
 
-**C. Orquestador Multi-Agente (`/research`)**
-Un sistema de 4 fases para consultas complejas: **Planificación → Búsqueda en RAG → Síntesis → Citación**. Los subagentes trabajan en silencio y solo el reporte final se muestra en pantalla. Al terminar se imprime una tabla con el tiempo de cada fase.
+**C. Bucle Auto-ReAct & Auto-Healing Determinístico**
+Cuando los agentes proponen comandos de terminal o modificaciones sobre el proyecto, intervienen los mecanismos reactivos de seguridad:
+*   `[y] Permitir una vez:` Ejecuta el comando o cambio de forma aislada.
+*   `[n] Denegar:` Detiene con seguridad y devuelve un mensaje explícito de cancelación al agente.
+*   `[a] Permitir siempre para este proyecto:` Persiste el permiso de auto-aprobación en `.jellyfish_project_config.json`.
+*   **Auto-Healing & Parcheo Determinístico (`BuildHealer`):** Desvinculado del orquestador monolítico clásico, este motor repara compilaciones fallidas y aplica diffs o parches granulares de forma determinística con hasta 3 intentos por fallo antes de activar un Circuit Breaker.
+*   **Lista Negra & Sandbox:** Bloquea de raíz cualquier comando destructivo (`rm -rf /`, `dd`, `mkfs`, fork bombs) y ejecuta plugins o extensiones aislando sistema de archivos y red mediante `bubblewrap`.
 
 ---
 
 ## ⚙️ 2. CONFIGURACIÓN DEL SISTEMA
 
-### `/model` (alias: `/m`) — Selector Interactivo de Modelos
-*   Abre un selector interactivo en TUI para elegir rápidamente el proveedor (Ollama, Gemini, Claude) y el modelo específico a utilizar.
+### `/model` (alias: `/m`) — Selector Interactivo TUI de Modelos & Swarm
+*   Abre el selector interactivo para cambiar modelos generales, de planificación o enrutamiento híbrido entre Ollama (locales) y nube (Gemini, OpenRouter, Claude, Groq, OpenAI).
 
 ### `/config` — Panel de Configuración Hot-Reload
-*   `/config` (o `/config menu`): Menú interactivo para ver/cambiar proveedor, modelo y API Keys.
-*   `/config providers` — Lista proveedores, API keys enmascaradas y endpoints.
-*   `/config provider [nombre]` — Opciones: `ollama`, `openai`, `deepseek`, `openrouter`, `gemini`, `qwen`, `kimi`, `zhipu`, `custom`.
-*   `/config model [nombre]` — Cambia el modelo activo (ej. `gpt-4o`, `qwen2.5:32b`).
-*   `/config key [proveedor] [valor]` — Guarda una API Key en `.env` con permisos `600` automáticos.
-*   `/config endpoint [proveedor] [base_url]` — Cambia la URL base de cualquier proveedor OpenAI-compatible.
-*   `/config subagent_model [modelo]` — Modelo ligero para los Search Agents del orquestador.
-*   `/config subagent_provider [proveedor]` — Proveedor para los subagentes (puede ser distinto al Lead).
-*   `/config context_limit [tokens]` — Ajusta el límite de contexto del modelo (por defecto: 8192).
+*   `/config` (o `/config menu`): Menú de configuración para ver/editar proveedores, modelos del enjambre y API keys.
+*   `/config providers` — Muestra el catálogo de proveedores y endpoints activos.
+*   `/config provider [nombre]` — Opciones: `ollama`, `gemini`, `openai`, `claude`, `groq`, `openrouter`, `deepseek`, `qwen`, `kimi`, `zhipu`, `custom`.
+*   `/config model [nombre]` — Define el modelo del Lead Agent o ejecutor.
+*   `/config key [proveedor] [valor]` — Almacena de forma segura (con `chmod 600`) la llave API en el archivo `.env`.
+*   `/config endpoint [proveedor] [base_url]` — Customiza URLs base para endpoints compatibles.
+*   `/config subagent_model / subagent_provider` — Define modelos para sub-agentes del enjambre de investigación.
 
-> 🔒 Las API Keys se guardan con permisos `chmod 600` automáticamente para protegerlas.
-
-### `/ignore` — Filtros RAG (.jellyfishignore)
-*   `/ignore` (o `/ignore menu`): Taller interactivo de exclusiones.
-*   `/ignore init`: Genera `.jellyfishignore` con patrones por defecto (venv, node_modules, dist…).
-*   `/ignore add [patrón]`: Agrega un filtro (ej. `*.log`, `temp/`).
-*   `/ignore remove [patrón]`: Elimina un filtro.
-*   `/ignore show`: Lista los patrones activos.
+### `/ignore` — Filtros de Ingesta (.jellyfishignore)
+*   `/ignore` (o `/ignore menu`): Gestión interactiva de exclusiones RAG.
+*   `/ignore init`: Genera `.jellyfishignore` estándar (`.venv`, `node_modules`, `build`, `__pycache__`...).
 
 ---
 
 ## 🧠 3. GESTIÓN DEL RAG Y CONTEXTO
 
-### `/add` — Ingesta de Código
-*   `/add`: Abre un explorador de archivos interactivo.
-*   **Archivo individual:** Se carga completo al Contexto Activo.
-*   **Carpeta:** El RAG indexa todos sus archivos con un splitter inteligente. Para Python, el código se divide respetando los límites reales de funciones y clases (AST-aware), evitando que una función quede partida en dos fragmentos.
+### `/add` — Ingesta e Indexación Auto-Activada
+*   `/add`: Abre explorador de archivos. Al ingresar una carpeta, activa el motor RAG del proyecto e indexa inteligentemente mediante AST.
 
 ### `/context` (alias: `/c`) — Inspector de Contexto Activo
-*   Muestra los archivos vinculados. Permite desvincularlos individualmente o limpiar todo.
+*   Muestra, revisa y permite desvincular o depurar archivos cargados actualmente en memoria activa.
 
-### `/rag` — Panel de Control Vectorial
-*   `/rag status`: Chunks e índice activo. El nombre de la DB indica el proyecto (hash SHA1).
-*   `/rag reindex [ruta]`: Borra y reconstruye el índice desde cero.
-*   `/rag remove [ruta]`: Eliminación granular de un archivo o carpeta del índice.
-*   `/rag clear`: Limpia completamente la base RAG activa.
+### `/rag` — Panel del Motor Vectorial
+*   `/rag status`: Visualiza el estado, chunks indexados y si el motor se encuentra en `ON` (activo) u `OFF` (en espera).
+*   `/rag reindex / remove / clear`: Gestión granular de reconstrucción y limpieza de índices por proyecto.
 
-### `/purge` — Amnesia Total
-*   Elimina el Contexto Activo completo y la base RAG en un solo paso.
+### `/purge` — Reinicio de Contexto (Amnesia)
+*   Purga la memoria activa del chat y limpia la base vectorial del proyecto en curso.
 
 ---
 
-## 🤖 4. ORQUESTADOR MULTI-AGENTE
+## 🤖 4. ORQUESTADOR MULTI-AGENTE & MEGA PLANNER
 
-### `/research <consulta>` — Investigación Autónoma Multi-Paso
-Ideal para preguntas complejas sobre tu codebase. Ejecuta un pipeline de 4 fases:
+### `/research <consulta>` — Investigación Autónoma Multi-Agente
+Pipeline en 4 etapas para consultas arquitectónicas o técnicas profundas sobre tu repositorio:
+1.  **🗺 Lead Planner:** Descomposición algorítmica del problema y planificación en JSON.
+2.  **🔍 Search Agents:** Consulta reactiva y silenciosa en la base de conocimiento local (RAG).
+3.  **✍ Lead Synthesizer:** Redacción de informe con streaming interactivo TUI.
+4.  **📚 Citation Agent:** Validación de referencias con enlaces directos `file://`.
 
-1.  **🗺 Lead Planner:** Desglosa la consulta en 1-3 pasos de búsqueda (genera JSON internamente).
-2.  **🔍 Search Agents:** Cada paso consulta el RAG en silencio y resume los hallazgos.
-3.  **✍ Lead Synthesizer:** Redacta un reporte cohesivo fundamentado en los hallazgos (streaming visible).
-4.  **📚 Citation Agent:** Verifica y añade enlaces `file://` a los archivos fuente mencionados.
-
-Al finalizar se imprime una tabla con el tiempo de cada agente y los tokens estimados.
-
-*   Ejemplo: `/research cómo funciona el sistema de plugins y qué archivos interactúan con él`
-*   El reporte se guarda automáticamente en el historial para continuar la conversación.
-
-### `/auto <descripción>` (alias: `/build`) — Agencia Autónoma de Desarrollo
-Ejecuta un pipeline completo de desarrollo de software de forma **automática**, encadenando 5 agentes sin intervención manual:
-
-1.  **📝 Product Owner:** Analiza tu idea y genera el `BACKLOG.md` con historias de usuario. **(✋ Checkpoint: te pide aprobación)**.
-2.  **📋 Scrum Master:** Toma el backlog aprobado y genera el `SPRINT_BOARD.md` con la planificación del sprint.
-3.  **🏗️ Arquitecto:** Diseña la arquitectura del sistema en `ARCHITECTURE.md`.
-4.  **💻 Developer:** Genera el plan de implementación con código en `IMPLEMENTATION_PLAN.md`.
-5.  **🧪 QA Engineer:** Crea el plan de pruebas en `TEST_PLAN.md`.
-
-⚠️ **Requiere un proyecto activo** (`/project`). Todos los archivos se generan en la carpeta del proyecto.
-
-*   Ejemplo: `/auto Quiero una API REST con FastAPI para gestionar inventario con exportación a PDF`
+### `/auto <descripción>` (alias: `/build`) — Agencia Autónoma de Desarrollo con Mega Planner
+Orquesta el ciclo de vida de ingeniería y sprint completo con 5 agentes cognitivos especializados:
+1.  **📝 Product Owner:** Redacción del `BACKLOG.md` con historias de usuario priorizadas **(✋ Checkpoint de aprobación)**.
+2.  **📋 Scrum Master & Mega Planner:** Descomposición estructural y creación del tablero `SPRINT_BOARD.md` con tareas secuenciales.
+3.  **🏗️ Arquitecto:** Diseño e infraestructura en `ARCHITECTURE.md` (con Sprint 0 / US-000 obligatorio para configuración base).
+4.  **💻 Developer:** Desarrollo e implementación granular (`IMPLEMENTATION_PLAN.md`).
+5.  **🧪 QA Engineer:** Estrategia de validación y testeo continuo (`TEST_PLAN.md`) supervisada por Circuit Breaker (El Juez).
 
 ---
 
-## 🛠️ 5. AGENTES Y HABILIDADES
+## 🛠️ 5. AGENTES Y HABILIDADES (SKILLS)
 
-### `/agent` (alias: `/a`) — Taller de Personalidades
-Crea, carga, edita o elimina agentes (ej. `frontend_senior`, `experto_aws`). Cada agente tiene rol, tono, expertise y reglas inquebrantables definidas en un archivo `.md`.
+### `/agent` (alias: `/a`) — Taller de Agencias & Personalidades
+*   Administra las agencias especializadas (DEVELOPMENT, MARKETING, etc.) y carga roles persistenes desde archivos `.md`.
 
-### `@<nombre>` — Cambio Rápido de Agente
-*   Escribe `@experto_aws` y presiona Enter para activar ese agente instantáneamente.
-*   El autocompletado con Tab muestra la descripción de cada agente leída desde su archivo `.md`.
-*   Usa `@exit` para volver a la personalidad neutral de Jellyfish.
+### `@<nombre>` — Activación Instantánea de Agente
+*   Escribe `@developer`, `@qa_engineer`, `@architect`, `@sentinel`, `@marketing_strategist`, etc. para conmutar al instante. autocompletado disponible con Tab.
 
-### `/skill` (alias: `/s`) — Macros Inteligentes
-Las Skills enseñan al agente comandos Bash pre-configurados con manejo de errores. Útil para flujos como `git_push`, `docker_deploy` o `run_tests`.
+### `/skill` (alias: `/s`) — Macros & Habilitadores Automatizados
+*   Ejecución y registro de macros seguras para automatizar tareas repetitivas de terminal (deployments, git, test pipelines).
 
 ---
 
-## 📁 6. GESTIÓN DE PROYECTOS Y GUÍAS DE CONSTRUCCIÓN
+## 📁 6. PROYECTOS, AISLAMIENTO VIRTUAL & GUÍAS
 
-### `/project <ruta>` — Aislamiento y Entornos Virtuales
-*   `/project [ruta_directorio]` — Carga o inicializa un proyecto Scrum o Cascada en Jellyfish.
-*   **Aislamiento automático:** Al cargar un proyecto con código Python, Jellyfish crea automáticamente un entorno virtual `.venv` y lo activa para aislar todas las instalaciones de dependencias del sistema host.
-*   **Locks de concurrencia:** Crea un lock en la raíz del proyecto para evitar colisiones de ChromaDB o archivos si se abre en otra sesión de Jellyfish.
+### `/project <ruta>` — Gestión y Entornos `.venv`
+*   Carga un repositorio como proyecto activo en Jellyfish. Crea de manera automática un entorno virtual Python `.venv` aislado del sistema operativo raíz y aplica bloqueos concurrentes (locks) contra colisiones temporales.
 
 ### Guías de Construcción (`/gon` y `/goff`)
-*   `/gon` — Activa la guía interactiva del proyecto para sprints y metodología Scrum.
-*   `/goff` — Desactiva las guías interactivas para una experiencia de chat más limpia.
+*   `/gon` / `/goff`: Activa o deshabilita la asistencia didáctica de metodología ágil y convenciones durante el chat.
 
-### `/compile` — Compilación y Verificación de Integridad
-*   `/compile` — Lanza la compilación del proyecto utilizando la detección automática de herramientas (ej. Java, Node, Python) en un entorno de ejecución seguro.
+### `/compile` — Verificación e Integridad
+*   Ejecuta las herramientas de build detectadas (Python, Node, Java/Gradle) en el sandbox con supervisión del módulo `BuildHealer`.
 
 ---
 
-## 🚀 7. HERRAMIENTAS DE SISTEMA
+## 🚀 7. HERRAMIENTAS DE SISTEMA & PLUGIN SANDBOXING
 
-### `/run` (alias: `/r`) — Terminal Integrada
-*   `/run [comando]`: Ejecuta un comando sin salir de Jellyfish. La salida se inyecta al historial.
-*   Timeout por defecto: 120s. Personalizable con `--timeout=N`.
-*   La salida larga se trunca mostrando el **inicio y el final** (donde suelen estar los errores).
-*   Comandos destructivos son bloqueados antes de ejecutarse, incluso si el LLM los sugiere.
+### `/run` (alias: `/r`) — Terminal Seguro Integrado
+*   Ejecuta comandos Bash con truncamiento inteligente en logs e inspección de seguridad en tiempo real.
 
-### `/plugin` — Sistema Modular Python
-*   Los plugins son archivos `.py` en `agencia/plugins/` con una función `execute(args) -> str`.
-*   `/plugin`: Lista los plugins disponibles con su descripción.
-*   `/plugin [nombre] [args]`: Ejecuta el plugin con timeout de 30s. Si `bubblewrap` está disponible, se usa aislamiento de filesystem/red; si no, se usa Python aislado con entorno sin claves.
-    *   Si el plugin cuelga o usa demasiados recursos, se aborta automáticamente.
-    *   Para desactivar el sandbox: `export JELLYFISH_PLUGIN_UNSAFE=1` (no recomendado).
+### `/plugin` — Extensiones con Aislamiento Bubblewrap
+*   `/plugin`: Visualiza o ejecuta módulos Python de terceros en entornos restringidos sin acceso al sistema raíz ni claves.
+*   Desactivable bajo propio riesgo con `JELLYFISH_PLUGIN_UNSAFE=1`.
 
-### `/clear` — Limpiar Historial de Chat
-*   Limpia los mensajes recientes. **No borra** el RAG ni el Contexto Activo.
-
-### `/provider` — Inspector de Proveedor Activo
-*   Muestra proveedor, modelo y si es local (Ollama) o en la nube.
+### `/clear`, `/provider`, `/errors`, `/status`
+*   Comandos de inspección TUI para diagnosticar fallos (`/errors`), verificar configuración activa (`/provider`, `/status`) o limpiar vista (`/clear`).
 
 ---
 
@@ -175,39 +140,43 @@ Las Skills enseñan al agente comandos Bash pre-configurados con manejo de error
 
 | Variable | Default | Descripción |
 |---|---|---|
-| `JELLYFISH_PROVIDER` | `ollama` | Proveedor de IA principal (`ollama`, `openai`, `deepseek`, `openrouter`, `gemini`, `qwen`, `kimi`, `zhipu`, `custom`) |
-| `JELLYFISH_MODEL` | `qwen2.5-agent:latest` | Modelo del Lead Agent |
-| `JELLYFISH_SUBAGENT_MODEL` | *(hereda MODEL)* | Modelo para Search Agents |
-| `JELLYFISH_SUBAGENT_PROVIDER` | *(hereda PROVIDER)* | Proveedor para subagentes |
-| `JELLYFISH_CONTEXT_LIMIT` | `8192` | Tokens máximos del modelo |
-| `JELLYFISH_RAG_THRESHOLD` | `1.2` | Umbral de relevancia RAG (L2) |
-| `JELLYFISH_EMBED_MODEL` | `nomic-embed-text` | Modelo de embeddings Ollama |
-| `JELLYFISH_PLUGIN_UNSAFE` | `0` | `1` desactiva el sandbox de plugins |
+| `JELLYFISH_PROVIDER` | `ollama` | Proveedor principal (`ollama`, `gemini`, `openai`, `claude`, `groq`, `openrouter`...) |
+| `JELLYFISH_MODEL` | `qwen2.5-coder:latest` | Modelo de ejecución general / código |
+| `JELLYFISH_PLANNER_MODEL` | `gemini-3.6-flash` | Modelo por defecto para el Lead Planner en Swarm |
+| `JELLYFISH_QA_MODEL` | `llama-3.3-70b-versatile` | Modelo para auditorías QA (Groq / local) |
+| `JELLYFISH_USE_HYBRID` | `1` | Activa enrutamiento heterogéneo (SwarmRouter) |
+| `JELLYFISH_CONTEXT_LIMIT` | `8192` | Capacidad máxima del historial en tokens |
+| `JELLYFISH_PLUGIN_UNSAFE` | `0` | `1` deshabilita aislamiento Bubblewrap en plugins |
 
 ---
 
-## ⚡ REFERENCIA RÁPIDA DE COMANDOS
+## ⚡ REFERENCIA RÁPIDA DE COMANDOS v6.9.15
 
 | Comando | Alias | Función |
 |---|---|---|
-| `/model` | `/m` | Selector interactivo de modelos |
-| `/config` | — | Configurar proveedor, modelo o API keys |
-| `/add` | — | Añadir archivo o carpeta al contexto/RAG |
-| `/context` | `/c` | Gestionar contexto activo |
-| `/rag` | — | Control del índice vectorial |
-| `/project` | `/p` | Cargar/Crear un proyecto |
-| `/auto` | `/build` | Agencia autónoma de desarrollo |
-| `/research` | — | Orquestador multi-agente |
-| `/agent` | `/a` | Gestionar agentes |
-| `/skill` | `/s` | Gestionar habilidades |
-| `/run` | `/r` | Ejecutar comando en terminal |
-| `/compile` | — | Compilar el proyecto activo |
-| `/gon` | — | Activar guías de construcción |
-| `/goff` | — | Desactivar guías de construcción |
-| `/plugin` | — | Ejecutar plugin en sandbox |
-| `/ignore` | — | Gestionar .jellyfishignore |
-| `/errors` | `/d` | Ver errores de la sesión |
-| `/provider` | — | Ver proveedor activo |
+| `/model` | `/m` | Selector interactivo de modelos y Swarm TUI |
+| `/config` | — | Configurar proveedor, modelos o API keys |
+| `/add` | — | Añadir archivo o carpeta y activar RAG auto-habilitado |
+| `/context` | `/c` | Inspector de memoria y archivos activos |
+| `/rag` | — | Monitor del índice vectorial AST |
+| `/project` | `/p` | Cargar o crear proyecto y entorno aislado `.venv` |
+| `/auto` | `/build` | Orquestar agencia autónoma con Mega Planner |
+| `/research` | — | Investigación profunda multi-agente en 4 etapas |
+| `/agent` | `/a` | Administrar personalidades de agentes cognitivos |
+| `/skill` | `/s` | Gestor de macros y habilidades |
+| `/run` | `/r` | Terminal seguro sin salir del sistema |
+| `/compile` | — | Compilar proyecto con supervisión BuildHealer |
+| `/gon` / `/goff` | — | Habilitar / deshabilitar guías ágiles interactivas |
+| `/plugin` | — | Módulo de extensiones bajo sandbox Bubblewrap |
+| `/ignore` | — | Control del archivo `.jellyfishignore` |
+| `/errors` | `/d` | Monitor de excepciones del sistema |
+| `/status` | `/info` | Diagnóstico completo de configuración y sesión |
+| `/purge` | — | Amnesia total: limpiar historial, RAG y memoria |
+| `/clear` | — | Limpiar pantalla de terminal |
+| `/help` | `/h` | Visualizar este manual v6.9.15 |
+| `/exit` | — | Cerrar Jellyfish OS en orden y apagar servicios |
+
+"""r proveedor activo |
 | `/status` | `/info` | Ver el estado actual del sistema y la configuración activa |
 | `/purge` | — | Borrar todo contexto y RAG |
 | `/clear` | — | Limpiar historial de chat |

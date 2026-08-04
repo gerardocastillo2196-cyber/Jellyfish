@@ -1925,6 +1925,7 @@ def test_static_context_budget_limit():
     with tempfile.TemporaryDirectory() as temp_dir:
         state = JellyfishState()
         state.active_project = temp_dir
+        state.active_agent = "developer"
         
         # Crear un archivo de diseño gigante de 30KB
         huge_doc = os.path.join(temp_dir, "DESIGN_TOKENS.md")

@@ -18,6 +18,7 @@ PROVIDER_CONFIGS = {
         "api_key_env": None,
         "base_url_env": "OLLAMA_URL",
         "default_base_url": "http://localhost:11434/api/chat",
+        "default_model": "qwen2.5-agent:latest",
         "openai_compatible": False,
     },
     "openai": {
@@ -25,6 +26,7 @@ PROVIDER_CONFIGS = {
         "api_key_env": "OPENAI_API_KEY",
         "base_url_env": "OPENAI_BASE_URL",
         "default_base_url": "https://api.openai.com/v1",
+        "default_model": "gpt-4o",
         "openai_compatible": True,
     },
     "deepseek": {
@@ -32,6 +34,7 @@ PROVIDER_CONFIGS = {
         "api_key_env": "DEEPSEEK_API_KEY",
         "base_url_env": "DEEPSEEK_BASE_URL",
         "default_base_url": "https://api.deepseek.com",
+        "default_model": "deepseek-coder",
         "openai_compatible": True,
     },
     "openrouter": {
@@ -39,6 +42,7 @@ PROVIDER_CONFIGS = {
         "api_key_env": "OPENROUTER_API_KEY",
         "base_url_env": "OPENROUTER_BASE_URL",
         "default_base_url": "https://openrouter.ai/api/v1",
+        "default_model": "meta-llama/llama-3.1-405b-instruct",
         "openai_compatible": True,
     },
     "gemini": {
@@ -46,6 +50,15 @@ PROVIDER_CONFIGS = {
         "api_key_env": "GEMINI_API_KEY",
         "base_url_env": "GEMINI_BASE_URL",
         "default_base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "default_model": "gemini-3.6-flash",
+        "openai_compatible": True,
+    },
+    "groq": {
+        "label": "Groq Cloud (Low Latency QA/Reasoning)",
+        "api_key_env": "GROQ_API_KEY",
+        "base_url_env": "GROQ_BASE_URL",
+        "default_base_url": "https://api.groq.com/openai/v1",
+        "default_model": "llama-3.3-70b-versatile",
         "openai_compatible": True,
     },
     "qwen": {
@@ -55,6 +68,7 @@ PROVIDER_CONFIGS = {
         "base_url_env": "DASHSCOPE_BASE_URL",
         "base_url_aliases": ("QWEN_BASE_URL",),
         "default_base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "default_model": "qwen-max",
         "openai_compatible": True,
     },
     "kimi": {
@@ -64,6 +78,7 @@ PROVIDER_CONFIGS = {
         "base_url_env": "KIMI_BASE_URL",
         "base_url_aliases": ("MOONSHOT_BASE_URL",),
         "default_base_url": "https://api.moonshot.ai/v1",
+        "default_model": "moonshot-v1-8k",
         "openai_compatible": True,
     },
     "zhipu": {
@@ -71,6 +86,7 @@ PROVIDER_CONFIGS = {
         "api_key_env": "ZHIPU_API_KEY",
         "base_url_env": "ZHIPU_BASE_URL",
         "default_base_url": "https://open.bigmodel.cn/api/paas/v4",
+        "default_model": "glm-4",
         "openai_compatible": True,
     },
     "custom": {
@@ -78,6 +94,7 @@ PROVIDER_CONFIGS = {
         "api_key_env": "CUSTOM_API_KEY",
         "base_url_env": "CUSTOM_BASE_URL",
         "default_base_url": "",
+        "default_model": "custom-model",
         "openai_compatible": True,
     },
     "claude": {
@@ -87,6 +104,7 @@ PROVIDER_CONFIGS = {
         "base_url_env": "ANTHROPIC_BASE_URL",
         "base_url_aliases": ("CLAUDE_BASE_URL",),
         "default_base_url": "https://api.anthropic.com/v1",
+        "default_model": "claude-3-5-sonnet-20241022",
         "openai_compatible": False,
     },
 }
@@ -179,17 +197,29 @@ def load_config_from_env(state) -> None:
         pass
 
     state.provider = normalize_provider(os.getenv("JELLYFISH_PROVIDER", "ollama"))
-    state.model = os.getenv("JELLYFISH_MODEL", "qwen2.5-agent:latest")
+    default_provider_model = PROVIDER_CONFIGS.get(state.provider, {}).get("default_model", "qwen2.5-agent:latest")
+    state.model = os.getenv("JELLYFISH_MODEL", default_provider_model)
     state.use_hybrid = os.getenv("JELLYFISH_USE_HYBRID", "1") == "1"
 
     # Enrutamiento Híbrido de Modelos por Rol
     raw_planner_provider = os.getenv("JELLYFISH_PLANNER_PROVIDER", "gemini")
     state.planner_provider = normalize_provider(raw_planner_provider)
-    state.planner_model = os.getenv("JELLYFISH_PLANNER_MODEL", "gemini-3.6-flash")
+    default_planner_model = PROVIDER_CONFIGS.get(state.planner_provider, {}).get("default_model", "gemini-3.6-flash")
+    state.planner_model = os.getenv("JELLYFISH_PLANNER_MODEL", default_planner_model)
 
     raw_executor_provider = os.getenv("JELLYFISH_EXECUTOR_PROVIDER", "ollama")
     state.executor_provider = normalize_provider(raw_executor_provider)
-    state.executor_model = os.getenv("JELLYFISH_EXECUTOR_MODEL", "qwen2.5-coder:latest")
+    default_executor_model = PROVIDER_CONFIGS.get(state.executor_provider, {}).get("default_model", "qwen2.5-coder:latest")
+    state.executor_model = os.getenv("JELLYFISH_EXECUTOR_MODEL", default_executor_model)
+
+    raw_qa_provider = os.getenv("JELLYFISH_QA_PROVIDER")
+    if raw_qa_provider:
+        state.qa_provider = normalize_provider(raw_qa_provider)
+        default_qa_model = PROVIDER_CONFIGS.get(state.qa_provider, {}).get("default_model", "llama-3.3-70b-versatile")
+        state.qa_model = os.getenv("JELLYFISH_QA_MODEL", default_qa_model)
+    else:
+        state.qa_provider = None
+        state.qa_model = None
 
     state.provider_configs = PROVIDER_CONFIGS
     state.api_keys = {}
@@ -276,6 +306,7 @@ def save_config_to_env(state, **kwargs) -> None:
         "deepseek_key": "DEEPSEEK_API_KEY",
         "openrouter_key": "OPENROUTER_API_KEY",
         "gemini_key": "GEMINI_API_KEY",
+        "groq_key": "GROQ_API_KEY",
         "qwen_key": "DASHSCOPE_API_KEY",
         "kimi_key": "KIMI_API_KEY",
         "zhipu_key": "ZHIPU_API_KEY",
@@ -286,6 +317,7 @@ def save_config_to_env(state, **kwargs) -> None:
         "deepseek_base_url": "DEEPSEEK_BASE_URL",
         "openrouter_base_url": "OPENROUTER_BASE_URL",
         "gemini_base_url": "GEMINI_BASE_URL",
+        "groq_base_url": "GROQ_BASE_URL",
         "qwen_base_url": "DASHSCOPE_BASE_URL",
         "kimi_base_url": "KIMI_BASE_URL",
         "zhipu_base_url": "ZHIPU_BASE_URL",
@@ -303,6 +335,8 @@ def save_config_to_env(state, **kwargs) -> None:
         "planner_model": "JELLYFISH_PLANNER_MODEL",
         "executor_provider": "JELLYFISH_EXECUTOR_PROVIDER",
         "executor_model": "JELLYFISH_EXECUTOR_MODEL",
+        "qa_provider": "JELLYFISH_QA_PROVIDER",
+        "qa_model": "JELLYFISH_QA_MODEL",
     }
 
     updated = set()
@@ -355,6 +389,7 @@ OPENAI_BASE_URL     = os.getenv("OPENAI_BASE_URL", PROVIDER_CONFIGS["openai"]["d
 DEEPSEEK_BASE_URL   = os.getenv("DEEPSEEK_BASE_URL", PROVIDER_CONFIGS["deepseek"]["default_base_url"])
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", PROVIDER_CONFIGS["openrouter"]["default_base_url"])
 GEMINI_BASE_URL     = os.getenv("GEMINI_BASE_URL", PROVIDER_CONFIGS["gemini"]["default_base_url"])
+GROQ_BASE_URL       = os.getenv("GROQ_BASE_URL", PROVIDER_CONFIGS["groq"]["default_base_url"])
 DASHSCOPE_BASE_URL  = os.getenv("DASHSCOPE_BASE_URL", PROVIDER_CONFIGS["qwen"]["default_base_url"])
 KIMI_BASE_URL       = os.getenv("KIMI_BASE_URL", PROVIDER_CONFIGS["kimi"]["default_base_url"])
 ZHIPU_BASE_URL      = os.getenv("ZHIPU_BASE_URL", PROVIDER_CONFIGS["zhipu"]["default_base_url"])
@@ -364,6 +399,7 @@ OPENAI_API_KEY      = os.getenv("OPENAI_API_KEY", "")
 DEEPSEEK_API_KEY    = os.getenv("DEEPSEEK_API_KEY", "")
 OPENROUTER_API_KEY  = os.getenv("OPENROUTER_API_KEY", "")
 GEMINI_API_KEY      = os.getenv("GEMINI_API_KEY", "")
+GROQ_API_KEY        = os.getenv("GROQ_API_KEY", "")
 DASHSCOPE_API_KEY   = os.getenv("DASHSCOPE_API_KEY", os.getenv("QWEN_API_KEY", ""))
 KIMI_API_KEY        = os.getenv("KIMI_API_KEY", os.getenv("MOONSHOT_API_KEY", ""))
 ZHIPU_API_KEY       = os.getenv("ZHIPU_API_KEY", "")

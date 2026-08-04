@@ -46,7 +46,7 @@ def display_header(active_agent="default", model_name="none", num_skills=0,
                    num_docs=0, rag_status="RAG[OFF]", provider="ollama",
                    project_name="", project_methodology="", silent=False,
                    token_budget=None, llm_busy=False, session_tokens=0,
-                   active_agency="default"):
+                   active_agency="default", state=None):
     """Renderiza el header usando el motor TUI (header fijo).
 
     Sprint 7.0 — Delega al TUIEngine para pintar el header en la zona fija.
@@ -114,12 +114,37 @@ def display_header(active_agent="default", model_name="none", num_skills=0,
     model_short = model_name[:30] if len(model_name) > 30 else model_name
     rag_status_short = "ON" if "ON" in rag_status else "OFF"
 
-    line1 = (
-        f"[bold]JELLYFISH[/bold] [dim]│[/dim] "
-        f"[bold]@{active_agent.upper()[:10]}[/bold] [dim]({active_agency.upper()})[/dim] [dim]│[/dim] "
-        f"[dim]MOD:[/dim] [bold]{model_short}[/bold] [dim][{provider.upper()}:{model_status_text}][/dim] [dim]│[/dim] "
-        f"[dim]OLLAMA:[/dim] [bold]{'ON' if ollama_ok else 'OFF'}[/bold]"
-    )
+    use_hybrid = False
+    if state:
+        use_hybrid = getattr(state, "use_hybrid", True)
+        if isinstance(use_hybrid, str):
+            use_hybrid = use_hybrid == "1" or use_hybrid.lower() == "true"
+
+    if use_hybrid and state:
+        from core.llm_engine import SwarmRouter
+        p_prov, p_mod = SwarmRouter.route_agent(state, "architect")
+        e_prov, e_mod = SwarmRouter.route_agent(state, "developer")
+        q_prov, q_mod = SwarmRouter.route_agent(state, "qa_engineer")
+        
+        p_short = p_mod[:15] if len(p_mod) > 15 else p_mod
+        e_short = e_mod[:15] if len(e_mod) > 15 else e_mod
+        q_short = q_mod[:15] if len(q_mod) > 15 else q_mod
+        
+        line1 = (
+            f"[bold]JELLYFISH[/bold] [dim]│[/dim] "
+            f"[bold]@{active_agent.upper()[:10]}[/bold] [dim]({active_agency.upper()})[/dim] [dim]│[/dim] "
+            f"[dim]SWARM:[/dim] [yellow]PLN:{p_short}[/yellow] "
+            f"[cyan]DEV:{e_short}[/cyan] "
+            f"[magenta]QA:{q_short}[/magenta] [dim]│[/dim] "
+            f"[dim]OLLAMA:[/dim] [bold]{'ON' if ollama_ok else 'OFF'}[/bold]"
+        )
+    else:
+        line1 = (
+            f"[bold]JELLYFISH[/bold] [dim]│[/dim] "
+            f"[bold]@{active_agent.upper()[:10]}[/bold] [dim]({active_agency.upper()})[/dim] [dim]│[/dim] "
+            f"[dim]MOD:[/dim] [bold]{model_short}[/bold] [dim][{provider.upper()}:{model_status_text}][/dim] [dim]│[/dim] "
+            f"[dim]OLLAMA:[/dim] [bold]{'ON' if ollama_ok else 'OFF'}[/bold]"
+        )
     
     line2 = (
         f"[dim]CTX:[/dim] [bold]{num_docs}[/bold] [dim]│[/dim] "

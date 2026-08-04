@@ -248,7 +248,7 @@ def show_project_guide_if_needed(state) -> None:
         f"  • Metodología activa: {methodology}  • Agencia activa: {agency}",
         "",
         "--------------------------------------------------------------",
-        "🪼 1. ARQUITECTURA MULTI-AGENCIA (JELLYFISH OS v6.9.12)",
+        "🪼 1. ARQUITECTURA MULTI-AGENCIA (JELLYFISH OS v6.9.15)",
         "Jellyfish OS agrupa a los agentes en agencias especializadas:",
         "  - DEVELOPMENT: Ingeniería de software, bugs, arquitectura y desarrollo.",
         "  - MARKETING: Estrategias de venta, SEO, redacción de copy y contenido.",
@@ -429,36 +429,7 @@ def _project_create(raw_path: str, state, rag, display_header_func, methodology:
     state.save_config(active_project=project_path, project_methodology=methodology)
     console.print(f"✓ Proyecto activo: {project_path} ({methodology_label})")
 
-    # Generación de estructura de código base (Boilerplate)
-    boilerplate_choice = interactive_picker(
-        "SELECCIONAR ESTRUCTURA DE CÓDIGO (BOILERPLATE)",
-        ["1. Ninguno (Solo archivos de metodología)", "2. Python (src/, tests/, requirements.txt)", "3. Node.js (src/, tests/, package.json)"]
-    )
-    
-    if boilerplate_choice and not boilerplate_choice.startswith("1."):
-        try:
-            if "Python" in boilerplate_choice:
-                os.makedirs(os.path.join(project_path, "src"), exist_ok=True)
-                os.makedirs(os.path.join(project_path, "tests"), exist_ok=True)
-                with open(os.path.join(project_path, "requirements.txt"), "w", encoding="utf-8") as f:
-                    f.write("# Jellyfish OS Python dependencies\npytest>=8.0.0\n")
-                with open(os.path.join(project_path, "src", "main.py"), "w", encoding="utf-8") as f:
-                    f.write('def main():\n    print("Hello from Jellyfish OS!")\n\nif __name__ == "__main__":\n    main()\n')
-                with open(os.path.join(project_path, "tests", "test_main.py"), "w", encoding="utf-8") as f:
-                    f.write('from src.main import main\n\ndef test_main():\n    assert True\n')
-                console.print("✓ Estructura de código Python creada (src/, tests/, requirements.txt).")
-            elif "Node" in boilerplate_choice:
-                os.makedirs(os.path.join(project_path, "src"), exist_ok=True)
-                os.makedirs(os.path.join(project_path, "tests"), exist_ok=True)
-                with open(os.path.join(project_path, "package.json"), "w", encoding="utf-8") as f:
-                    f.write('{\n  "name": "jellyfish-node-app",\n  "version": "1.0.0",\n  "main": "src/index.js",\n  "scripts": {\n    "test": "jest"\n  },\n  "devDependencies": {\n    "jest": "^29.0.0"\n  }\n}\n')
-                with open(os.path.join(project_path, "src", "index.js"), "w", encoding="utf-8") as f:
-                    f.write('function main() {\n  console.log("Hello from Jellyfish OS!");\n}\nmodule.exports = { main };\n')
-                with open(os.path.join(project_path, "tests", "index.test.js"), "w", encoding="utf-8") as f:
-                    f.write('const { main } = require("../src/index");\ntest("main runs", () => {\n  expect(true).toBe(true);\n});\n')
-                console.print("✓ Estructura de código Node.js creada (src/, tests/, package.json).")
-        except Exception as e:
-            console.print(f"✗ Error al generar estructura de código: {e}")
+
 
     for filename in methodology_files:
         filepath = os.path.join(project_path, filename)

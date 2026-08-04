@@ -4,7 +4,7 @@
 ║║╣ ║  ║  ╚╦╝╠╣ ║╚═╗╠═╣
 ╚╝╚═╝╩═╝╩═╝ ╩ ╚  ╩╚═╝╩ ╩
 
-Jellyfish OS v5.1 — Framework de Agentes con RAG Local + Cloud AI
+Jellyfish OS v6.9.15 — Sistema Operativo de Agentes Cognitivos & Enjambre Multi-Agente (Swarm Architecture)
 Orquestador principal. Toda la lógica vive en core/.
 
 Sprint 7.0 — Integración TUI:
@@ -235,11 +235,12 @@ from core.event_bus import event_bus, EventType
 register_cli_subscriber(state)
 event_bus.publish(EventType.SYSTEM_BOOT, {"provider": state.provider, "model": state.model})
 
-# Auto-migración de modelos obsoletos de Gemini
-if state.provider == "gemini" and (not state.model or "gemini-3.5" in state.model or "gemini-3.1" in state.model):
-    from core.config import save_config_to_env
-    console.print(f"[yellow]⚠️  Modelo obsoleto '{state.model}' detectado. Migrando automáticamente a 'gemini-2.5-flash'...[/yellow]")
-    save_config_to_env(state, model="gemini-2.5-flash")
+# Validación y resguardo ante falta de modelo asignado en la sesión
+if not state.model:
+    from core.config import save_config_to_env, PROVIDER_CONFIGS
+    default_mod = PROVIDER_CONFIGS.get(state.provider, {}).get("default_model", "qwen2.5-agent:latest")
+    console.print(f"[yellow]⚡ Asignando modelo oficial predeterminado del proveedor '{state.provider.upper()}': '{default_mod}'...[/yellow]")
+    save_config_to_env(state, model=default_mod)
 
 # Verificar API Key si el proveedor no es Ollama
 if state.provider != "ollama":
@@ -266,7 +267,7 @@ state.rag = rag
 plugins = PluginManager(PLUGINS_DIR)
 
 
-def refresh_header(force=False):
+def refresh_header(force=True):
     """Renderiza el header con el estado actual del sistema.
     
     Sprint 8.0 — Ahora pasa el token_budget para la barra visual
@@ -290,6 +291,7 @@ def refresh_header(force=False):
         llm_busy=_state_mod._llm_busy,
         session_tokens=getattr(state, "session_tokens", 0),
         active_agency=getattr(state, "active_agency", "default"),
+        state=state,
     )
 
 

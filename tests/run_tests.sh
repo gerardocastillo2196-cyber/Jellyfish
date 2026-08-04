@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# tests/run_tests.sh — Script integral de testing para Jellyfish OS v5.1
+# tests/run_tests.sh — Script integral de testing para Jellyfish OS v6.9.15
 #
 # Uso:
 #   bash tests/run_tests.sh           # Todos los niveles
@@ -65,7 +65,7 @@ run_python() {
 }
 
 echo ""
-echo -e "${BOLD}🪼 Jellyfish OS v5.1 — Suite de Testing${RESET}"
+echo -e "${BOLD}🪼 Jellyfish OS v6.9.15 — Suite de Testing${RESET}"
 echo -e "${BOLD}   $(date '+%Y-%m-%d %H:%M:%S')${RESET}"
 
 # ===========================================================================
@@ -313,7 +313,7 @@ fi
 # ===========================================================================
 echo ""
 echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-echo -e "${BOLD}  📊 Resumen — Jellyfish OS v5.1${RESET}"
+echo -e "${BOLD}  📊 Resumen — Jellyfish OS v6.9.15${RESET}"
 echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 echo ""
 echo -e "  ${GREEN}✅ Pasaron : $PASS${RESET}"

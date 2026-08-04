@@ -6780,3 +6780,579 @@ found character '`' that cannot start any token
 2026-07-29 19:19:35,354 [jellyfish.project_manager] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
 2026-07-29 19:19:37,480 [jellyfish.llm] WARNING: _call_llm_silent HTTP 404 de ollama (modelo: qwen2.5-coder:latest): {"error":"model 'qwen2.5-coder:latest' not found"}
 2026-07-29 19:19:37,506 [jellyfish.llm] WARNING: Modelo 'qwen2.5-coder:latest' no encontrado en Ollama (404). Conmutando al modelo de fallback: 'quewn:latest'
+2026-08-03 20:45:43,220 [jellyfish] ERROR: Error en ejecución de comando: name 'interactive_picker' is not defined
+Traceback (most recent call last):
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/jellyfish.py", line 512, in process_command
+    handle_slash_command(
+    ~~~~~~~~~~~~~~~~~~~~^
+        user_input, state, rag, plugins, refresh_header
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/command_dispatcher.py", line 41, in handle_slash_command
+    handle_config_command(command, arg, state, display_header_func)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/commands/config.py", line 16, in handle_config_command
+    _handle_model_picker(state, display_header_func, arg)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/commands/config.py", line 561, in _handle_model_picker
+    _select_global_model(state, display_header_func)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/commands/config.py", line 575, in _select_global_model
+    prov, mod, key, url = _interactive_select_provider_and_model(state, "MODELO GLOBAL")
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/commands/config.py", line 635, in _interactive_select_provider_and_model
+    selected_prov = interactive_picker(f"{title_prefix} - PROVEEDOR", provider_options)
+                    ^^^^^^^^^^^^^^^^^^
+NameError: name 'interactive_picker' is not defined
+2026-08-03 20:46:10,367 [jellyfish] ERROR: Error en ejecución de comando: name 'interactive_picker' is not defined
+Traceback (most recent call last):
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/jellyfish.py", line 512, in process_command
+    handle_slash_command(
+    ~~~~~~~~~~~~~~~~~~~~^
+        user_input, state, rag, plugins, refresh_header
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/command_dispatcher.py", line 41, in handle_slash_command
+    handle_config_command(command, arg, state, display_header_func)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/commands/config.py", line 16, in handle_config_command
+    _handle_model_picker(state, display_header_func, arg)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/commands/config.py", line 568, in _handle_model_picker
+    _select_local_model(state, display_header_func)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/commands/config.py", line 591, in _select_local_model
+    prov, mod, key, url = _interactive_select_provider_and_model(state, "MODELO LOCAL (EJECUTORES)", restrict_local=True)
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Jellyfish/core/commands/config.py", line 635, in _interactive_select_provider_and_model
+    selected_prov = interactive_picker(f"{title_prefix} - PROVEEDOR", provider_options)
+                    ^^^^^^^^^^^^^^^^^^
+NameError: name 'interactive_picker' is not defined
+2026-08-03 22:24:14,752 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:15,513 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:16,021 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:16,492 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:16,799 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:17,107 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:17,414 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:17,693 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:18,004 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:18,263 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:18,545 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:18,848 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:19,160 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:19,431 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:19,715 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:20,051 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:20,313 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:20,567 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:20,825 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:21,111 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:21,413 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:21,679 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:22,022 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:22,293 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:22,611 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:22,866 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:23,135 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:23,385 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:23,641 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:23,957 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:24,212 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:24,489 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:24,747 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:24,991 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:25,265 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:25,514 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:25,759 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:26,020 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:26,277 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:26,544 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:26,780 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:27,034 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:27,297 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:27,570 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:27,851 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:28,166 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:28,431 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:28,690 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:28,963 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:29,261 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:29,516 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:29,781 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:30,030 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:30,294 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:30,573 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:30,821 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:31,088 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:31,648 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:31,955 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:32,201 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:32,449 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:32,711 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:32,958 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:33,218 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:33,491 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:33,728 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:34,311 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:24:34,570 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:24:34,925 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:33,066 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:33,584 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:33,988 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:34,503 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:34,808 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:37:35,115 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:35,381 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:35,662 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:35,926 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:36,196 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_cont
+2026-08-03 22:37:36,468 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:36,760 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:37,328 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:37,598 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:37,869 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:38,121 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:38,494 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:38,748 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:39,000 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:37:39,277 [jellyfish.llm] WARNING: Fallo en _stream_request: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429 (status_code=429) con modelo gemini-3.1-pro-preview. Iniciando fallback... Detalles: [{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/gene
+2026-08-03 22:43:11,585 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-08-03 22:43:11,589 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json'
+2026-08-03 22:43:11,589 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile'
+2026-08-03 22:43:11,590 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml'
+2026-08-03 22:43:11,590 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod'
+2026-08-03 22:44:05,520 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 22:44:05,530 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 22:44:05,530 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 22:44:05,530 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 22:44:05,530 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md'
+2026-08-03 22:44:07,027 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 22:44:07,027 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 22:44:07,027 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 22:44:07,028 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md'
+2026-08-03 22:44:59,082 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 22:44:59,083 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 22:44:59,083 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 22:44:59,083 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md'
+2026-08-03 23:12:07,390 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/ARCHITECTURE.md'
+2026-08-03 23:12:07,390 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/requirements.txt'
+2026-08-03 23:12:07,390 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json'
+2026-08-03 23:12:07,390 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile'
+2026-08-03 23:12:07,390 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml'
+2026-08-03 23:12:07,390 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod'
+2026-08-03 23:13:24,789 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 23:13:24,795 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 23:13:24,795 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 23:13:24,795 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 23:13:24,795 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md'
+2026-08-03 23:13:24,795 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-08-03 23:13:26,248 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 23:13:26,248 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 23:13:26,248 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 23:13:26,248 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md'
+2026-08-03 23:13:26,248 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-08-03 23:15:09,952 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEVELOPMENT_LOG.md'
+2026-08-03 23:15:09,959 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 23:15:09,959 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 23:15:09,959 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 23:15:09,959 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-08-03 23:15:11,688 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 23:15:11,689 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 23:15:11,689 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 23:15:11,689 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-08-03 23:18:34,213 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 23:18:34,213 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 23:18:34,214 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 23:18:34,214 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-08-03 23:18:35,741 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 23:18:35,741 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 23:18:35,741 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 23:18:35,741 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-08-03 23:20:54,456 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 23:20:54,456 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 23:20:54,456 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 23:20:54,456 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-08-03 23:20:55,962 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 23:20:55,963 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 23:20:55,963 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 23:20:55,963 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-08-03 23:22:41,947 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 23:22:41,947 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 23:22:41,947 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 23:22:41,947 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-08-03 23:25:33,328 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 23:25:33,328 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 23:25:33,328 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 23:25:33,328 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-08-03 23:25:59,398 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DESIGN_TOKENS.md'
+2026-08-03 23:25:59,399 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 23:25:59,399 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 23:25:59,400 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DEPENDENCY_MANIFEST.md'
+2026-08-03 23:38:00,878 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/package.json'
+2026-08-03 23:38:00,878 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/Pipfile'
+2026-08-03 23:38:00,878 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/pyproject.toml'
+2026-08-03 23:38:00,878 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/go.mod'
+2026-08-03 23:38:58,530 [jellyfish.orchestration.task_runner] WARNING: Ciclo detectado en dependencias de tareas, usando orden original.
+2026-08-03 23:38:58,536 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 23:38:58,536 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'
+2026-08-03 23:38:59,877 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/DATA_SCHEMA.md'
+2026-08-03 23:38:59,877 [jellyfish.utils] WARNING: No se pudo leer /run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md: [Errno 2] No such file or directory: '/run/media/gerardo/22cfa637-7b52-4e19-af43-d03036f6d597/Documentos/Scripts/C/COMPONENT_INDEX.md'

@@ -5,6 +5,7 @@ atómicas de NLP sin consumir tokens ni invocar al LLM principal.
 """
 
 import os
+import re
 import logging
 from typing import Any, Optional, List, Dict
 from rich.console import Console
@@ -32,13 +33,21 @@ class LazyModelLoader:
         self._device = self._detect_device()
 
     def _detect_device(self) -> int | str:
-        """Detecta aceleración por GPU (CUDA/MPS); usa CPU (-1 o 'cpu') por defecto para portabilidad."""
+        """Detecta aceleración por GPU (CUDA/MPS); usa CPU (-1 o 'cpu') por defecto o si la GPU es incompatible."""
         try:
+            import warnings
             import torch
-            if torch.cuda.is_available():
-                return 0  # Primer GPU CUDA
-            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                return "mps"
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                if torch.cuda.is_available():
+                    try:
+                        # Verificar si la GPU (ej. CC 6.1) es realmente soportada por esta build de PyTorch
+                        _ = torch.zeros(1, device="cuda:0")
+                        return 0
+                    except Exception:
+                        logger.info("CUDA disponible pero incompatible con esta versión de PyTorch. Usando CPU por defecto.")
+                elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                    return "mps"
         except ImportError:
             pass
         return -1  # CPU
@@ -121,6 +130,126 @@ class LocalTransformersManager:
         except Exception as e:
             logger.error("Error en inferencia de traducción: %s", e)
             return None
+
+    def tag_backlog_item(self, text: str, threshold: float = 0.35) -> List[str]:
+        """Clasifica una historia o tarea y devuelve etiquetas como ['Frontend', 'Security']."""
+        # 1. Enfoque FinOps ultrarrápido (heurístico basado en dominio, 0 ms y 0 tokens)
+        lower_text = text.lower()
+        tags = []
+        if any(w in lower_text for w in ["seguridad", "auth", "login", "password", "jwt", "security", "xss", "csrf", "permiso", "token"]):
+            tags.append("Security")
+        if any(w in lower_text for w in ["bug", "error", "fix", "falla", "corregir", "exception", "crash", "roto"]):
+            tags.append("Bug")
+        if any(w in lower_text for w in ["sql", "db", "base de datos", "query", "sqlite", "postgres", "mongo", "tabla", "index"]):
+            tags.append("Database")
+        if any(w in lower_text for w in ["docker", "ci/cd", "deploy", "kubernetes", "nube", "cloud", "aws", "gce", "pipeline"]):
+            tags.append("DevOps")
+        if any(w in lower_text for w in ["doc", "readme", "guía", "manual", "comentario", "explicación"]):
+            tags.append("Documentation")
+        if any(w in lower_text for w in ["ui", "ux", "css", "html", "react", "vue", "frontend", "vista", "botón", "interfaz", "modal", "pantalla"]):
+            tags.append("Frontend")
+        if any(w in lower_text for w in ["api", "endpoint", "backend", "servidor", "server", "django", "fastapi", "flask", "node", "servicio"]):
+            tags.append("Backend")
+        
+        if tags:
+            return tags
+
+        # 2. Fallback de Transformer Zero-Shot si la heurística no encuentra coincidencias claras
+        candidate_labels = ["Frontend", "Backend", "Security", "Database", "Bug", "DevOps", "Documentation"]
+        res = self.classify_zero_shot(text, candidate_labels)
+        if res and "labels" in res and "scores" in res:
+            labels = res["labels"]
+            scores = res["scores"]
+            top_tags = [l for l, s in zip(labels, scores) if s >= threshold]
+            if not top_tags and len(labels) > 0 and scores[0] >= 0.2:
+                top_tags = [labels[0]]
+            return top_tags if top_tags else ["General"]
+            
+        return ["General"]
+
+    def tag_markdown_backlog(self, markdown_content: str) -> str:
+        """Enriquece un documento de Backlog en Markdown agregando etiquetas automáticas de categoría sin usar LLM."""
+        lines = markdown_content.splitlines()
+        enriched_lines = []
+        for line in lines:
+            # Detectar filas de tabla del backlog: | ID | Historia/Descripción | ...
+            if line.strip().startswith("|") and ("US-" in line or "TASK-" in line or "Como usuario" in line or "Como desarrollador" in line):
+                parts = [p.strip() for p in line.split("|")]
+                if len(parts) >= 3 and not any(tag in parts[2] for tag in ["[Frontend]", "[Backend]", "[Security]", "[Database]", "[Bug]", "[DevOps]", "[Documentation]", "[General]"]):
+                    desc = parts[2]
+                    tags = self.tag_backlog_item(desc)
+                    tag_str = " ".join([f"**[{t}]**" for t in tags])
+                    parts[2] = f"{tag_str} {desc}"
+                    line = " | ".join(parts)
+            enriched_lines.append(line)
+        return "\n".join(enriched_lines)
+
+    def translate_markdown_structured(self, markdown_text: str, model_key: str = "translator_en_es") -> str:
+        """Traduce texto de Markdown aislando bloques de código, enlaces, tablas y formato AST con expresiones regulares."""
+        placeholders = {}
+        counter = 0
+
+        # 1. Proteger bloques de código delimitados por backticks triples
+        def replace_code_block(match):
+            nonlocal counter
+            key = f"«CODE_BLOCK_{counter}»"
+            placeholders[key] = match.group(0)
+            counter += 1
+            return key
+        text = re.sub(r'```[\s\S]*?```', replace_code_block, markdown_text)
+
+        # 2. Proteger código en línea delimitado por un backtick
+        def replace_inline_code(match):
+            nonlocal counter
+            key = f"«INLINE_CODE_{counter}»"
+            placeholders[key] = match.group(0)
+            counter += 1
+            return key
+        text = re.sub(r'`[^`]*?`', replace_inline_code, text)
+
+        # 3. Proteger destinos de enlace en Markdown: [texto](destino) -> dejamos texto, protegemos (destino)
+        def replace_link_target(match):
+            nonlocal counter
+            target = match.group(1)
+            key = f"«LINK_TARGET_{counter}»"
+            placeholders[key] = f"({target})"
+            counter += 1
+            return key
+        text = re.sub(r'\]\(([^)]+)\)', lambda m: f"]{replace_link_target(m)}", text)
+
+        # 4. Procesar y traducir por líneas/segmentos conservando sintaxis de tablas y bordes
+        lines = text.splitlines()
+        translated_lines = []
+        for line in lines:
+            stripped = line.strip()
+            # No traducir separadores de tabla, encabezados vacíos o separadores horizontales
+            if not stripped or re.match(r'^[\s\|\-\:\*\+\#\>]+$', stripped) or stripped in placeholders:
+                translated_lines.append(line)
+                continue
+            
+            # Si es una fila de tabla, traducir celda por celda
+            if stripped.startswith("|") and stripped.endswith("|"):
+                cells = line.split("|")
+                t_cells = []
+                for idx, cell in enumerate(cells):
+                    c_str = cell.strip()
+                    if idx == 0 or idx == len(cells) - 1 or not c_str or c_str in placeholders:
+                        t_cells.append(cell)
+                    else:
+                        t_res = self.translate_text(c_str, model_key=model_key)
+                        t_cells.append(f" {t_res if t_res else c_str} ")
+                translated_lines.append("|".join(t_cells))
+            else:
+                t_res = self.translate_text(line, model_key=model_key)
+                translated_lines.append(t_res if t_res else line)
+
+        result = "\n".join(translated_lines)
+
+        # 5. Restaurar todos los placeholders intactos en su ubicación original (en orden inverso o por clave)
+        for key, orig in reversed(list(placeholders.items())):
+            result = result.replace(key, orig)
+
+        return result
 
 
 # Singleton global exportado para consumo en el OS

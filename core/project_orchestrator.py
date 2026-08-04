@@ -1083,25 +1083,10 @@ class ProjectOrchestrator:
         json_board_filename = self.board_filename.replace(".md", ".json")
         json_board_path = os.path.join(self.project_path, json_board_filename)
         
+        tasks_found = []
         if os.path.isfile(board_path) or os.path.isfile(json_board_path):
-            if user_idea == "Reanudación de Sprint Activo":
-                resume_existing = True
-            else:
-                try:
-                    resume_existing = Confirm.ask(
-                        "\n🔄 Se detectó un sprint activo o planeado en este proyecto.\n"
-                        "¿Deseas reanudar las tareas pendientes (y) o planificar tu NUEVO requerimiento desde cero (n)?",
-                        default=False
-                    )
-                except Exception:
-                    # Fallback no interactivo: si hay una nueva idea y falla el input, planificar
-                    resume_existing = False
-
-        if resume_existing:
-            # Verificar si realmente hay tareas en el tablero
             from core.project_orchestrator import _parse_sprint_tasks
             import json
-            tasks_found = []
             
             # Cargar desde JSON si existe
             if os.path.isfile(json_board_path):
@@ -1118,10 +1103,23 @@ class ProjectOrchestrator:
                     tasks_found = _parse_sprint_tasks(board_content)
                 except Exception:
                     pass
-
-            if not tasks_found:
-                console.print("[yellow]⚠ El tablero actual está vacío o no contiene tareas válidas.[/yellow]")
-                console.print("[bold cyan]🔄 Forzando la planificación de un nuevo requerimiento...[/bold cyan]")
+            
+            # Solo considerarlo sprint activo si hay tareas reales pendientes (TODO o IN_PROGRESS)
+            has_pending_tasks = any(t.get("status") in ("TODO", "IN_PROGRESS") for t in tasks_found)
+            
+            if has_pending_tasks:
+                if user_idea == "Reanudación de Sprint Activo":
+                    resume_existing = True
+                else:
+                    try:
+                        resume_existing = Confirm.ask(
+                            "\n🔄 Se detectó un sprint activo con tareas pendientes en este proyecto.\n"
+                            "¿Deseas reanudar las tareas pendientes (y) o planificar tu NUEVO requerimiento desde cero (n)?",
+                            default=False
+                        )
+                    except Exception:
+                        resume_existing = False
+            else:
                 resume_existing = False
 
         if resume_existing:

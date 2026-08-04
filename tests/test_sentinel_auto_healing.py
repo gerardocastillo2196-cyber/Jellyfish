@@ -52,8 +52,12 @@ def test_sentinel_auto_healing_autofix(tmp_path):
         if agent_name == "sentinel":
             # Sentinel devuelve un AUTO_FIX con el código corregido
             return '[AUTO_FIX]\nCorregí el paréntesis faltante en el print.\n<write_file path="main.py">\nprint(\'Hello world\')\n</write_file>'
+
+        # Tercera llamada: QA Engineer aprueba en el debate de enjambre
+        if agent_name == "qa_engineer":
+            return "[APPROVED]\nConsenso alcanzado tras curación de Sentinel."
             
-        # Tercera llamada: Resumen semántico
+        # Cuarta llamada: Resumen semántico
         return "Creó main.py y lo corrigió."
         
     # Mockear las validaciones DoD para que pasen si el código ya tiene los paréntesis corregidos
@@ -62,16 +66,19 @@ def test_sentinel_auto_healing_autofix(tmp_path):
             return True, "Aprobado"
         return False, "Sintaxis incorrecta (paréntesis faltante)"
         
-    with patch("core.orchestration.task_runner._call_llm_silent", side_effect=mock_call_silent), \
+    with patch("core.llm_engine._call_llm_silent", side_effect=mock_call_silent), \
+         patch("core.orchestration.task_runner._call_llm_silent", side_effect=mock_call_silent), \
+         patch("core.project_orchestrator._call_llm_silent", side_effect=mock_call_silent), \
          patch("core.project_orchestrator.ProjectOrchestrator._run_dod_validation", side_effect=mock_dod_validation):
          
          runner.run("Crear main.py")
          
-    # El flujo debe completarse en 1 intento:
+    # El flujo debe completarse en 1 intento con debate del enjambre:
     # 1. Developer (genera con error)
     # 2. Sentinel (aplica AUTO_FIX)
-    # 3. Resumen semántico del log
-    assert call_count == 3
+    # 3. QA Engineer (valida y aprueba en debate del enjambre)
+    # 4. Resumen semántico del log
+    assert call_count == 4
     
     # Verificar que el archivo main.py corregido se guardó correctamente en disco
     assert os.path.exists(project_dir / "main.py")
