@@ -19,3 +19,5 @@ memory/current_plan.json
 dist/
 build/
 .next/
+.cache/
+.cache/models/
