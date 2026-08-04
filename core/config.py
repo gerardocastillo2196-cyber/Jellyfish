@@ -185,7 +185,7 @@ def load_config_from_env(state) -> None:
     # Enrutamiento Híbrido de Modelos por Rol
     raw_planner_provider = os.getenv("JELLYFISH_PLANNER_PROVIDER", "gemini")
     state.planner_provider = normalize_provider(raw_planner_provider)
-    state.planner_model = os.getenv("JELLYFISH_PLANNER_MODEL", "gemini-2.5-flash")
+    state.planner_model = os.getenv("JELLYFISH_PLANNER_MODEL", "gemini-3.6-flash")
 
     raw_executor_provider = os.getenv("JELLYFISH_EXECUTOR_PROVIDER", "ollama")
     state.executor_provider = normalize_provider(raw_executor_provider)

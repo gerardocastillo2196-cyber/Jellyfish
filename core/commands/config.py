@@ -629,6 +629,9 @@ def _interactive_select_provider_and_model(state, title_prefix: str, restrict_cl
             
         elif target_prov == "gemini":
             models = [
+                "gemini-3.6-flash",
+                "gemini-3.5-flash",
+                "gemini-3.1-pro-preview",
                 "gemini-2.5-flash",
                 "gemini-2.5-pro",
                 "gemini-2.0-flash",

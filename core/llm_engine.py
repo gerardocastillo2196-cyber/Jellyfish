@@ -296,6 +296,9 @@ def _prepare_payload(provider_name: str, url: str, model_name: str, messages: li
     # Mapeo de modelos locales/antigravity de Gemini a IDs oficiales de la API de Google
     if provider_name == "gemini":
         gemini_mapping = {
+            "gemini-3.6-flash": "gemini-3.6-flash",
+            "gemini-3.5-flash": "gemini-3.5-flash",
+            "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
             "gemini-2.5-flash": "gemini-2.5-flash",
             "gemini-2.5-pro": "gemini-2.5-pro",
             "gemini-2.0-flash": "gemini-2.0-flash",
@@ -395,7 +398,7 @@ def resolve_hybrid_agent_routing(state, agent_name: str | None = None, requested
 
     if not agent_name or agent_name == "default":
         prov = getattr(state, "planner_provider", "gemini")
-        mod = getattr(state, "planner_model", "gemini-2.5-flash")
+        mod = getattr(state, "planner_model", "gemini-3.6-flash")
         return normalize_provider(prov), mod
 
     from core.config import resolve_agent_role_category, PLANNER_AGENTS, EXECUTOR_AGENTS
@@ -414,12 +417,12 @@ def resolve_hybrid_agent_routing(state, agent_name: str | None = None, requested
 
     if role_cat == "planner":
         prov = getattr(state, "planner_provider", "gemini")
-        mod = getattr(state, "planner_model", "gemini-2.5-flash")
+        mod = getattr(state, "planner_model", "gemini-3.6-flash")
+        return normalize_provider(prov), mod
     else:  # executor
         prov = getattr(state, "executor_provider", "ollama")
         mod = getattr(state, "executor_model", "qwen2.5-coder:latest")
-
-    return normalize_provider(prov), mod
+        return normalize_provider(prov), mod
 
 
 def _get_available_ollama_models(state) -> list[str]:
@@ -793,7 +796,7 @@ def _fetch_ollama_models_local(state) -> list[str]:
 
 def _select_fallback_model(provider_name: str, available_models: list[str], failed_models: set[str]) -> str | None:
     priorities = {
-        "gemini": ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+        "gemini": ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
         "claude": ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"],
         "openai": ["gpt-4o", "gpt-4o-mini", "o1-preview", "o1-mini"],
         "deepseek": ["deepseek-coder", "deepseek-chat"],

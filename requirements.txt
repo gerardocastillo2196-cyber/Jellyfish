@@ -10,13 +10,18 @@ python-dotenv>=1.0.0
 pytest>=9.0.0
 
 
-# --- RAG Engine ---
+# --- RAG Engine & NLP ---
 chromadb>=1.0.0
 langchain>=1.0.0
 langchain-chroma>=0.2.0
 langchain-ollama>=0.3.0
 langchain-text-splitters>=1.0.0
 pysqlite3-binary>=0.5.0
+
+# --- Specialized Local Transformers (Task Routing & FinOps) ---
+transformers>=4.40.0
+torch>=2.0.0
+onnxruntime>=1.17.0
 
 # --- Ollama (requiere instalación local) ---
 # Instalar Ollama: curl -fsSL https://ollama.ai/install.sh | sh
@@ -25,6 +30,8 @@ pysqlite3-binary>=0.5.0
 # Modelo de chat: ollama pull qwen2.5-agent:latest (o configurar JELLYFISH_MODEL)
 
 # --- APIs en la Nube (opcional) ---
+google-generativeai>=0.8.3
+google-genai>=0.3.0
 # Configurar en .env: JELLYFISH_PROVIDER, API Keys
 # OpenAI: https://platform.openai.com/api-keys
 # DeepSeek: https://platform.deepseek.com/api_keys
